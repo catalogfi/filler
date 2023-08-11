@@ -2,6 +2,7 @@ package cobi
 
 import (
 	"crypto/rand"
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -12,7 +13,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func Run(config model.Config) error {
+func Run() error {
 	var cmd = &cobra.Command{
 		Use: "COBI - Catalog Order Book clI",
 		Run: func(c *cobra.Command, args []string) {
@@ -21,12 +22,22 @@ func Run(config model.Config) error {
 		DisableAutoGenTag: true,
 	}
 
-	entropy, err := readMnemonic()
+	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return err
 	}
 
-	store, err := NewStore(sqlite.Open("test.db"), &gorm.Config{})
+	entropy, err := readMnemonic(homeDir)
+	if err != nil {
+		return err
+	}
+
+	config := LoadConfiguration(fmt.Sprintf("%s/config.json", homeDir))
+	if config.RPC == nil {
+		config.RPC = map[model.Chain]string{}
+	}
+
+	store, err := NewStore(sqlite.Open(fmt.Sprintf("%s/test.db", homeDir)), &gorm.Config{})
 	if err != nil {
 		return err
 	}
@@ -40,6 +51,7 @@ func Run(config model.Config) error {
 	cmd.AddCommand(List())
 	cmd.AddCommand(AutoFill(entropy, store, config))
 	cmd.AddCommand(AutoCreate(entropy, store, config))
+	cmd.AddCommand(Network(&config))
 
 	if err := cmd.Execute(); err != nil {
 		return err
@@ -47,15 +59,13 @@ func Run(config model.Config) error {
 	return nil
 }
 
-func readMnemonic() ([]byte, error) {
-	// homeDir, err := os.UserHomeDir()
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	if data, err := os.ReadFile("./cob/MNEMONIC"); err == nil {
+func readMnemonic(homeDir string) ([]byte, error) {
+	data, err := os.ReadFile(fmt.Sprintf("%v/.cobi/MNEMONIC", homeDir))
+	if err == nil {
 		return bip39.EntropyFromMnemonic(string(data))
 	}
+	fmt.Println("error", err)
+
 	fmt.Println("Generating new mnemonic")
 	entropy := [32]byte{}
 
@@ -68,7 +78,7 @@ func readMnemonic() ([]byte, error) {
 	}
 	fmt.Println(mnemonic)
 
-	file, err := os.Create("./cob/MNEMONIC")
+	file, err := os.Create(fmt.Sprintf("%v/.cobi/MNEMONIC", homeDir))
 	if err != nil {
 		fmt.Println("error above", err)
 		return nil, err
@@ -81,4 +91,16 @@ func readMnemonic() ([]byte, error) {
 		return nil, err
 	}
 	return entropy[:], nil
+}
+
+func LoadConfiguration(file string) model.Config {
+	var config model.Config
+	configFile, err := os.ReadFile(file)
+	if err != nil {
+		return model.Config{}
+	}
+	if err := json.Unmarshal(configFile, &config); err != nil {
+		return model.Config{}
+	}
+	return config
 }
