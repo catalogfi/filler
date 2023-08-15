@@ -150,22 +150,25 @@ func getVirtualBalance(chain model.Chain, asset model.Asset, op string, config m
 		return nil, err
 	}
 
-	var orders []model.Order
-	if isFill {
-		orders, err = client.GetOrders(rest.GetOrdersFilter{
-			Taker:     signer,
-			OrderPair: op,
-			Status:    int(model.OrderFilled),
-			Verbose:   true,
-		})
-	} else {
-		orders, err = client.GetOrders(rest.GetOrdersFilter{
-			Maker:     signer,
-			OrderPair: op,
-			Status:    int(model.OrderCreated),
-			Verbose:   true,
-		})
+	fillOrders, err := client.GetOrders(rest.GetOrdersFilter{
+		Taker:     signer,
+		OrderPair: op,
+		Status:    int(model.OrderFilled),
+		Verbose:   true,
+	})
+	if err != nil {
+		return nil, err
 	}
+	createOrders, err := client.GetOrders(rest.GetOrdersFilter{
+		Maker:     signer,
+		OrderPair: op,
+		Status:    int(model.OrderCreated),
+		Verbose:   true,
+	})
+	if err != nil {
+		return nil, err
+	}
+	orders := append(fillOrders, createOrders...)
 
 	commitedAmount := big.NewInt(0)
 	for _, order := range orders {

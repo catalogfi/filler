@@ -9,6 +9,7 @@ import (
 	"github.com/catalogfi/wbtc-garden/model"
 	"github.com/spf13/cobra"
 	"github.com/tyler-smith/go-bip39"
+	"go.uber.org/zap"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -20,6 +21,11 @@ func Run() error {
 			c.HelpFunc()(c, args)
 		},
 		DisableAutoGenTag: true,
+	}
+
+	logger, err := zap.NewProduction()
+	if err != nil {
+		return err
 	}
 
 	homeDir, err := os.UserHomeDir()
@@ -45,7 +51,7 @@ func Run() error {
 	// cmd.AddCommand(Accounts(entropy))
 	cmd.AddCommand(Create(entropy, store))
 	cmd.AddCommand(Fill(entropy, store))
-	cmd.AddCommand(Execute(entropy, store, config))
+	cmd.AddCommand(Execute(entropy, store, config, logger))
 	cmd.AddCommand(Retry(entropy, store))
 	cmd.AddCommand(Accounts(entropy, config))
 	cmd.AddCommand(List())
