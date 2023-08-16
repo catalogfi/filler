@@ -26,23 +26,28 @@ func Accounts(entropy []byte, config model.Config) *cobra.Command {
 				return
 			}
 
-			selectors := []uint32{}
-			for i := perPage*page - perPage; i < perPage*page; i++ {
-				selectors = append(selectors, uint32(i))
-			}
-
-			addrs, balances, err := getBalances(entropy, ch, user, selectors, config, a)
-			if err != nil {
-				cobra.CheckErr(fmt.Sprintf("Error while getting addresses: %v", err))
-				return
-			}
-
 			t := table.NewWriter()
 			t.SetOutputMirror(os.Stdout)
 			t.AppendHeader(table.Row{"#", "Address", "Balance"})
-			rows := make([]table.Row, len(balances))
-			for i, balance := range balances {
-				rows[i] = table.Row{selectors[i], addrs[i], balance}
+			rows := make([]table.Row, 0)
+			for i := perPage*page - perPage; i < perPage*page; i++ {
+				key, err := LoadKey(entropy, ch, user, uint32(i))
+				if err != nil {
+					cobra.CheckErr(fmt.Sprintf("Error parsing key: %v", err))
+					return
+				}
+				addr, err := key.Address(ch)
+				if err != nil {
+					cobra.CheckErr(fmt.Sprintf("Error parsing address: %v", err))
+					return
+				}
+				balance, err := getBalance(ch, addr, config, a)
+				if err != nil {
+					cobra.CheckErr(fmt.Sprintf("Error fetching balance: %v", err))
+					return
+				}
+				row := table.Row{i, addr, balance}
+				rows = append(rows, row)
 			}
 			t.AppendRows(rows)
 			t.Render()

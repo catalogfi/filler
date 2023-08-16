@@ -1,7 +1,6 @@
 package cobi
 
 import (
-	"crypto/ecdsa"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -16,13 +15,19 @@ import (
 )
 
 func RunExecute(entropy []byte, account uint32, url string, store Store, config model.Config, logger *zap.Logger) {
+	// Load keys
+	keys := NewKeys()
+	key, err := keys.GetKey(entropy, model.Ethereum, account, 0)
+	if err != nil {
+		logger.Fatal("failed to get the signing key:", zap.Error(err))
+	}
+	privKey, err := key.ECDSA()
+	if err != nil {
+		logger.Fatal("failed to get the signing key:", zap.Error(err))
+	}
+	makerOrTaker := crypto.PubkeyToAddress(privKey.PublicKey)
+
 	for {
-		vals, err := getKeys(entropy, model.Ethereum, account, []uint32{0})
-		if err != nil {
-			logger.Fatal("failed to get the signing key:", zap.Error(err))
-		}
-		privKey := vals[0].(*ecdsa.PrivateKey)
-		makerOrTaker := crypto.PubkeyToAddress(privKey.PublicKey)
 
 		client, _, err := websocket.DefaultDialer.Dial(url, nil)
 		if err != nil {
@@ -127,13 +132,16 @@ func handleInitiatorInitiateOrder(order model.Order, entropy []byte, user uint32
 	if err != nil {
 		return err
 	}
-	keys, err := getKeys(entropy, fromChain, user, []uint32{0})
+	key, err := LoadKey(entropy, fromChain, user, 0)
+	if err != nil {
+		return err
+	}
+	keyInterface, err := key.Interface(order.InitiatorAtomicSwap.Chain)
 	if err != nil {
 		return err
 	}
 
-	initiatorSwap, err := blockchain.LoadInitiatorSwap(*order.InitiatorAtomicSwap, keys[0], order.SecretHash, config.RPC, uint64(0))
-
+	initiatorSwap, err := blockchain.LoadInitiatorSwap(*order.InitiatorAtomicSwap, keyInterface, order.SecretHash, config.RPC, uint64(0))
 	if err != nil {
 		return err
 	}
@@ -171,12 +179,16 @@ func handleInitiatorRedeemOrder(order model.Order, entropy []byte, user uint32, 
 	if err != nil {
 		return err
 	}
-	keys, err := getKeys(entropy, toChain, user, []uint32{0})
+	key, err := LoadKey(entropy, toChain, user, 0)
+	if err != nil {
+		return err
+	}
+	keyInterface, err := key.Interface(order.FollowerAtomicSwap.Chain)
 	if err != nil {
 		return err
 	}
 
-	redeemerSwap, err := blockchain.LoadRedeemerSwap(*order.FollowerAtomicSwap, keys[0], order.SecretHash, config.RPC, uint64(0))
+	redeemerSwap, err := blockchain.LoadRedeemerSwap(*order.FollowerAtomicSwap, keyInterface, order.SecretHash, config.RPC, uint64(0))
 
 	if err != nil {
 		return err
@@ -209,12 +221,16 @@ func handleFollowerInitiateOrder(order model.Order, entropy []byte, user uint32,
 	if err != nil {
 		return err
 	}
-	keys, err := getKeys(entropy, toChain, user, []uint32{0})
+	key, err := LoadKey(entropy, toChain, user, 0)
+	if err != nil {
+		return err
+	}
+	keyInterface, err := key.Interface(order.FollowerAtomicSwap.Chain)
 	if err != nil {
 		return err
 	}
 
-	initiatorSwap, err := blockchain.LoadInitiatorSwap(*order.FollowerAtomicSwap, keys[0], order.SecretHash, config.RPC, uint64(0))
+	initiatorSwap, err := blockchain.LoadInitiatorSwap(*order.FollowerAtomicSwap, keyInterface, order.SecretHash, config.RPC, uint64(0))
 
 	if err != nil {
 		return err
@@ -246,12 +262,16 @@ func handleFollowerRedeemOrder(order model.Order, entropy []byte, user uint32, c
 	if err != nil {
 		return err
 	}
-	keys, err := getKeys(entropy, fromChain, user, []uint32{0})
+	key, err := LoadKey(entropy, fromChain, user, 0)
+	if err != nil {
+		return err
+	}
+	keyInterface, err := key.Interface(order.InitiatorAtomicSwap.Chain)
 	if err != nil {
 		return err
 	}
 
-	redeemerSwap, err := blockchain.LoadRedeemerSwap(*order.InitiatorAtomicSwap, keys[0], order.SecretHash, config.RPC, uint64(0))
+	redeemerSwap, err := blockchain.LoadRedeemerSwap(*order.InitiatorAtomicSwap, keyInterface, order.SecretHash, config.RPC, uint64(0))
 
 	if err != nil {
 		return err
@@ -287,12 +307,16 @@ func handleFollowerRefund(order model.Order, entropy []byte, user uint32, config
 	if err != nil {
 		return err
 	}
-	keys, err := getKeys(entropy, toChain, user, []uint32{0})
+	key, err := LoadKey(entropy, toChain, user, 0)
+	if err != nil {
+		return err
+	}
+	keyInterface, err := key.Interface(order.FollowerAtomicSwap.Chain)
 	if err != nil {
 		return err
 	}
 
-	initiatorSwap, err := blockchain.LoadInitiatorSwap(*order.FollowerAtomicSwap, keys[0], order.SecretHash, config.RPC, uint64(0))
+	initiatorSwap, err := blockchain.LoadInitiatorSwap(*order.FollowerAtomicSwap, keyInterface, order.SecretHash, config.RPC, uint64(0))
 	if err != nil {
 		return err
 	}
@@ -331,12 +355,16 @@ func handleInitiatorRefund(order model.Order, entropy []byte, user uint32, confi
 	if err != nil {
 		return err
 	}
-	keys, err := getKeys(entropy, fromChain, user, []uint32{0})
+	key, err := LoadKey(entropy, fromChain, user, 0)
+	if err != nil {
+		return err
+	}
+	keyInterface, err := key.Interface(order.FollowerAtomicSwap.Chain)
 	if err != nil {
 		return err
 	}
 
-	initiatorSwap, err := blockchain.LoadInitiatorSwap(*order.InitiatorAtomicSwap, keys[0], order.SecretHash, config.RPC, uint64(0))
+	initiatorSwap, err := blockchain.LoadInitiatorSwap(*order.InitiatorAtomicSwap, keyInterface, order.SecretHash, config.RPC, uint64(0))
 	if err != nil {
 		return err
 	}

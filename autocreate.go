@@ -1,7 +1,6 @@
 package cobi
 
 import (
-	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
@@ -40,12 +39,16 @@ func AutoCreate(entropy []byte, store Store, config model.Config) *cobra.Command
 		Use:   "autocreate",
 		Short: "fills the Orders based on strategy provided",
 		Run: func(c *cobra.Command, args []string) {
-
-			vals, err := getKeys(entropy, model.Ethereum, account, []uint32{0})
+			// Load keys
+			keys := NewKeys()
+			key, err := keys.GetKey(entropy, model.Ethereum, account, 0)
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while getting the signing key: %v", err))
 			}
-			privKey := vals[0].(*ecdsa.PrivateKey)
+			privKey, err := key.ECDSA()
+			if err != nil {
+				cobra.CheckErr(err)
+			}
 			maker := crypto.PubkeyToAddress(privKey.PublicKey)
 			client := rest.NewClient(url, privKey.D.Text(16))
 
@@ -102,13 +105,23 @@ func AutoCreate(entropy []byte, store Store, config model.Config) *cobra.Command
 					return
 				}
 
-				fromAddress, err := getAddressString(entropy, fromChain, account, 0)
+				// Get the addresses on different chains.
+				fromKey, err := keys.GetKey(entropy, fromChain, account, 0)
+				if err != nil {
+					cobra.CheckErr(fmt.Sprintf("Error while getting from key: %v", err))
+					return
+				}
+				fromAddress, err := fromKey.Address(fromChain)
 				if err != nil {
 					cobra.CheckErr(fmt.Sprintf("Error while getting address string: %v", err))
 					return
 				}
-
-				toAddress, err := getAddressString(entropy, toChain, account, 0)
+				toKey, err := keys.GetKey(entropy, fromChain, account, 0)
+				if err != nil {
+					cobra.CheckErr(fmt.Sprintf("Error while getting to key: %v", err))
+					return
+				}
+				toAddress, err := toKey.Address(toChain)
 				if err != nil {
 					cobra.CheckErr(fmt.Sprintf("Error while getting address string: %v", err))
 					return

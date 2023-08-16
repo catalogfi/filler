@@ -52,11 +52,11 @@ func List() *cobra.Command {
 
 			t := table.NewWriter()
 			t.SetOutputMirror(os.Stdout)
-			t.AppendHeader(table.Row{"Order ID", "From Asset", "To Asset", "Price", "Receive Amount"})
+			t.AppendHeader(table.Row{"Order ID", "From Asset", "To Asset", "Price", "From Amount", "To Amount"})
 			rows := make([]table.Row, len(orders))
 			for i, order := range orders {
 				assets := strings.Split(order.OrderPair, "-")
-				rows[i] = table.Row{order.ID, assets[0], assets[1], order.Price, order.FollowerAtomicSwap.Amount}
+				rows[i] = table.Row{order.ID, assets[0], assets[1], order.Price, order.InitiatorAtomicSwap.Amount, order.FollowerAtomicSwap.Amount}
 			}
 			t.AppendRows(rows)
 			t.Render()

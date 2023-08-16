@@ -1,7 +1,6 @@
 package cobi
 
 import (
-	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -37,11 +36,16 @@ func AutoFill(entropy []byte, store Store, config model.Config) *cobra.Command {
 		Short: "fills the Orders based on strategy provided",
 		Run: func(c *cobra.Command, args []string) {
 
-			vals, err := getKeys(entropy, model.Ethereum, account, []uint32{0})
+			// Load keys
+			keys := NewKeys()
+			key, err := keys.GetKey(entropy, model.Ethereum, account, 0)
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while getting the signing key: %v", err))
 			}
-			privKey := vals[0].(*ecdsa.PrivateKey)
+			privKey, err := key.ECDSA()
+			if err != nil {
+				cobra.CheckErr(err)
+			}
 			taker := crypto.PubkeyToAddress(privKey.PublicKey)
 
 			data, err := os.ReadFile(strategy)
@@ -94,16 +98,26 @@ func AutoFill(entropy []byte, store Store, config model.Config) *cobra.Command {
 						continue
 					}
 
-					toAddress, err := getAddressString(entropy, fromChain, account, 0)
+					// Get the addresses on different chains.
+					fromKey, err := keys.GetKey(entropy, fromChain, account, 0)
 					if err != nil {
-						fmt.Println(fmt.Sprintf("Error while getting address string: %v", err))
-						continue
+						cobra.CheckErr(fmt.Sprintf("Error while getting from key: %v", err))
+						return
 					}
-
-					fromAddress, err := getAddressString(entropy, toChain, account, 0)
+					fromAddress, err := fromKey.Address(fromChain)
 					if err != nil {
-						fmt.Println(fmt.Sprintf("Error while getting address string: %v", err))
-						continue
+						cobra.CheckErr(fmt.Sprintf("Error while getting address string: %v", err))
+						return
+					}
+					toKey, err := keys.GetKey(entropy, fromChain, account, 0)
+					if err != nil {
+						cobra.CheckErr(fmt.Sprintf("Error while getting to key: %v", err))
+						return
+					}
+					toAddress, err := toKey.Address(toChain)
+					if err != nil {
+						cobra.CheckErr(fmt.Sprintf("Error while getting address string: %v", err))
+						return
 					}
 
 					balance, err := getVirtualBalance(toChain, toAsset, strategy.OrderPair, config, client, taker.Hex(), fromAddress, true)
