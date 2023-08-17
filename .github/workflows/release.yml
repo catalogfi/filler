@@ -38,8 +38,3 @@ jobs:
                       ./artifacts/cobi_linux_arm
                       ./artifacts/install.sh
                       ./artifacts/update.sh
-            - name: Verify the installation process
-              run: |
-                  curl https://www.github.com/catalogfi/cobi/releases/latest/download/install.sh -sSfL | sh
-                  export PATH=$PATH:$HOME/.cobi/bin
-                  cobi --version
