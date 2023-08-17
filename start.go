@@ -1,6 +1,8 @@
 package cobi
 
 import (
+	"os"
+
 	"github.com/catalogfi/wbtc-garden/model"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -8,20 +10,27 @@ import (
 
 func Execute(entropy []byte, store Store, config model.Config, logger *zap.Logger) *cobra.Command {
 	var (
-		url     string
-		account uint32
+		url      string
+		strategy string
 	)
 
 	var cmd = &cobra.Command{
 		Use:   "start",
 		Short: "Start the atomic swap executor",
 		Run: func(c *cobra.Command, args []string) {
-			RunExecute(entropy, account, url, store, config, logger)
+			strategyData, err := os.ReadFile(strategy)
+			if err != nil {
+				cobra.CheckErr(err)
+			}
+			if err := Start(url, entropy, strategyData, config, store, logger); err != nil {
+				cobra.CheckErr(err)
+			}
 		},
 		DisableAutoGenTag: true,
 	}
 	cmd.Flags().StringVar(&url, "url", "", "url of the orderbook")
 	cmd.MarkFlagRequired("url")
-	cmd.Flags().Uint32Var(&account, "account", 0, "account number")
+	cmd.Flags().StringVar(&strategy, "strategy", "", "strategy")
+	cmd.MarkFlagRequired("strategy")
 	return cmd
 }

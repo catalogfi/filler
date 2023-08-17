@@ -29,7 +29,7 @@ func RunExecute(entropy []byte, account uint32, url string, store Store, config 
 
 	for {
 
-		client, _, err := websocket.DefaultDialer.Dial(url, nil)
+		client, _, err := websocket.DefaultDialer.Dial("wss://wbtc-garden-backend-mainnet.onrender.com/ws/orders", nil)
 		if err != nil {
 			logger.Fatal("failed to dial: ", zap.Error(err), zap.String("executor", makerOrTaker.Hex()))
 		}
@@ -48,7 +48,7 @@ func RunExecute(entropy []byte, account uint32, url string, store Store, config 
 
 			var orders []model.Order
 			if err := json.Unmarshal(msg, &orders); err != nil {
-				logger.Info("failed to unmarshal orders recived on the websocket: ", zap.Error(err))
+				logger.Info("failed to unmarshal orders recived on the websocket: ", zap.String("message", string(msg)), zap.Error(err))
 				break
 			}
 			logger.Info("processing orders ...", zap.Int("count", len(orders)))

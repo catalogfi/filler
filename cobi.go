@@ -58,8 +58,6 @@ func Run() error {
 	cmd.AddCommand(Retry(entropy, store))
 	cmd.AddCommand(Accounts(entropy, config))
 	cmd.AddCommand(List())
-	cmd.AddCommand(AutoFill(entropy, store, config))
-	cmd.AddCommand(AutoCreate(entropy, store, config))
 	cmd.AddCommand(Network(&config))
 
 	if err := cmd.Execute(); err != nil {

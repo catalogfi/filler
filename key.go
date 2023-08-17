@@ -44,7 +44,7 @@ func (key *Key) Address(chain model.Chain) (string, error) {
 	switch {
 	case chain.IsBTC():
 		params := getParams(chain)
-		addr, err := key.P2pkhAddress(params)
+		addr, err := key.WitnessAddress(params)
 		if err != nil {
 			return "", err
 		}
@@ -60,9 +60,9 @@ func (key *Key) Address(chain model.Chain) (string, error) {
 	}
 }
 
-func (key *Key) P2pkhAddress(network *chaincfg.Params) (btcutil.Address, error) {
+func (key *Key) WitnessAddress(network *chaincfg.Params) (btcutil.Address, error) {
 	keyBytesHash := btcutil.Hash160(key.BtcKey().PubKey().SerializeCompressed())
-	return btcutil.NewAddressPubKeyHash(keyBytesHash, network)
+	return btcutil.NewAddressWitnessPubKeyHash(keyBytesHash, network)
 }
 
 func (key *Key) EvmAddress() (common.Address, error) {
