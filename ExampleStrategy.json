@@ -1,0 +1,23 @@
+[
+    {
+        "strategyType": "likewise-fill",
+        "makers": [],
+        "minAmount": "100000",
+        "maxAmount": "1000000",
+        "orderPair": "bitcoin-ethereum_optimism:secondary0x68f180fcCe6836688e9084f035309E29Bf0A2095",
+        "strategy": {
+        "fee": 10
+        }
+      },
+      {
+        "strategyType": "likewise-create",
+        "minTimeInterval": 600,
+        "maxTimeInterval": 1200,
+        "minAmount": "100000",
+        "maxAmount": "1000000",
+        "orderPair": "bitcoin-ethereum_optimism:secondary0x68f180fcCe6836688e9084f035309E29Bf0A2095",
+        "strategy": {
+            "fee": 10
+        }
+    }
+]
