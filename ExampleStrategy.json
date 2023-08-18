@@ -1,0 +1,48 @@
+[
+    {
+        "account": 0,
+        "strategyType": "likewise-fill",
+        "makers": [],
+        "minAmount": "100000",
+        "maxAmount": "1000000",
+        "orderPair": "bitcoin_testnet-ethereum_sepolia:0x4fdaae676608f2a768f9c57bfdaefa7559283316",
+        "priceStrategy": {
+            "fee": 10
+        }
+      },
+      {
+        "account": 1,
+        "strategyType": "likewise-create",
+        "minTimeInterval": 0,
+        "maxTimeInterval": 300,
+        "minAmount": "100000",
+        "maxAmount": "1000000",
+        "orderPair": "bitcoin_testnet-ethereum_sepolia:0x4fdaae676608f2a768f9c57bfdaefa7559283316",
+        "priceStrategy": {
+            "fee": 10
+        }
+    },
+    {
+        "account": 2,
+        "strategyType": "likewise-fill",
+        "makers": [],
+        "minAmount": "100000",
+        "maxAmount": "1000000",
+        "orderPair": "ethereum_sepolia:0x4fdaae676608f2a768f9c57bfdaefa7559283316-bitcoin_testnet",
+        "priceStrategy": {
+            "fee": 10
+        }
+      },
+      {
+        "account": 3,
+        "strategyType": "likewise-create",
+        "minTimeInterval": 0,
+        "maxTimeInterval": 300,
+        "minAmount": "100000",
+        "maxAmount": "1000000",
+        "orderPair": "ethereum_sepolia:0x4fdaae676608f2a768f9c57bfdaefa7559283316-bitcoin_testnet",
+        "priceStrategy": {
+            "fee": 10
+        }
+    }
+]

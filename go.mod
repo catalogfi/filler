@@ -6,15 +6,15 @@ require (
 	github.com/btcsuite/btcd v0.23.4
 	github.com/btcsuite/btcd/btcec/v2 v2.3.2
 	github.com/btcsuite/btcd/btcutil v1.1.3
-	github.com/catalogfi/wbtc-garden v0.0.0-20230811094540-746935eaad42
+	github.com/catalogfi/wbtc-garden v0.0.0-20230814090440-d33b9782abe6
 	github.com/ethereum/go-ethereum v1.12.1
+	github.com/fatih/color v1.7.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/jedib0t/go-pretty v4.3.0+incompatible
 	github.com/spf13/cobra v1.7.0
 	github.com/tyler-smith/go-bip32 v1.0.0
 	github.com/tyler-smith/go-bip39 v1.1.0
 	go.uber.org/zap v1.25.0
-	gopkg.in/clog.v1 v1.2.0
 	gorm.io/driver/sqlite v1.5.2
 	gorm.io/gorm v1.25.3
 )
@@ -33,7 +33,6 @@ require (
 	github.com/decred/dcrd/crypto/blake256 v1.0.0 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1 // indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
-	github.com/fatih/color v1.7.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
 	github.com/gin-contrib/cors v1.4.0 // indirect
@@ -67,7 +66,6 @@ require (
 	github.com/relvacode/iso8601 v1.1.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible // indirect
-	github.com/smartystreets/goconvey v1.8.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spruceid/siwe-go v0.2.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.5 // indirect

@@ -2,6 +2,7 @@ package cobi
 
 import (
 	"fmt"
+	"sync"
 
 	"gorm.io/gorm"
 )
@@ -49,6 +50,7 @@ type Store interface {
 }
 
 type store struct {
+	mu *sync.RWMutex
 	db *gorm.DB
 }
 
@@ -60,10 +62,13 @@ func NewStore(dialector gorm.Dialector, opts ...gorm.Option) (Store, error) {
 	if err := db.AutoMigrate(&Order{}); err != nil {
 		return nil, err
 	}
-	return &store{db: db}, nil
+	return &store{mu: new(sync.RWMutex), db: db}, nil
 }
 
 func (s *store) PutSecretHash(secretHash string, orderId uint64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	order := Order{
 		SecretHash: secretHash,
 		OrderId:    orderId,
@@ -75,6 +80,9 @@ func (s *store) PutSecretHash(secretHash string, orderId uint64) error {
 	return nil
 }
 func (s *store) CheckStatus(secretHash string) (bool, string) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	var order Order
 	if tx := s.db.Where("secret_hash = ?", secretHash).First(&order); tx.Error != nil {
 		return false, fmt.Sprintf("Order not found in local storage")
@@ -87,6 +95,9 @@ func (s *store) CheckStatus(secretHash string) (bool, string) {
 
 }
 func (s *store) PutSecret(secretHash, secret string, orderId uint64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	order := Order{
 		SecretHash: secretHash,
 		OrderId:    orderId,
@@ -99,6 +110,9 @@ func (s *store) PutSecret(secretHash, secret string, orderId uint64) error {
 	return nil
 }
 func (s *store) PutError(secretHash, err string, status Status) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	var order Order
 	if tx := s.db.Where("secret_hash = ?", secretHash).First(&order); tx.Error != nil {
 		return tx.Error
@@ -112,6 +126,9 @@ func (s *store) PutError(secretHash, err string, status Status) error {
 }
 
 func (s *store) Secret(secretHash string) (string, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	var order Order
 	if tx := s.db.Where("secret_hash = ?", secretHash).First(&order); tx.Error != nil {
 		return "", tx.Error
@@ -120,6 +137,9 @@ func (s *store) Secret(secretHash string) (string, error) {
 }
 
 func (s *store) PutStatus(secretHash string, status Status) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	var order Order
 	if tx := s.db.Where("secret_hash = ?", secretHash).First(&order); tx.Error != nil {
 		return tx.Error
@@ -132,6 +152,9 @@ func (s *store) PutStatus(secretHash string, status Status) error {
 }
 
 func (s *store) Status(secretHash string) Status {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	var order Order
 	if tx := s.db.Where("secret_hash = ?", secretHash).First(&order); tx.Error != nil {
 		return 0
@@ -140,6 +163,9 @@ func (s *store) Status(secretHash string) Status {
 }
 
 func (s *store) GetOrder(id uint) (Order, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	var order Order
 	if tx := s.db.Where("order_id = ?", id).First(&order); tx.Error != nil {
 		return Order{}, tx.Error

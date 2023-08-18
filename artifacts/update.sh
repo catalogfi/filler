@@ -12,8 +12,8 @@ main(){
   progressBar 20 100
 
   # Update the binary
-  current=$(catalog --version | grep "Catalog Order Book clI version" | cut -d ' ' -f 4)
-  latest=$(get_latest_release "catalogfi/cobi")
+  current=$(cobi --version | grep "COBI version" | cut -d ' ' -f 4)
+  latest=$(get_latest_release)
   vercomp $current $latest
   if [ "$?" -eq "2" ]; then
     ostype="$(uname -s | tr '[:upper:]' '[:lower:]')"
@@ -94,9 +94,7 @@ ensure() {
 }
 
 get_latest_release() {
-  curl --silent "https://api.github.com/repos/$1/releases/latest" | # Get latest release from GitHub api
-    grep '"tag_name":' |                                            # Get tag line
-    sed -E 's/.*"([^"]+)".*/\1/'                                    # Pluck JSON value
+  curl --silent "https://cobi-releases.s3.ap-south-1.amazonaws.com/VERSION" # Get latest release from GitHub api
 }
 
 vercomp () {
