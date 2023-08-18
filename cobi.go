@@ -59,6 +59,7 @@ func Run() error {
 	cmd.AddCommand(Accounts(entropy, config))
 	cmd.AddCommand(List())
 	cmd.AddCommand(Network(&config, logger))
+	cmd.AddCommand(Update())
 
 	if err := cmd.Execute(); err != nil {
 		return err
