@@ -27,7 +27,6 @@ jobs:
           mv cobi_darwin_amd64 ./artifacts/
           env GOOS=darwin CGO_ENABLED=1 CC=o64-clang CXX=o64-clang++ GOARCH=arm64 go build -o cobi_darwin_arm64 -ldflags "-s -w -X main.BinaryVersion=${GIT_TAG_NAME}" ./cmd/cobi.go
           mv cobi_darwin_arm64 ./artifacts/
-          echo "${{ github.ref }}" > ./artifacts/VERSION
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v1
