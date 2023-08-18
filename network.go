@@ -41,7 +41,9 @@ func networkRemove(config *model.Config, logger *zap.Logger) *cobra.Command {
 				cobra.CheckErr(fmt.Errorf("failed to parse network (%s): %v", chain, err))
 			}
 			delete(config.RPC, chain)
-			writeConfig(config)
+			if err := writeConfig(config); err != nil {
+				cobra.CheckErr(fmt.Errorf("failed to write config to file: %v", err))
+			}
 			fmt.Printf("successfully removed %s network\n", chain)
 		},
 	}
@@ -84,12 +86,14 @@ func networkAdd(config *model.Config, logger *zap.Logger) *cobra.Command {
 			if err != nil {
 				cobra.CheckErr(fmt.Errorf("failed to parse network (%s): %v", chain, err))
 			}
-			rpc, ok := config.RPC[chain]
+			oldRPC, ok := config.RPC[chain]
 			if ok {
-				cobra.CheckErr(fmt.Errorf("network already exists (%s): %v", chain, rpc))
+				cobra.CheckErr(fmt.Errorf("network already exists (%s): %v", chain, oldRPC))
 			}
 			config.RPC[chain] = rpc
-			writeConfig(config)
+			if err := writeConfig(config); err != nil {
+				cobra.CheckErr(fmt.Errorf("failed to write config to file: %v", err))
+			}
 			fmt.Printf("successfully added %s network with RPC %s\n", chain, rpc)
 		},
 	}
@@ -113,8 +117,15 @@ func networkUpdate(config *model.Config, logger *zap.Logger) *cobra.Command {
 			if err != nil {
 				cobra.CheckErr(fmt.Errorf("failed to parse network (%s): %v", chain, err))
 			}
-			fmt.Printf("successfully updated %s network (%s)->(%s)", chain, config.RPC[chain], rpc)
+			oldRPC, ok := config.RPC[chain]
+			if !ok {
+				cobra.CheckErr(fmt.Errorf("network entry does not exist"))
+			}
 			config.RPC[chain] = rpc
+			if err := writeConfig(config); err != nil {
+				cobra.CheckErr(fmt.Errorf("failed to write config to file: %v", err))
+			}
+			fmt.Printf("successfully updated %s network (%s)->(%s)", chain, oldRPC, rpc)
 		},
 	}
 	cmd.Flags().StringVar(&chain, "chain", "", "Chain ID")
