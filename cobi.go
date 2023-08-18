@@ -16,6 +16,7 @@ func Run() error {
 		Run: func(c *cobra.Command, args []string) {
 			c.HelpFunc()(c, args)
 		},
+		Version:           Version(),
 		DisableAutoGenTag: true,
 	}
 

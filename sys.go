@@ -25,6 +25,14 @@ func init() {
 	}
 }
 
+func Version() string {
+	version, err := os.ReadFile(filepath.Join(HomeDir, ".cobi", "VERSION"))
+	if err != nil {
+		return "0.0.0"
+	}
+	return string(version)
+}
+
 func DefaultCobiDirectory() string {
 	return filepath.Join(HomeDir, ".cobi")
 }
