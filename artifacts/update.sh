@@ -23,7 +23,7 @@ main(){
     fi
     progressBar 30 100
 
-    cobi_url="https://www.github.com/catalogfi/cobi/releases/latest/download/cobi_${ostype}_${cputype}"
+    cobi_url="https://cobi-releases.s3.ap-south-1.amazonaws.com/cobi_${ostype}_${cputype}"
     ensure downloader "$cobi_url" "$HOME/.catalog/bin/catalog"
     ensure chmod +x "$HOME/.catalog/bin/catalog"
 

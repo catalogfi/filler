@@ -35,7 +35,7 @@ main() {
     progressBar 30 100
 
     # Download cobi binary
-    cobi_url="https://www.github.com/catalogfi/cobi/releases/latest/download/cobi_${ostype}_${cputype}"
+    cobi_url="https://cobi-releases.s3.ap-south-1.amazonaws.com/cobi_${ostype}_${cputype}"
     ensure downloader "$cobi_url" "$HOME/.cobi/bin/cobi"
     ensure chmod +x "$HOME/.cobi/bin/cobi"
     progressBar 90 100
