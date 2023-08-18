@@ -10,13 +10,15 @@ import (
 	"gorm.io/gorm"
 )
 
+var BinaryVersion = "undefined"
+
 func Run() error {
 	var cmd = &cobra.Command{
 		Use: "COBI - Catalog Order Book clI",
 		Run: func(c *cobra.Command, args []string) {
 			c.HelpFunc()(c, args)
 		},
-		Version:           Version(),
+		Version:           BinaryVersion,
 		DisableAutoGenTag: true,
 	}
 
