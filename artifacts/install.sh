@@ -27,11 +27,6 @@ main() {
     if [ $cputype = "aarch64" ];then
       cputype="arm"
     fi
-    progressBar 20 100
-
-    # Download VERSION
-    version_url="https://cobi-releases.s3.ap-south-1.amazonaws.com/VERSION"
-    ensure downloader "$version_url" "$HOME/.cobi/VERSION"
     progressBar 30 100
 
     # Download cobi binary
@@ -116,6 +111,9 @@ check_architecture() {
                 ;;
             13.*)
                 # We assume Ventura will be OK for now
+                ;;
+            14.*)
+                # We assume Sonoma will be OK for now
                 ;;
             *)
                 # Unknown product version, warn and continue

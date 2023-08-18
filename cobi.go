@@ -10,13 +10,13 @@ import (
 	"gorm.io/gorm"
 )
 
-func Run() error {
+func Run(version string) error {
 	var cmd = &cobra.Command{
 		Use: "COBI - Catalog Order Book clI",
 		Run: func(c *cobra.Command, args []string) {
 			c.HelpFunc()(c, args)
 		},
-		Version:           Version(),
+		Version:           version,
 		DisableAutoGenTag: true,
 	}
 
