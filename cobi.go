@@ -40,10 +40,7 @@ func Run() error {
 
 	// Load the config file
 	configPath := DefaultConfigPath()
-	config, err := LoadConfigFromFile(configPath)
-	if err != nil {
-		return err
-	}
+	config := LoadConfigFromFile(configPath)
 
 	// Initialise db
 	db := sqlite.Open(filepath.Join(DefaultCobiDirectory(), "data.db"))
