@@ -90,12 +90,12 @@ func NewMnemonic(path string) ([]byte, error) {
 	return entropy[:], nil
 }
 
-func LoadConfigFromFile(file string) (model.Config, error) {
+func LoadConfigFromFile(file string) model.Config {
 	var config model.Config
 	configFile, err := os.ReadFile(file)
 	if err != nil {
-		return model.Config{}, err
+		return model.Config{}
 	}
-	err = json.Unmarshal(configFile, &config)
-	return config, err
+	json.Unmarshal(configFile, &config)
+	return config
 }

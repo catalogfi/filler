@@ -2,6 +2,7 @@ package cobi
 
 import (
 	"fmt"
+	"os/exec"
 
 	"github.com/spf13/cobra"
 )
@@ -33,5 +34,20 @@ func Retry(entropy []byte, store Store) *cobra.Command {
 
 	cmd.Flags().UintVar(&orderId, "order-id", 0, "order id")
 	cmd.MarkFlagRequired("order-id")
+	return cmd
+}
+
+func Update() *cobra.Command {
+	var cmd = &cobra.Command{
+		Use:   "update",
+		Short: "Update COBI to the latest version",
+		Run: func(c *cobra.Command, args []string) {
+			if err := exec.Command("curl", "https://cobi-releases.s3.ap-south-1.amazonaws.com/update.sh", "-sSfL | sh").Run(); err != nil {
+				cobra.CheckErr(fmt.Sprintf("failed to update cobi : %v", err))
+				return
+			}
+		},
+		DisableAutoGenTag: true,
+	}
 	return cmd
 }

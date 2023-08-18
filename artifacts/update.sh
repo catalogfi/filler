@@ -23,6 +23,10 @@ main(){
     fi
     progressBar 30 100
 
+    version_url="https://cobi-releases.s3.ap-south-1.amazonaws.com/VERSION"
+    ensure downloader "$version_url" "$HOME/.cobi/VERSION"
+    progressBar 40 100
+
     cobi_url="https://cobi-releases.s3.ap-south-1.amazonaws.com/cobi_${ostype}_${cputype}"
     ensure downloader "$cobi_url" "$HOME/.catalog/bin/catalog"
     ensure chmod +x "$HOME/.catalog/bin/catalog"
