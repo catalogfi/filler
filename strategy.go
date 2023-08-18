@@ -64,10 +64,10 @@ func Start(url string, entropy, strategy []byte, config model.Config, store Stor
 			defer wg.Done()
 			switch strategy := strategies[i].(type) {
 			case AutoFillStrategy:
-				err := RunAutoFillStrategy("https://wbtc-garden-backend-mainnet.onrender.com/", entropy, config, store, logger, strategy)
+				err := RunAutoFillStrategy(url, entropy, config, store, logger, strategy)
 				logger.Error("auto fill strategy ended with", zap.Error(err))
 			case AutoCreateStrategy:
-				err := RunAutoCreateStrategy("https://wbtc-garden-backend-mainnet.onrender.com/", entropy, config, store, logger, strategy)
+				err := RunAutoCreateStrategy(url, entropy, config, store, logger, strategy)
 				logger.Error("auto create strategy ended with", zap.Error(err))
 			default:
 				logger.Error("unexpected strategy")
@@ -98,7 +98,6 @@ func RunAutoCreateStrategy(url string, entropy []byte, config model.Config, stor
 	token, err := client.Login()
 	if err != nil {
 		return fmt.Errorf("Error while getting the signing key: %v", err)
-
 	}
 	if err := client.SetJwt(token); err != nil {
 		return fmt.Errorf("Error to parse signing key: %v", err)
@@ -158,7 +157,7 @@ func RunAutoCreateStrategy(url string, entropy []byte, config model.Config, stor
 		secret := [32]byte{}
 		_, err = rand.Read(secret[:])
 		if err != nil {
-			return fmt.Errorf("failed while creating order: %v", err)
+			return fmt.Errorf("failed to read secret: %v", err)
 		}
 		secretHash := sha256.Sum256(secret[:])
 
@@ -168,7 +167,7 @@ func RunAutoCreateStrategy(url string, entropy []byte, config model.Config, stor
 		}
 
 		if err := store.PutSecret(hex.EncodeToString(secretHash[:]), hex.EncodeToString(secret[:]), uint64(id)); err != nil {
-			return fmt.Errorf("failed while creating order: %v", err)
+			return fmt.Errorf("failed to store secret: %v", err)
 		}
 
 		time.Sleep(time.Duration(randTimeInterval.Int64()) * time.Second)
@@ -198,7 +197,7 @@ func RunAutoFillStrategy(url string, entropy []byte, config model.Config, store 
 			continue
 		}
 
-		orders, err := GetOrders(rest.GetOrdersFilter{
+		orders, err := GetOrders(url, rest.GetOrdersFilter{
 			Maker:     strings.Join(s.Makers, ","),
 			OrderPair: s.OrderPair(),
 			MinPrice:  price,
@@ -502,7 +501,7 @@ func getVirtualBalance(chain model.Chain, asset model.Asset, op string, config m
 	return new(big.Int).Sub(balance, commitedAmount), nil
 }
 
-func GetOrders(filter rest.GetOrdersFilter) ([]model.Order, error) {
+func GetOrders(url string, filter rest.GetOrdersFilter) ([]model.Order, error) {
 	filterString := ""
 	if filter.Maker != "" {
 		filterString = appendFilterString(filterString, "maker", filter.Maker)
@@ -555,7 +554,7 @@ func GetOrders(filter rest.GetOrdersFilter) ([]model.Order, error) {
 		filterString = appendFilterString(filterString, "max_amount", strconv.FormatFloat(filter.MaxAmount, 'f', -1, 64))
 	}
 
-	resp, err := http.Get(fmt.Sprintf("%s/orders%s", "https://wbtc-garden-backend-mainnet.onrender.com", filterString))
+	resp, err := http.Get(fmt.Sprintf("%s/orders%s", url, filterString))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get orders: %v", err)
 	}

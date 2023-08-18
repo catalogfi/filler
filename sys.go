@@ -94,7 +94,9 @@ func LoadConfigFromFile(file string) model.Config {
 	var config model.Config
 	configFile, err := os.ReadFile(file)
 	if err != nil {
-		return model.Config{}
+		return model.Config{
+			RPC: map[model.Chain]string{},
+		}
 	}
 	json.Unmarshal(configFile, &config)
 	return config

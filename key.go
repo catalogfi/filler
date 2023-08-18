@@ -165,7 +165,11 @@ func getBalance(chain model.Chain, address string, config model.Config, asset mo
 			}
 			return balance, nil
 		} else {
-			balance, err := client.GetERC20Balance(common.HexToAddress(asset.SecondaryID()), address)
+			token, err := client.GetTokenAddress(common.HexToAddress(asset.SecondaryID()))
+			if err != nil {
+				return nil, fmt.Errorf("failed to get ERC20 token address: %v", err)
+			}
+			balance, err := client.GetERC20Balance(token, address)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get ERC20 balance: %v", err)
 			}
