@@ -23,10 +23,10 @@ func Retry(entropy []byte, store Store) *cobra.Command {
 			}
 			// so the idea behind retry in bussiness logic is to change status in store object
 			// by changing status in store object watcher will try to re-execute the order
-			// in order to reset appropriate status we are subtracting 6 from current status
-			// statuses are in a sequence resulting in subtraction of 6 leading to its appropriate previous status
+			// in order to reset appropriate status we are subtracting 7 from current status
+			// statuses are in a sequence resulting in subtraction of 7 leading to its appropriate previous status
 			if order.Status >= FollowerRefunded {
-				store.PutStatus(order.SecretHash, order.Status-6)
+				store.PutStatus(order.SecretHash, order.Status-7)
 			}
 		},
 		DisableAutoGenTag: true,

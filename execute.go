@@ -28,8 +28,7 @@ func RunExecute(entropy []byte, account uint32, url string, store Store, config 
 	makerOrTaker := crypto.PubkeyToAddress(privKey.PublicKey)
 
 	for {
-
-		client, _, err := websocket.DefaultDialer.Dial("wss://wbtc-garden-backend-mainnet.onrender.com/ws/orders", nil)
+		client, _, err := websocket.DefaultDialer.Dial(fmt.Sprintf("ws://%s/ws/orders", url), nil)
 		if err != nil {
 			logger.Fatal("failed to dial: ", zap.Error(err), zap.String("executor", makerOrTaker.Hex()))
 		}
@@ -54,11 +53,12 @@ func RunExecute(entropy []byte, account uint32, url string, store Store, config 
 			logger.Info("processing orders ...", zap.Int("count", len(orders)))
 
 			for _, order := range orders {
-				logger.Info("processing order with id ...", zap.Uint("id", order.ID))
-				if order.Maker == makerOrTaker.Hex() {
+				logger.Info("processing order with id ...", zap.Uint("id", order.ID), zap.Uint("status", uint(order.Status)))
+				if strings.EqualFold(order.Maker, makerOrTaker.Hex()) {
 					if order.Status == model.OrderFilled {
+						logger.Info("initiator initiating an order", zap.Uint32("account", account), zap.Uint("order", order.ID))
 						if err := handleInitiatorInitiateOrder(order, entropy, account, config, store, logger); err != nil {
-							logger.Info("initiator failed to initiate the order:", zap.Error(err))
+							logger.Error("initiator failed to initiate the order:", zap.Error(err))
 							continue
 						}
 					}
@@ -66,16 +66,16 @@ func RunExecute(entropy []byte, account uint32, url string, store Store, config 
 					if order.Status == model.FollowerAtomicSwapInitiated {
 						secret, err := store.Secret(order.SecretHash)
 						if err != nil {
-							logger.Info("failed to retrieve the secret from db: ", zap.Error(err))
+							logger.Error("failed to retrieve the secret from db: ", zap.Error(err))
 							continue
 						}
 						secretBytes, err := hex.DecodeString(secret)
 						if err != nil {
-							logger.Info("failed to decode the secret from db: ", zap.Error(err))
+							logger.Error("failed to decode the secret from db: ", zap.Error(err))
 							continue
 						}
 						if err := handleInitiatorRedeemOrder(order, entropy, account, config, store, secretBytes, logger); err != nil {
-							logger.Info("initiator failed to redeem the order:", zap.Error(err))
+							logger.Error("initiator failed to redeem the order:", zap.Error(err))
 							continue
 						}
 					}
@@ -89,7 +89,7 @@ func RunExecute(entropy []byte, account uint32, url string, store Store, config 
 					}
 				}
 
-				if order.Taker == makerOrTaker.Hex() {
+				if strings.EqualFold(order.Taker, makerOrTaker.Hex()) {
 					if order.Status == model.InitiatorAtomicSwapInitiated {
 						if err := handleFollowerInitiateOrder(order, entropy, account, config, store, logger); err != nil {
 							logger.Info("follower failed to initiate the order", zap.Error(err))
@@ -359,7 +359,7 @@ func handleInitiatorRefund(order model.Order, entropy []byte, user uint32, confi
 	if err != nil {
 		return err
 	}
-	keyInterface, err := key.Interface(order.FollowerAtomicSwap.Chain)
+	keyInterface, err := key.Interface(order.InitiatorAtomicSwap.Chain)
 	if err != nil {
 		return err
 	}

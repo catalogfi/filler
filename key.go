@@ -148,7 +148,7 @@ func getBalance(chain model.Chain, address string, config model.Config, asset mo
 	case bitcoin.Client:
 		address, err := btcutil.DecodeAddress(address, client.Net())
 		if err != nil {
-			return nil, fmt.Errorf("failed to create address: %v", err)
+			return nil, fmt.Errorf("failed to create address (%s): %v", address, err)
 		}
 		_, balance, err := client.GetUTXOs(address, 0)
 		if err != nil {
