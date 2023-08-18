@@ -20,24 +20,25 @@ jobs:
       - name: Build the binary
         run: |
           go build -o cobi_linux_amd64 -ldflags "-s -w -X main.BinaryVersion=${GIT_TAG_NAME}" ./cmd/cobi.go
-          mv cobi_linux_amd64 ./artifacts/${{ github.ref }}
+          mv cobi_linux_amd64 ./artifacts/
           env GOOS=linux CGO_ENABLED=1 CC=aarch64-linux-gnu-gcc-6 CXX=aarch64-linux-gnu-g++-6 GOARCH=arm64 go build -o cobi_linux_arm -ldflags "-s -w -X main.BinaryVersion=${GIT_TAG_NAME}" ./cmd/cobi.go
-          mv cobi_linux_arm ./artifacts/${{ github.ref }}
+          mv cobi_linux_arm ./artifacts/
           env GOOS=darwin CGO_ENABLED=1 CC=o64-clang CXX=o64-clang++ GOARCH=amd64 go build -o cobi_darwin_amd64 -ldflags "-s -w -X main.BinaryVersion=${GIT_TAG_NAME}" ./cmd/cobi.go
-          mv cobi_darwin_amd64 ./artifacts/${{ github.ref }}
+          mv cobi_darwin_amd64 ./artifacts/
           env GOOS=darwin CGO_ENABLED=1 CC=o64-clang CXX=o64-clang++ GOARCH=arm64 go build -o cobi_darwin_arm64 -ldflags "-s -w -X main.BinaryVersion=${GIT_TAG_NAME}" ./cmd/cobi.go
-          mv cobi_darwin_arm64 ./artifacts/${{ github.ref }}
+          mv cobi_darwin_arm64 ./artifacts/
+          echo "${{ github.ref }}" > ./artifacts/version
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            ./artifacts/${{ github.ref }}/cobi_darwin_amd64
-            ./artifacts/${{ github.ref }}/cobi_darwin_arm64
-            ./artifacts/${{ github.ref }}/cobi_linux_amd64
-            ./artifacts/${{ github.ref }}/cobi_linux_arm
-            ./artifacts/${{ github.ref }}/install.sh
-            ./artifacts/${{ github.ref }}/update.sh
+            ./artifacts/cobi_darwin_amd64
+            ./artifacts/cobi_darwin_arm64
+            ./artifacts/cobi_linux_amd64
+            ./artifacts/cobi_linux_arm
+            ./artifacts/install.sh
+            ./artifacts/update.sh
       - name: Upload to S3
         uses: jakejarvis/s3-sync-action@master
         with:
