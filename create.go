@@ -6,12 +6,14 @@ import (
 	"encoding/hex"
 	"fmt"
 
+	"github.com/catalogfi/cobi/store"
+	"github.com/catalogfi/cobi/utils"
 	"github.com/catalogfi/wbtc-garden/model"
 	"github.com/catalogfi/wbtc-garden/rest"
 	"github.com/spf13/cobra"
 )
 
-func Create(entropy []byte, store Store) *cobra.Command {
+func Create(keys utils.Keys, store store.Store) *cobra.Command {
 	var (
 		account       uint32
 		url           string
@@ -33,9 +35,7 @@ func Create(entropy []byte, store Store) *cobra.Command {
 			secretHash := hex.EncodeToString(hash[:])
 
 			userStore := store.UserStore(account)
-			// Load keys
-			keys := NewKeys()
-			key, err := keys.GetKey(entropy, model.Ethereum, account, 0)
+			key, err := keys.GetKey(model.Ethereum, account, 0)
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while getting the signing key: %v", err))
 			}
@@ -61,7 +61,7 @@ func Create(entropy []byte, store Store) *cobra.Command {
 			}
 
 			// Get the addresses on different chains.
-			fromKey, err := keys.GetKey(entropy, fromChain, account, 0)
+			fromKey, err := keys.GetKey(fromChain, account, 0)
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while getting from key: %v", err))
 				return
@@ -71,7 +71,7 @@ func Create(entropy []byte, store Store) *cobra.Command {
 				cobra.CheckErr(fmt.Sprintf("Error while getting address string: %v", err))
 				return
 			}
-			toKey, err := keys.GetKey(entropy, fromChain, account, 0)
+			toKey, err := keys.GetKey(fromChain, account, 0)
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while getting to key: %v", err))
 				return

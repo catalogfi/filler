@@ -1,14 +1,18 @@
 package cobi
 
 import (
+	"fmt"
 	"os"
+	"sync"
 
+	"github.com/catalogfi/cobi/store"
+	"github.com/catalogfi/cobi/utils"
 	"github.com/catalogfi/wbtc-garden/model"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
 
-func Execute(entropy []byte, store Store, config model.Config, logger *zap.Logger) *cobra.Command {
+func Start(keys utils.Keys, store store.Store, config model.Config, logger *zap.Logger) *cobra.Command {
 	var (
 		url      string
 		strategy string
@@ -22,7 +26,7 @@ func Execute(entropy []byte, store Store, config model.Config, logger *zap.Logge
 			if err != nil {
 				cobra.CheckErr(err)
 			}
-			if err := Start(url, entropy, strategyData, config, store, logger); err != nil {
+			if err := start(url, keys, strategyData, config, store, logger); err != nil {
 				cobra.CheckErr(err)
 			}
 		},
@@ -33,4 +37,42 @@ func Execute(entropy []byte, store Store, config model.Config, logger *zap.Logge
 	cmd.Flags().StringVar(&strategy, "strategy", "", "strategy")
 	cmd.MarkFlagRequired("strategy")
 	return cmd
+}
+
+func start(url string, keys utils.Keys, strategy []byte, config model.Config, store store.Store, logger *zap.Logger) error {
+	wg := new(sync.WaitGroup)
+	activeAccounts := map[uint32]bool{}
+	strategies, err := UnmarshalStrategy(strategy)
+	if err != nil {
+		logger.Error("failed to unmarshal strategy", zap.Error(err))
+		return err
+	}
+	for index, strategy := range strategies {
+		if !activeAccounts[strategy.Account()] {
+			wg.Add(1)
+			go func(account uint32, logger *zap.Logger) {
+				defer wg.Done()
+				Execute(keys, account, url, store.UserStore(account), config, logger)
+			}(strategy.Account(), logger.With(zap.Uint32("executor", strategy.Account())))
+			activeAccounts[strategy.Account()] = true
+		}
+
+		childLogger := logger.With(zap.String("strategy", fmt.Sprintf("%T", strategy)), zap.String("orderPair", strategy.OrderPair()), zap.Uint32("account", strategy.Account()))
+		wg.Add(1)
+		go func(i int, logger *zap.Logger) {
+			defer wg.Done()
+			switch strategy := strategies[i].(type) {
+			case AutoFillStrategy:
+				err := RunAutoFillStrategy(url, keys, config, store, logger, strategy)
+				logger.Error("auto fill strategy ended with", zap.Error(err))
+			case AutoCreateStrategy:
+				err := RunAutoCreateStrategy(url, keys, config, store, logger, strategy)
+				logger.Error("auto create strategy ended with", zap.Error(err))
+			default:
+				logger.Error("unexpected strategy")
+			}
+		}(index, childLogger)
+	}
+	wg.Wait()
+	return nil
 }

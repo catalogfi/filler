@@ -10,8 +10,10 @@ import (
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/catalogfi/cobi/store"
 	"github.com/catalogfi/wbtc-garden/blockchain"
 	"github.com/catalogfi/wbtc-garden/model"
+	"github.com/catalogfi/wbtc-garden/rest"
 	"github.com/catalogfi/wbtc-garden/swapper/bitcoin"
 	"github.com/catalogfi/wbtc-garden/swapper/ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -140,7 +142,7 @@ func getParams(chain model.Chain) *chaincfg.Params {
 	}
 }
 
-func getBalance(chain model.Chain, address string, config model.Config, asset model.Asset) (*big.Int, error) {
+func Balance(chain model.Chain, address string, config model.Config, asset model.Asset) (*big.Int, error) {
 	client, err := blockchain.LoadClient(chain, config.RPC)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load client: %v", err)
@@ -180,4 +182,77 @@ func getBalance(chain model.Chain, address string, config model.Config, asset mo
 	default:
 		return nil, fmt.Errorf("unsupported chain: %s", chain)
 	}
+}
+
+func VirtualBalance(chain model.Chain, address string, config model.Config, asset model.Asset, signer string, client rest.Client) (*big.Int, error) {
+	balance, err := Balance(chain, address, config, asset)
+	if err != nil {
+		return nil, err
+	}
+
+	commitedAmount := big.NewInt(0)
+
+	fillOrders, err := client.GetOrders(rest.GetOrdersFilter{
+		Taker:   signer,
+		Status:  int(model.OrderFilled),
+		Verbose: true,
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, fillOrder := range fillOrders {
+		if fillOrder.FollowerAtomicSwap.Asset == asset {
+			orderAmt, ok := new(big.Int).SetString(fillOrder.FollowerAtomicSwap.Amount, 10)
+			if !ok {
+				return nil, err
+			}
+			commitedAmount.Add(commitedAmount, orderAmt)
+		}
+	}
+
+	createOrders, err := client.GetOrders(rest.GetOrdersFilter{
+		Maker:   signer,
+		Status:  int(model.OrderCreated),
+		Verbose: true,
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, createOrder := range createOrders {
+		if createOrder.InitiatorAtomicSwap.Asset == asset {
+			orderAmt, ok := new(big.Int).SetString(createOrder.InitiatorAtomicSwap.Amount, 10)
+			if !ok {
+				return nil, err
+			}
+			commitedAmount.Add(commitedAmount, orderAmt)
+		}
+	}
+
+	return new(big.Int).Sub(balance, commitedAmount), nil
+}
+
+func LoadClient(url string, keys Keys, str store.Store, account, selector uint32) (common.Address, rest.Client, error) {
+	key, err := keys.GetKey(model.Ethereum, account, selector)
+	if err != nil {
+		return common.Address{}, nil, fmt.Errorf("failed to get the signing key: %v", err)
+	}
+	privKey, err := key.ECDSA()
+	if err != nil {
+		return common.Address{}, nil, fmt.Errorf("failed to load ecdsa key: %v", err)
+	}
+	client := rest.NewClient(fmt.Sprintf("http://%s", url), privKey.D.Text(16))
+	signer := crypto.PubkeyToAddress(privKey.PublicKey)
+
+	jwt, err := str.UserStore(account).Token(selector)
+	if err != nil {
+		jwt, err = client.Login()
+		if err != nil {
+			return common.Address{}, nil, fmt.Errorf("failed to login to the orderbook: %v", err)
+		}
+		str.UserStore(account).PutToken(selector, jwt)
+	}
+	if err := client.SetJwt(jwt); err != nil {
+		return common.Address{}, nil, fmt.Errorf("failed to set the jwt token: %v", err)
+	}
+	return signer, client, nil
 }

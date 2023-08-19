@@ -4,6 +4,8 @@ import (
 	"errors"
 	"path/filepath"
 
+	"github.com/catalogfi/cobi/store"
+	"github.com/catalogfi/cobi/utils"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"gorm.io/driver/sqlite"
@@ -11,6 +13,10 @@ import (
 )
 
 func Run(version string) error {
+	var (
+		orderbook string
+	)
+
 	var cmd = &cobra.Command{
 		Use: "COBI - Catalog Order Book clI",
 		Run: func(c *cobra.Command, args []string) {
@@ -19,6 +25,12 @@ func Run(version string) error {
 		Version:           version,
 		DisableAutoGenTag: true,
 	}
+	cmd.Flags().StringVar(&orderbook, "orderbook", "production", "url of the orderbook")
+	if orderbook == "production" {
+		orderbook = ""
+	} else if orderbook == "staging" {
+		orderbook = ""
+	}
 
 	logger, err := zap.NewProduction()
 	if err != nil {
@@ -26,11 +38,11 @@ func Run(version string) error {
 	}
 
 	// Load or create a new mnemonic
-	mnemonicPath := DefaultMnemonicPath()
-	entropy, err := LoadMnemonic(mnemonicPath)
+	mnemonicPath := utils.DefaultMnemonicPath()
+	entropy, err := utils.LoadMnemonic(mnemonicPath)
 	if err != nil {
-		if errors.Is(err, ErrMnemonicFileMissing) {
-			entropy, err = NewMnemonic(mnemonicPath)
+		if errors.Is(err, utils.ErrMnemonicFileMissing) {
+			entropy, err = utils.NewMnemonic(mnemonicPath)
 			if err != nil {
 				return err
 			}
@@ -39,21 +51,24 @@ func Run(version string) error {
 	}
 
 	// Load the config file
-	configPath := DefaultConfigPath()
-	config := LoadConfigFromFile(configPath)
+	configPath := utils.DefaultConfigPath()
+	config := utils.LoadConfigFromFile(configPath)
+
+	// Load keys
+	keys := utils.NewKeys(entropy)
 
 	// Initialise db
-	db := sqlite.Open(filepath.Join(DefaultCobiDirectory(), "data.db"))
-	store, err := NewStore(db, &gorm.Config{})
+	db := sqlite.Open(filepath.Join(utils.DefaultCobiDirectory(), "data.db"))
+	store, err := store.NewStore(db, &gorm.Config{})
 	if err != nil {
 		return err
 	}
 
-	cmd.AddCommand(Create(entropy, store))
-	cmd.AddCommand(Fill(entropy, store))
-	cmd.AddCommand(Execute(entropy, store, config, logger))
-	cmd.AddCommand(Retry(entropy, store))
-	cmd.AddCommand(Accounts(entropy, config))
+	cmd.AddCommand(Create(keys, store))
+	cmd.AddCommand(Fill(keys, store))
+	cmd.AddCommand(Start(keys, store, config, logger))
+	cmd.AddCommand(Retry(store))
+	cmd.AddCommand(Accounts(keys, config))
 	cmd.AddCommand(List())
 	cmd.AddCommand(Network(&config, logger))
 	cmd.AddCommand(Update())

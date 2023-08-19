@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"os/exec"
 
+	"github.com/catalogfi/cobi/store"
 	"github.com/spf13/cobra"
 )
 
-func Retry(entropy []byte, store Store) *cobra.Command {
+func Retry(str store.Store) *cobra.Command {
 	var (
 		account uint32
 		orderId uint
@@ -17,7 +18,7 @@ func Retry(entropy []byte, store Store) *cobra.Command {
 		Use:   "retry",
 		Short: "Retry an order",
 		Run: func(c *cobra.Command, args []string) {
-			order, err := store.UserStore(account).GetOrder(orderId)
+			order, err := str.UserStore(account).GetOrder(orderId)
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("failed to fetch the order : %v", err))
 				return
@@ -26,8 +27,8 @@ func Retry(entropy []byte, store Store) *cobra.Command {
 			// by changing status in store object watcher will try to re-execute the order
 			// in order to reset appropriate status we are subtracting 7 from current status
 			// statuses are in a sequence resulting in subtraction of 7 leading to its appropriate previous status
-			if order.Status >= FollowerRefunded {
-				if err := store.UserStore(account).PutStatus(order.SecretHash, order.Status-7); err != nil {
+			if order.Status >= store.FollowerRefunded {
+				if err := str.UserStore(account).PutStatus(order.SecretHash, order.Status-7); err != nil {
 					cobra.CheckErr(fmt.Sprintf("failed to update status : %v", err))
 					return
 				}

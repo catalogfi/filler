@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/catalogfi/cobi/utils"
 	"github.com/catalogfi/wbtc-garden/model"
 	"github.com/jedib0t/go-pretty/table"
 	"github.com/spf13/cobra"
@@ -140,7 +141,7 @@ func writeConfig(config *model.Config) error {
 	if err != nil {
 		return fmt.Errorf("unable to marshal config %s", err)
 	}
-	if err := os.WriteFile(DefaultConfigPath(), val, 0755); err != nil {
+	if err := os.WriteFile(utils.DefaultConfigPath(), val, 0755); err != nil {
 		return fmt.Errorf("unable to write config file %s", err)
 	}
 	return nil

@@ -3,12 +3,14 @@ package cobi
 import (
 	"fmt"
 
+	"github.com/catalogfi/cobi/store"
+	"github.com/catalogfi/cobi/utils"
 	"github.com/catalogfi/wbtc-garden/model"
 	"github.com/catalogfi/wbtc-garden/rest"
 	"github.com/spf13/cobra"
 )
 
-func Fill(entropy []byte, store Store) *cobra.Command {
+func Fill(keys utils.Keys, store store.Store) *cobra.Command {
 	var (
 		url     string
 		account uint32
@@ -18,9 +20,7 @@ func Fill(entropy []byte, store Store) *cobra.Command {
 		Use:   "fill",
 		Short: "Fill an order",
 		Run: func(c *cobra.Command, args []string) {
-			// Load keys
-			keys := NewKeys()
-			key, err := keys.GetKey(entropy, model.Ethereum, account, 0)
+			key, err := keys.GetKey(model.Ethereum, account, 0)
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while getting the signing key: %v", err))
 			}
@@ -53,7 +53,7 @@ func Fill(entropy []byte, store Store) *cobra.Command {
 			}
 
 			// Get the addresses on different chains.
-			fromKey, err := keys.GetKey(entropy, fromChain, account, 0)
+			fromKey, err := keys.GetKey(fromChain, account, 0)
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while getting from key: %v", err))
 				return
@@ -63,7 +63,7 @@ func Fill(entropy []byte, store Store) *cobra.Command {
 				cobra.CheckErr(fmt.Sprintf("Error while getting address string: %v", err))
 				return
 			}
-			toKey, err := keys.GetKey(entropy, fromChain, account, 0)
+			toKey, err := keys.GetKey(fromChain, account, 0)
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while getting to key: %v", err))
 				return

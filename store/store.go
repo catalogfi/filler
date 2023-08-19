@@ -1,8 +1,9 @@
-package cobi
+package store
 
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -29,14 +30,24 @@ const (
 )
 
 type Order struct {
-	gorm.Model
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt gorm.DeletedAt `gorm:"index"`
 
-	Account    uint32 `gorm:"primaryKey"`
+	Account    uint32 `gorm:"primarykey"`
 	OrderId    uint64
-	SecretHash string `gorm:"primaryKey"`
+	SecretHash string `gorm:"primarykey"`
 	Secret     string
 	Status     Status
 	Error      string
+}
+
+type Token struct {
+	gorm.Model
+
+	Account  uint32
+	Selector uint32
+	Token    string
 }
 
 type Store interface {
@@ -44,6 +55,9 @@ type Store interface {
 }
 
 type UserStore interface {
+	PutToken(selector uint32, token string) error
+	Token(selector uint32) (string, error)
+
 	PutSecret(secretHash, secret string, orderId uint64) error
 	PutSecretHash(secretHash string, orderId uint64) error
 	Secret(secretHash string) (string, error)
@@ -70,7 +84,7 @@ func NewStore(dialector gorm.Dialector, opts ...gorm.Option) (Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := db.AutoMigrate(&Order{}); err != nil {
+	if err := db.AutoMigrate(&Order{}, &Token{}); err != nil {
 		return nil, err
 	}
 	return &store{mu: new(sync.RWMutex), db: db}, nil
@@ -78,6 +92,34 @@ func NewStore(dialector gorm.Dialector, opts ...gorm.Option) (Store, error) {
 
 func (s *store) UserStore(user uint32) UserStore {
 	return &userStore{mu: s.mu, db: s.db, account: user}
+}
+
+func (s *userStore) PutToken(selector uint32, token string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if tx := s.db.Create(&Token{
+		Account:  s.account,
+		Selector: selector,
+		Token:    token,
+	}); tx.Error != nil {
+		return tx.Error
+	}
+	return nil
+}
+
+func (s *userStore) Token(selector uint32) (string, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var token Token
+	if tx := s.db.Where("account = ? AND selector = ?", s.account, selector).First(&token); tx.Error != nil {
+		return "", tx.Error
+	}
+	if time.Now().Unix()-token.UpdatedAt.Unix() > 12*3600 {
+		return token.Token, fmt.Errorf("expired")
+	}
+	return token.Token, nil
 }
 
 func (s *userStore) PutSecretHash(secretHash string, orderId uint64) error {

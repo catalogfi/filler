@@ -1,4 +1,4 @@
-package cobi
+package utils
 
 import (
 	"crypto/rand"
