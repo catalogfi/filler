@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/catalogfi/cobi/utils"
 	"github.com/catalogfi/wbtc-garden/model"
 	"github.com/catalogfi/wbtc-garden/rest"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -50,7 +51,7 @@ func Start(url string, entropy, strategy []byte, config model.Config, store Stor
 			wg.Add(1)
 			go func(account uint32, logger *zap.Logger) {
 				defer wg.Done()
-				RunExecute(entropy, account, url, store, config, logger)
+				RunExecute(utils.NewKeys(entropy), account, url, store.UserStore(account), config, logger)
 			}(strategy.Account(), logger.With(zap.Uint32("executor", strategy.Account())))
 			activeAccounts[strategy.Account()] = true
 		}
@@ -163,7 +164,7 @@ func RunAutoCreateStrategy(url string, entropy []byte, config model.Config, stor
 			return fmt.Errorf("failed while creating order: %v", err)
 		}
 
-		if err := store.PutSecret(s.account, hex.EncodeToString(secretHash[:]), hex.EncodeToString(secret[:]), uint64(id)); err != nil {
+		if err := store.UserStore(s.account).PutSecret(hex.EncodeToString(secretHash[:]), hex.EncodeToString(secret[:]), uint64(id)); err != nil {
 			return fmt.Errorf("failed to store secret: %v", err)
 		}
 
@@ -264,7 +265,7 @@ func RunAutoFillStrategy(url string, entropy []byte, config model.Config, store 
 				continue
 			}
 
-			if err = store.PutSecretHash(s.account, order.SecretHash, uint64(order.ID)); err != nil {
+			if err = store.UserStore(s.account).PutSecretHash(order.SecretHash, uint64(order.ID)); err != nil {
 				logger.Info("failed storing secret hash: %v", zap.Error(err))
 				continue
 			}

@@ -17,9 +17,9 @@ func Retry(entropy []byte, store Store) *cobra.Command {
 		Use:   "retry",
 		Short: "Retry an order",
 		Run: func(c *cobra.Command, args []string) {
-			order, err := store.GetOrder(account, orderId)
+			order, err := store.UserStore(account).GetOrder(orderId)
 			if err != nil {
-				cobra.CheckErr(fmt.Sprintf("Error while fetching order : %v", err))
+				cobra.CheckErr(fmt.Sprintf("failed to fetch the order : %v", err))
 				return
 			}
 			// so the idea behind retry in bussiness logic is to change status in store object
@@ -27,7 +27,10 @@ func Retry(entropy []byte, store Store) *cobra.Command {
 			// in order to reset appropriate status we are subtracting 7 from current status
 			// statuses are in a sequence resulting in subtraction of 7 leading to its appropriate previous status
 			if order.Status >= FollowerRefunded {
-				store.PutStatus(account, order.SecretHash, order.Status-7)
+				if err := store.UserStore(account).PutStatus(order.SecretHash, order.Status-7); err != nil {
+					cobra.CheckErr(fmt.Sprintf("failed to update status : %v", err))
+					return
+				}
 			}
 		},
 		DisableAutoGenTag: true,

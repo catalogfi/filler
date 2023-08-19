@@ -7,383 +7,246 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/catalogfi/cobi/utils"
 	"github.com/catalogfi/wbtc-garden/blockchain"
 	"github.com/catalogfi/wbtc-garden/model"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
 )
 
-func RunExecute(entropy []byte, account uint32, url string, store Store, config model.Config, logger *zap.Logger) {
-	// Load keys
-	keys := NewKeys()
-	key, err := keys.GetKey(entropy, model.Ethereum, account, 0)
+func RunExecute(keys utils.Keys, account uint32, url string, store UserStore, config model.Config, logger *zap.Logger) {
+	childLogger := logger.With(zap.Uint32("account", account))
+
+	// get the signer key
+	key, err := keys.GetKey(model.Ethereum, account, 0)
 	if err != nil {
-		logger.Fatal("failed to get the signing key:", zap.Error(err))
+		childLogger.Error("failed to get the signing key:", zap.Error(err))
+		return
 	}
 	privKey, err := key.ECDSA()
 	if err != nil {
-		logger.Fatal("failed to get the signing key:", zap.Error(err))
+		childLogger.Error("failed to get the signing key:", zap.Error(err))
+		return
 	}
-	makerOrTaker := crypto.PubkeyToAddress(privKey.PublicKey)
+	signer := crypto.PubkeyToAddress(privKey.PublicKey)
 
 	for {
+		// connect to the websocket and subscribe on the signer's address
 		client, _, err := websocket.DefaultDialer.Dial(fmt.Sprintf("ws://%s/ws/orders", url), nil)
 		if err != nil {
-			logger.Fatal("failed to dial: ", zap.Error(err), zap.String("executor", makerOrTaker.Hex()))
+			childLogger.Error("failed to dial", zap.Error(err), zap.String("executor", signer.Hex()))
+			break
 		}
 
-		if err := client.WriteMessage(websocket.BinaryMessage, []byte(fmt.Sprintf("subscribe:%v", makerOrTaker))); err != nil {
-			logger.Fatal("failed to subscribe to the events of the user: ", zap.Error(err), zap.String("executor", makerOrTaker.Hex()))
+		if err := client.WriteMessage(websocket.BinaryMessage, []byte(fmt.Sprintf("subscribe:%v", signer))); err != nil {
+			childLogger.Error("failed to subscribe to the events of the user", zap.Error(err), zap.String("executor", signer.Hex()))
+			break
 		}
 
 		for {
-			logger.Info("getting orders from the orderbook ...", zap.String("executor", makerOrTaker.Hex()))
+			// listen to new orders from the orderbook
 			_, msg, err := client.ReadMessage()
 			if err != nil {
-				logger.Info("failed to read messege from the websocket: ", zap.Error(err))
+				childLogger.Error("failed to read messege from the websocket", zap.Error(err))
 				break
 			}
-
 			var orders []model.Order
 			if err := json.Unmarshal(msg, &orders); err != nil {
-				logger.Info("failed to unmarshal orders recived on the websocket: ", zap.String("message", string(msg)), zap.Error(err))
+				childLogger.Error("failed to unmarshal orders recived on the websocket", zap.String("message", string(msg)), zap.Error(err))
 				break
 			}
-			logger.Info("processing orders ...", zap.Int("count", len(orders)))
 
+			// execute orders
+			childLogger.Info("recieved orders from the order book", zap.Int("count", len(orders)))
 			for _, order := range orders {
-				logger.Info("processing order with id ...", zap.Uint("id", order.ID), zap.Uint("status", uint(order.Status)))
-				if strings.EqualFold(order.Maker, makerOrTaker.Hex()) {
-					if order.Status == model.OrderFilled {
-						logger.Info("initiator initiating an order", zap.Uint32("account", account), zap.Uint("order", order.ID))
-						if err := handleInitiatorInitiateOrder(order, entropy, account, config, store, logger); err != nil {
-							logger.Error("initiator failed to initiate the order:", zap.Error(err))
-							continue
-						}
-					}
+				grandChildLogger := childLogger.With(zap.Uint("order id", order.ID), zap.String("pair", order.OrderPair))
+				runExecute(order, grandChildLogger, signer, keys, account, config, store)
+			}
+			childLogger.Info("executed orders recieved from the order book", zap.Int("count", len(orders)))
+		}
+	}
+}
 
-					if order.Status == model.FollowerAtomicSwapInitiated {
-						secret, err := store.Secret(account, order.SecretHash)
-						if err != nil {
-							logger.Error("failed to retrieve the secret from db: ", zap.Error(err))
-							continue
-						}
-						secretBytes, err := hex.DecodeString(secret)
-						if err != nil {
-							logger.Error("failed to decode the secret from db: ", zap.Error(err))
-							continue
-						}
-						if err := handleInitiatorRedeemOrder(order, entropy, account, config, store, secretBytes, logger); err != nil {
-							logger.Error("initiator failed to redeem the order:", zap.Error(err))
-							continue
-						}
-					}
+func runExecute(order model.Order, logger *zap.Logger, signer common.Address, keys utils.Keys, account uint32, config model.Config, store UserStore) {
+	logger.Info("processing order with id", zap.Uint("status", uint(order.Status)))
+	if isValid, err := store.CheckStatus(order.SecretHash); !isValid {
+		if err != "" {
+			logger.Error("failed to check status", zap.Error(errors.New(err)))
+		} else {
+			logger.Info("skipping order as it failed earlier")
+		}
+		return
+	}
 
-					if order.Status == model.InitiatorAtomicSwapInitiated || order.Status == model.FollowerAtomicSwapRefunded {
-						// assuming that the function would just return nil if the swap has not expired yet
-						if err := handleInitiatorRefund(order, entropy, account, config, store, logger); err != nil {
-							logger.Info("initiator failed to refund the order:", zap.Error(err))
-							continue
-						}
-					}
+	status := store.Status(order.SecretHash)
+	fromKey, err := keys.GetKey(order.InitiatorAtomicSwap.Chain, account, 0)
+	if err != nil {
+		logger.Error("failed to load sender key", zap.Error(err))
+		return
+	}
+	fromKeyInterface, err := fromKey.Interface(order.InitiatorAtomicSwap.Chain)
+	if err != nil {
+		logger.Error("failed to load sender key", zap.Error(err))
+		return
+	}
+
+	toKey, err := keys.GetKey(order.FollowerAtomicSwap.Chain, account, 0)
+	if err != nil {
+		logger.Error("failed to load reciever key", zap.Error(err))
+		return
+	}
+	toKeyInterface, err := toKey.Interface(order.FollowerAtomicSwap.Chain)
+	if err != nil {
+		logger.Error("failed to load reciever key", zap.Error(err))
+		return
+	}
+
+	if strings.EqualFold(order.Maker, signer.Hex()) {
+		if order.Status == model.OrderFilled {
+			if status != InitiatorInitiated {
+				handleInitiate(*order.InitiatorAtomicSwap, order.SecretHash, toKeyInterface, config, store, logger.With(zap.String("handler", "initiator initiate")), true)
+			}
+		} else if order.Status == model.FollowerAtomicSwapInitiated {
+			if status != InitiatorRedeemed {
+				secret, err := store.Secret(order.SecretHash)
+				if err != nil {
+					logger.Error("failed to retrieve the secret from db", zap.Error(err))
+					return
 				}
-
-				if strings.EqualFold(order.Taker, makerOrTaker.Hex()) {
-					if order.Status == model.InitiatorAtomicSwapInitiated {
-						if err := handleFollowerInitiateOrder(order, entropy, account, config, store, logger); err != nil {
-							logger.Info("follower failed to initiate the order", zap.Error(err))
-							continue
-						}
-					}
-
-					if order.Status == model.FollowerAtomicSwapRedeemed {
-						if err := handleFollowerRedeemOrder(order, entropy, account, config, store, logger); err != nil {
-							logger.Info("follower failed to redeem the order", zap.Error(err))
-							continue
-						}
-					}
-
-					if order.Status == model.FollowerAtomicSwapInitiated {
-						// assuming that the function would just return nil if the swap has not expired yet
-						if err := handleFollowerRefund(order, entropy, account, config, store, logger); err != nil {
-							logger.Info("follower failed to refund the order", zap.Error(err))
-							continue
-						}
-					}
-				}
+				handleRedeem(*order.FollowerAtomicSwap, secret, order.SecretHash, toKeyInterface, config, store, logger.With(zap.String("handler", "initiator redeem")), true)
+			}
+		} else if (order.Status < model.OrderExecuted || order.Status == model.OrderCancelled) && order.Status != model.InitiatorAtomicSwapRedeemed {
+			if status == InitiatorInitiated {
+				// assuming that the function would just return nil if the swap has not expired yet
+				handleRefund(*order.InitiatorAtomicSwap, order.SecretHash, fromKeyInterface, config, store, logger.With(zap.String("handler", "initiator refund")), true)
+			}
+		}
+	} else if strings.EqualFold(order.Taker, signer.Hex()) {
+		if order.Status == model.InitiatorAtomicSwapInitiated {
+			if status != FollowerInitiated {
+				handleInitiate(*order.FollowerAtomicSwap, order.SecretHash, toKeyInterface, config, store, logger.With(zap.String("handler", "follower initiate")), false)
+			}
+		} else if order.Status == model.FollowerAtomicSwapRedeemed {
+			if status != FollowerRedeemed {
+				handleRedeem(*order.InitiatorAtomicSwap, order.Secret, order.SecretHash, fromKeyInterface, config, store, logger.With(zap.String("handler", "follower redeem")), false)
+			}
+		} else if order.Status < model.OrderExecuted && order.Status != model.FollowerAtomicSwapRedeemed {
+			// assuming that the function would just return nil if the swap has not expired yet
+			if status == FollowerInitiated {
+				handleRefund(*order.FollowerAtomicSwap, order.SecretHash, toKeyInterface, config, store, logger.With(zap.String("handler", "follower refund")), false)
 			}
 		}
 	}
 }
 
-func handleInitiatorInitiateOrder(order model.Order, entropy []byte, user uint32, config model.Config, store Store, logger *zap.Logger) error {
-	if isValid, err := store.CheckStatus(user, order.SecretHash); !isValid {
-		logger.Info("skipping initiator initiate as it failed earlier", zap.Uint("order id", order.ID), zap.Error(errors.New(err)))
-		return nil
+func handleRedeem(atomicSwap model.AtomicSwap, secret, secretHash string, keyInterface interface{}, config model.Config, store UserStore, logger *zap.Logger, isInitiator bool) {
+	logger.Info("redeeming an order")
+	redeemerSwap, err := blockchain.LoadRedeemerSwap(atomicSwap, keyInterface, secretHash, config.RPC, uint64(0))
+	if err != nil {
+		logger.Error("failed to load redeemer swap", zap.Error(err))
+		return
 	}
 
-	status := store.Status(user, order.SecretHash)
-	if status == InitiatorInitiated {
-		return nil
+	secretBytes, err := hex.DecodeString(secret)
+	if err != nil {
+		logger.Error("failed to decode secret", zap.Error(err))
+		return
 	}
 
-	fromChain, _, _, _, err := model.ParseOrderPair(order.OrderPair)
+	txHash, err := redeemerSwap.Redeem(secretBytes)
 	if err != nil {
-		return err
+		status := InitiatorFailedToRedeem
+		if !isInitiator {
+			status = FollowerFailedToRedeem
+		}
+		if err2 := store.PutError(secretHash, err.Error(), status); err2 != nil {
+			logger.Error("failed to store redeem error", zap.Error(err2), zap.NamedError("redeem error", err))
+		} else {
+			logger.Error("failed to redeem", zap.Error(err))
+		}
+		return
 	}
-	key, err := LoadKey(entropy, fromChain, user, 0)
-	if err != nil {
-		return err
-	}
-	keyInterface, err := key.Interface(order.InitiatorAtomicSwap.Chain)
-	if err != nil {
-		return err
-	}
+	logger.Info("successfully redeemed swap", zap.String("tx hash", txHash))
 
-	initiatorSwap, err := blockchain.LoadInitiatorSwap(*order.InitiatorAtomicSwap, keyInterface, order.SecretHash, config.RPC, uint64(0))
-	if err != nil {
-		return err
+	status := InitiatorRedeemed
+	if !isInitiator {
+		status = FollowerRedeemed
 	}
-	txHash, err := initiatorSwap.Initiate()
-	if err != nil {
-		store.PutError(user, order.SecretHash, err.Error(), InitiatorFailedToInitiate)
-		return err
+	if err := store.PutStatus(secretHash, status); err != nil {
+		logger.Error("failed to update status", zap.Error(err))
 	}
-	if err := store.PutStatus(user, order.SecretHash, InitiatorInitiated); err != nil {
-		return err
-	}
-	logger.Info("initiator initiated swap", zap.String("tx hash", txHash))
-	return nil
 }
 
-func handleInitiatorRedeemOrder(order model.Order, entropy []byte, user uint32, config model.Config, store Store, secret []byte, logger *zap.Logger) error {
+func handleInitiate(atomicSwap model.AtomicSwap, secretHash string, keyInterface interface{}, config model.Config, store UserStore, logger *zap.Logger, isInitiator bool) {
+	logger.Info("initiating an order")
+	initiatorSwap, err := blockchain.LoadInitiatorSwap(atomicSwap, keyInterface, secretHash, config.RPC, uint64(0))
+	if err != nil {
+		logger.Error("failed to load initiator swap", zap.Error(err))
+		return
+	}
 
-	if isValid, err := store.CheckStatus(user, order.SecretHash); !isValid {
-		// if the bot is a initiator and redeem failed and bob did not refund
-		if !strings.Contains(err, "Order not found in local storage") {
-			if err := handleInitiatorRefund(order, entropy, user, config, store, logger); err != nil {
-				return err
+	txHash, err := initiatorSwap.Initiate()
+	if err != nil {
+		status := InitiatorFailedToInitiate
+		if !isInitiator {
+			status = FollowerFailedToInitiate
+		}
+
+		if err2 := store.PutError(secretHash, err.Error(), status); err2 != nil {
+			logger.Error("failed to store initiate error", zap.Error(err2), zap.NamedError("initiate error", err))
+		} else {
+			logger.Error("failed to initiate", zap.Error(err))
+		}
+		return
+	}
+	logger.Info("successfully initiated swap", zap.String("tx hash", txHash))
+
+	status := InitiatorInitiated
+	if !isInitiator {
+		status = FollowerInitiated
+	}
+	if err := store.PutStatus(secretHash, status); err != nil {
+		logger.Error("failed to update status", zap.Error(err))
+	}
+}
+
+func handleRefund(swap model.AtomicSwap, secretHash string, keyInterface interface{}, config model.Config, store UserStore, logger *zap.Logger, isInitiator bool) {
+	initiatorSwap, err := blockchain.LoadInitiatorSwap(swap, keyInterface, secretHash, config.RPC, uint64(0))
+	if err != nil {
+		logger.Error("failed to load initiator swap", zap.Error(err))
+		return
+	}
+	isExpired, err := initiatorSwap.Expired()
+	if err != nil {
+		logger.Error("failed to check if the initiator swap expired or not", zap.Error(err))
+		return
+	}
+	if isExpired {
+		logger.Info("refunding an order")
+		txHash, err := initiatorSwap.Refund()
+		if err != nil {
+			status := InitiatorFailedToRefund
+			if !isInitiator {
+				status = FollowerFailedToRefund
 			}
+
+			if err2 := store.PutError(secretHash, err.Error(), status); err2 != nil {
+				logger.Error("failed to store refund error", zap.Error(err2), zap.NamedError("refund error", err))
+				return
+			}
+			logger.Error("failed to refund", zap.Error(err))
+			return
 		}
-		logger.Info("skipping initiator redeem as it failed earlier", zap.Uint("order id", order.ID), zap.Error(errors.New(err)))
-		return nil
-	}
+		logger.Info("successfully refunded swap", zap.String("tx hash", txHash))
 
-	status := store.Status(user, order.SecretHash)
-	if status == InitiatorRedeemed {
-		return nil
-	}
-
-	_, toChain, _, _, err := model.ParseOrderPair(order.OrderPair)
-	if err != nil {
-		return err
-	}
-	key, err := LoadKey(entropy, toChain, user, 0)
-	if err != nil {
-		return err
-	}
-	keyInterface, err := key.Interface(order.FollowerAtomicSwap.Chain)
-	if err != nil {
-		return err
-	}
-
-	redeemerSwap, err := blockchain.LoadRedeemerSwap(*order.FollowerAtomicSwap, keyInterface, order.SecretHash, config.RPC, uint64(0))
-
-	if err != nil {
-		return err
-	}
-	txHash, err := redeemerSwap.Redeem(secret)
-	if err != nil {
-		store.PutError(user, order.SecretHash, err.Error(), InitiatorFailedToRedeem)
-		return err
-	}
-
-	if err := store.PutStatus(user, order.SecretHash, InitiatorRedeemed); err != nil {
-		return err
-	}
-	logger.Info("initiator redeemed swap", zap.String("tx hash", txHash))
-	return nil
-}
-
-func handleFollowerInitiateOrder(order model.Order, entropy []byte, user uint32, config model.Config, store Store, logger *zap.Logger) error {
-	if isValid, err := store.CheckStatus(user, order.SecretHash); !isValid {
-		logger.Info("skipping follower initiate as it failed earlier", zap.Uint("order id", order.ID), zap.Error(errors.New(err)))
-		return nil
-	}
-
-	status := store.Status(user, order.SecretHash)
-	if status == FollowerInitiated {
-		return nil
-	}
-
-	_, toChain, _, _, err := model.ParseOrderPair(order.OrderPair)
-	if err != nil {
-		return err
-	}
-	key, err := LoadKey(entropy, toChain, user, 0)
-	if err != nil {
-		return err
-	}
-	keyInterface, err := key.Interface(order.FollowerAtomicSwap.Chain)
-	if err != nil {
-		return err
-	}
-
-	initiatorSwap, err := blockchain.LoadInitiatorSwap(*order.FollowerAtomicSwap, keyInterface, order.SecretHash, config.RPC, uint64(0))
-
-	if err != nil {
-		return err
-	}
-	txHash, err := initiatorSwap.Initiate()
-	if err != nil {
-		store.PutError(user, order.SecretHash, err.Error(), FollowerFailedToInitiate)
-		return err
-	}
-	if err := store.PutStatus(user, order.SecretHash, FollowerInitiated); err != nil {
-		return err
-	}
-	logger.Info("follower initiated swap", zap.String("tx hash", txHash))
-	return nil
-}
-
-func handleFollowerRedeemOrder(order model.Order, entropy []byte, user uint32, config model.Config, store Store, logger *zap.Logger) error {
-	if isValid, err := store.CheckStatus(user, order.SecretHash); !isValid {
-		logger.Info("skipping follower redeem as it failed earlier", zap.Uint("order id", order.ID), zap.Error(errors.New(err)))
-		return nil
-	}
-
-	status := store.Status(user, order.SecretHash)
-	if status == FollowerRedeemed {
-		return nil
-	}
-
-	fromChain, _, _, _, err := model.ParseOrderPair(order.OrderPair)
-	if err != nil {
-		return err
-	}
-	key, err := LoadKey(entropy, fromChain, user, 0)
-	if err != nil {
-		return err
-	}
-	keyInterface, err := key.Interface(order.InitiatorAtomicSwap.Chain)
-	if err != nil {
-		return err
-	}
-
-	redeemerSwap, err := blockchain.LoadRedeemerSwap(*order.InitiatorAtomicSwap, keyInterface, order.SecretHash, config.RPC, uint64(0))
-
-	if err != nil {
-		return err
-	}
-
-	secret, err := hex.DecodeString(order.Secret)
-	if err != nil {
-		return err
-	}
-
-	txHash, err := redeemerSwap.Redeem(secret)
-	if err != nil {
-		store.PutError(user, order.SecretHash, err.Error(), FollowerFailedToRedeem)
-		return err
-	}
-	if err := store.PutStatus(user, order.SecretHash, FollowerRedeemed); err != nil {
-		return err
-	}
-	logger.Info("follower redeemed swap", zap.String("tx hash", txHash))
-	return nil
-}
-func handleFollowerRefund(order model.Order, entropy []byte, user uint32, config model.Config, store Store, logger *zap.Logger) error {
-	status := store.Status(user, order.SecretHash)
-	if status == FollowerRefunded {
-		return nil
-	}
-
-	if isValid, err := store.CheckStatus(user, order.SecretHash); !isValid {
-		logger.Info("skipping follower refund as it failed earlier", zap.Uint("order id", order.ID), zap.Error(errors.New(err)))
-		return nil
-	}
-	_, toChain, _, _, err := model.ParseOrderPair(order.OrderPair)
-	if err != nil {
-		return err
-	}
-	key, err := LoadKey(entropy, toChain, user, 0)
-	if err != nil {
-		return err
-	}
-	keyInterface, err := key.Interface(order.FollowerAtomicSwap.Chain)
-	if err != nil {
-		return err
-	}
-
-	initiatorSwap, err := blockchain.LoadInitiatorSwap(*order.FollowerAtomicSwap, keyInterface, order.SecretHash, config.RPC, uint64(0))
-	if err != nil {
-		return err
-	}
-	isExpired, err := initiatorSwap.Expired()
-	if err != nil {
-		return err
-	}
-
-	if isExpired {
-		txHash, err := initiatorSwap.Refund()
-		if err != nil {
-			store.PutError(user, order.SecretHash, err.Error(), FollowerFailedToRedeem)
-			return err
+		status := InitiatorRefunded
+		if !isInitiator {
+			status = FollowerRefunded
 		}
-		if err := store.PutStatus(user, order.SecretHash, FollowerRefunded); err != nil {
-			return err
+		if err := store.PutStatus(secretHash, status); err != nil {
+			logger.Error("failed to update status", zap.Error(err))
 		}
-		logger.Info("follower refunded swap", zap.String("tx hash", txHash))
 	}
-
-	return nil
-}
-func handleInitiatorRefund(order model.Order, entropy []byte, user uint32, config model.Config, store Store, logger *zap.Logger) error {
-
-	status := store.Status(user, order.SecretHash)
-	if status == InitiatorRefunded {
-		return nil
-	}
-
-	if isValid, err := store.CheckStatus(user, order.SecretHash); !isValid {
-		logger.Info("skipping initiator refund as it failed earlier", zap.Uint("order id", order.ID), zap.Error(errors.New(err)))
-		return nil
-	}
-
-	fromChain, _, _, _, err := model.ParseOrderPair(order.OrderPair)
-	if err != nil {
-		return err
-	}
-	key, err := LoadKey(entropy, fromChain, user, 0)
-	if err != nil {
-		return err
-	}
-	keyInterface, err := key.Interface(order.InitiatorAtomicSwap.Chain)
-	if err != nil {
-		return err
-	}
-
-	initiatorSwap, err := blockchain.LoadInitiatorSwap(*order.InitiatorAtomicSwap, keyInterface, order.SecretHash, config.RPC, uint64(0))
-	if err != nil {
-		return err
-	}
-	isExpired, err := initiatorSwap.Expired()
-	if err != nil {
-		return err
-	}
-
-	if isExpired {
-		txHash, err := initiatorSwap.Refund()
-		if err != nil {
-			store.PutError(user, order.SecretHash, err.Error(), FollowerFailedToRedeem)
-			return err
-		}
-		if err := store.PutStatus(user, order.SecretHash, InitiatorRefunded); err != nil {
-			return err
-		}
-		logger.Info("initiator refunded swap", zap.String("tx hash", txHash))
-	}
-
-	return nil
 }
