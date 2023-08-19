@@ -107,7 +107,7 @@ func execute(order model.Order, logger *zap.Logger, signer common.Address, keys 
 	if strings.EqualFold(order.Maker, signer.Hex()) {
 		if order.Status == model.OrderFilled {
 			if status != store.InitiatorInitiated {
-				handleInitiate(*order.InitiatorAtomicSwap, order.SecretHash, toKeyInterface, config, userStore, logger.With(zap.String("handler", "initiator initiate")), true)
+				handleInitiate(*order.InitiatorAtomicSwap, order.SecretHash, fromKeyInterface, config, userStore, logger.With(zap.String("handler", "initiator initiate")), true)
 			}
 		} else if order.Status == model.FollowerAtomicSwapInitiated {
 			if status != store.InitiatorRedeemed {
