@@ -5,7 +5,7 @@
         "makers": [],
         "minAmount": "10000",
         "maxAmount": "30000",
-        "orderPair": "bitcoin_testnet-ethereum_sepolia:0x4FDAAe676608f2a768f9c57BFDAeFA7559283316",
+        "orderPair": "bitcoin_testnet-ethereum_sepolia:0x130Ff59B75a415d0bcCc2e996acAf27ce70fD5eF",
         "priceStrategy": {
             "fee": 10
         }
@@ -17,7 +17,7 @@
         "maxTimeInterval": 1200,
         "minAmount": "10000",
         "maxAmount": "30000",
-        "orderPair": "bitcoin_testnet-ethereum_sepolia:0x4FDAAe676608f2a768f9c57BFDAeFA7559283316",
+        "orderPair": "bitcoin_testnet-ethereum_sepolia:0x130Ff59B75a415d0bcCc2e996acAf27ce70fD5eF",
         "priceStrategy": {
             "fee": 10
         }
@@ -28,7 +28,7 @@
         "makers": [],
         "minAmount": "10000",
         "maxAmount": "30000",
-        "orderPair": "ethereum_sepolia:0x4FDAAe676608f2a768f9c57BFDAeFA7559283316-bitcoin_testnet",
+        "orderPair": "ethereum_sepolia:0x130Ff59B75a415d0bcCc2e996acAf27ce70fD5eF-bitcoin_testnet",
         "priceStrategy": {
             "fee": 10
         }
@@ -40,7 +40,7 @@
         "maxTimeInterval": 1200,
         "minAmount": "10000",
         "maxAmount": "30000",
-        "orderPair": "ethereum_sepolia:0x4FDAAe676608f2a768f9c57BFDAeFA7559283316-bitcoin_testnet",
+        "orderPair": "ethereum_sepolia:0x130Ff59B75a415d0bcCc2e996acAf27ce70fD5eF-bitcoin_testnet",
         "priceStrategy": {
             "fee": 10
         }

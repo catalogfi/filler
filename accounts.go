@@ -60,7 +60,8 @@ func Accounts(keys utils.Keys, config model.Config) *cobra.Command {
 					cobra.CheckErr(fmt.Sprintf("Error calculating ECDSA key: %v", err))
 					return
 				}
-				client := rest.NewClient(url, ecdsaKey.D.String())
+
+				client := rest.NewClient(url, ecdsaKey.D.Text(16))
 				token, err := client.Login()
 				if err != nil {
 					cobra.CheckErr(fmt.Sprintf("failed to get auth token: %v", err))
