@@ -163,7 +163,7 @@ func RunAutoCreateStrategy(url string, entropy []byte, config model.Config, stor
 			return fmt.Errorf("failed while creating order: %v", err)
 		}
 
-		if err := store.PutSecret(hex.EncodeToString(secretHash[:]), hex.EncodeToString(secret[:]), uint64(id)); err != nil {
+		if err := store.PutSecret(s.account, hex.EncodeToString(secretHash[:]), hex.EncodeToString(secret[:]), uint64(id)); err != nil {
 			return fmt.Errorf("failed to store secret: %v", err)
 		}
 
@@ -264,7 +264,7 @@ func RunAutoFillStrategy(url string, entropy []byte, config model.Config, store 
 				continue
 			}
 
-			if err = store.PutSecretHash(order.SecretHash, uint64(order.ID)); err != nil {
+			if err = store.PutSecretHash(s.account, order.SecretHash, uint64(order.ID)); err != nil {
 				logger.Info("failed storing secret hash: %v", zap.Error(err))
 				continue
 			}

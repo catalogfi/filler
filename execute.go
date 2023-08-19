@@ -64,7 +64,7 @@ func RunExecute(entropy []byte, account uint32, url string, store Store, config 
 					}
 
 					if order.Status == model.FollowerAtomicSwapInitiated {
-						secret, err := store.Secret(order.SecretHash)
+						secret, err := store.Secret(account, order.SecretHash)
 						if err != nil {
 							logger.Error("failed to retrieve the secret from db: ", zap.Error(err))
 							continue
@@ -118,12 +118,12 @@ func RunExecute(entropy []byte, account uint32, url string, store Store, config 
 }
 
 func handleInitiatorInitiateOrder(order model.Order, entropy []byte, user uint32, config model.Config, store Store, logger *zap.Logger) error {
-	if isValid, err := store.CheckStatus(order.SecretHash); !isValid {
+	if isValid, err := store.CheckStatus(user, order.SecretHash); !isValid {
 		logger.Info("skipping initiator initiate as it failed earlier", zap.Uint("order id", order.ID), zap.Error(errors.New(err)))
 		return nil
 	}
 
-	status := store.Status(order.SecretHash)
+	status := store.Status(user, order.SecretHash)
 	if status == InitiatorInitiated {
 		return nil
 	}
@@ -147,10 +147,10 @@ func handleInitiatorInitiateOrder(order model.Order, entropy []byte, user uint32
 	}
 	txHash, err := initiatorSwap.Initiate()
 	if err != nil {
-		store.PutError(order.SecretHash, err.Error(), InitiatorFailedToInitiate)
+		store.PutError(user, order.SecretHash, err.Error(), InitiatorFailedToInitiate)
 		return err
 	}
-	if err := store.PutStatus(order.SecretHash, InitiatorInitiated); err != nil {
+	if err := store.PutStatus(user, order.SecretHash, InitiatorInitiated); err != nil {
 		return err
 	}
 	logger.Info("initiator initiated swap", zap.String("tx hash", txHash))
@@ -159,7 +159,7 @@ func handleInitiatorInitiateOrder(order model.Order, entropy []byte, user uint32
 
 func handleInitiatorRedeemOrder(order model.Order, entropy []byte, user uint32, config model.Config, store Store, secret []byte, logger *zap.Logger) error {
 
-	if isValid, err := store.CheckStatus(order.SecretHash); !isValid {
+	if isValid, err := store.CheckStatus(user, order.SecretHash); !isValid {
 		// if the bot is a initiator and redeem failed and bob did not refund
 		if !strings.Contains(err, "Order not found in local storage") {
 			if err := handleInitiatorRefund(order, entropy, user, config, store, logger); err != nil {
@@ -170,7 +170,7 @@ func handleInitiatorRedeemOrder(order model.Order, entropy []byte, user uint32, 
 		return nil
 	}
 
-	status := store.Status(order.SecretHash)
+	status := store.Status(user, order.SecretHash)
 	if status == InitiatorRedeemed {
 		return nil
 	}
@@ -195,11 +195,11 @@ func handleInitiatorRedeemOrder(order model.Order, entropy []byte, user uint32, 
 	}
 	txHash, err := redeemerSwap.Redeem(secret)
 	if err != nil {
-		store.PutError(order.SecretHash, err.Error(), InitiatorFailedToRedeem)
+		store.PutError(user, order.SecretHash, err.Error(), InitiatorFailedToRedeem)
 		return err
 	}
 
-	if err := store.PutStatus(order.SecretHash, InitiatorRedeemed); err != nil {
+	if err := store.PutStatus(user, order.SecretHash, InitiatorRedeemed); err != nil {
 		return err
 	}
 	logger.Info("initiator redeemed swap", zap.String("tx hash", txHash))
@@ -207,12 +207,12 @@ func handleInitiatorRedeemOrder(order model.Order, entropy []byte, user uint32, 
 }
 
 func handleFollowerInitiateOrder(order model.Order, entropy []byte, user uint32, config model.Config, store Store, logger *zap.Logger) error {
-	if isValid, err := store.CheckStatus(order.SecretHash); !isValid {
+	if isValid, err := store.CheckStatus(user, order.SecretHash); !isValid {
 		logger.Info("skipping follower initiate as it failed earlier", zap.Uint("order id", order.ID), zap.Error(errors.New(err)))
 		return nil
 	}
 
-	status := store.Status(order.SecretHash)
+	status := store.Status(user, order.SecretHash)
 	if status == FollowerInitiated {
 		return nil
 	}
@@ -237,10 +237,10 @@ func handleFollowerInitiateOrder(order model.Order, entropy []byte, user uint32,
 	}
 	txHash, err := initiatorSwap.Initiate()
 	if err != nil {
-		store.PutError(order.SecretHash, err.Error(), FollowerFailedToInitiate)
+		store.PutError(user, order.SecretHash, err.Error(), FollowerFailedToInitiate)
 		return err
 	}
-	if err := store.PutStatus(order.SecretHash, FollowerInitiated); err != nil {
+	if err := store.PutStatus(user, order.SecretHash, FollowerInitiated); err != nil {
 		return err
 	}
 	logger.Info("follower initiated swap", zap.String("tx hash", txHash))
@@ -248,12 +248,12 @@ func handleFollowerInitiateOrder(order model.Order, entropy []byte, user uint32,
 }
 
 func handleFollowerRedeemOrder(order model.Order, entropy []byte, user uint32, config model.Config, store Store, logger *zap.Logger) error {
-	if isValid, err := store.CheckStatus(order.SecretHash); !isValid {
+	if isValid, err := store.CheckStatus(user, order.SecretHash); !isValid {
 		logger.Info("skipping follower redeem as it failed earlier", zap.Uint("order id", order.ID), zap.Error(errors.New(err)))
 		return nil
 	}
 
-	status := store.Status(order.SecretHash)
+	status := store.Status(user, order.SecretHash)
 	if status == FollowerRedeemed {
 		return nil
 	}
@@ -284,22 +284,22 @@ func handleFollowerRedeemOrder(order model.Order, entropy []byte, user uint32, c
 
 	txHash, err := redeemerSwap.Redeem(secret)
 	if err != nil {
-		store.PutError(order.SecretHash, err.Error(), FollowerFailedToRedeem)
+		store.PutError(user, order.SecretHash, err.Error(), FollowerFailedToRedeem)
 		return err
 	}
-	if err := store.PutStatus(order.SecretHash, FollowerRedeemed); err != nil {
+	if err := store.PutStatus(user, order.SecretHash, FollowerRedeemed); err != nil {
 		return err
 	}
 	logger.Info("follower redeemed swap", zap.String("tx hash", txHash))
 	return nil
 }
 func handleFollowerRefund(order model.Order, entropy []byte, user uint32, config model.Config, store Store, logger *zap.Logger) error {
-	status := store.Status(order.SecretHash)
+	status := store.Status(user, order.SecretHash)
 	if status == FollowerRefunded {
 		return nil
 	}
 
-	if isValid, err := store.CheckStatus(order.SecretHash); !isValid {
+	if isValid, err := store.CheckStatus(user, order.SecretHash); !isValid {
 		logger.Info("skipping follower refund as it failed earlier", zap.Uint("order id", order.ID), zap.Error(errors.New(err)))
 		return nil
 	}
@@ -328,10 +328,10 @@ func handleFollowerRefund(order model.Order, entropy []byte, user uint32, config
 	if isExpired {
 		txHash, err := initiatorSwap.Refund()
 		if err != nil {
-			store.PutError(order.SecretHash, err.Error(), FollowerFailedToRedeem)
+			store.PutError(user, order.SecretHash, err.Error(), FollowerFailedToRedeem)
 			return err
 		}
-		if err := store.PutStatus(order.SecretHash, FollowerRefunded); err != nil {
+		if err := store.PutStatus(user, order.SecretHash, FollowerRefunded); err != nil {
 			return err
 		}
 		logger.Info("follower refunded swap", zap.String("tx hash", txHash))
@@ -341,12 +341,12 @@ func handleFollowerRefund(order model.Order, entropy []byte, user uint32, config
 }
 func handleInitiatorRefund(order model.Order, entropy []byte, user uint32, config model.Config, store Store, logger *zap.Logger) error {
 
-	status := store.Status(order.SecretHash)
+	status := store.Status(user, order.SecretHash)
 	if status == InitiatorRefunded {
 		return nil
 	}
 
-	if isValid, err := store.CheckStatus(order.SecretHash); !isValid {
+	if isValid, err := store.CheckStatus(user, order.SecretHash); !isValid {
 		logger.Info("skipping initiator refund as it failed earlier", zap.Uint("order id", order.ID), zap.Error(errors.New(err)))
 		return nil
 	}
@@ -376,10 +376,10 @@ func handleInitiatorRefund(order model.Order, entropy []byte, user uint32, confi
 	if isExpired {
 		txHash, err := initiatorSwap.Refund()
 		if err != nil {
-			store.PutError(order.SecretHash, err.Error(), FollowerFailedToRedeem)
+			store.PutError(user, order.SecretHash, err.Error(), FollowerFailedToRedeem)
 			return err
 		}
-		if err := store.PutStatus(order.SecretHash, InitiatorRefunded); err != nil {
+		if err := store.PutStatus(user, order.SecretHash, InitiatorRefunded); err != nil {
 			return err
 		}
 		logger.Info("initiator refunded swap", zap.String("tx hash", txHash))

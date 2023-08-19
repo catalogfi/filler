@@ -87,7 +87,7 @@ func Create(entropy []byte, store Store) *cobra.Command {
 				return
 			}
 
-			if err = store.PutSecret(secretHash, hex.EncodeToString(secret[:]), uint64(id)); err != nil {
+			if err = store.PutSecret(account, secretHash, hex.EncodeToString(secret[:]), uint64(id)); err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while creating secret store: %v", err))
 				return
 			}

@@ -9,6 +9,7 @@ import (
 
 func Retry(entropy []byte, store Store) *cobra.Command {
 	var (
+		account uint32
 		orderId uint
 	)
 
@@ -16,7 +17,7 @@ func Retry(entropy []byte, store Store) *cobra.Command {
 		Use:   "retry",
 		Short: "Retry an order",
 		Run: func(c *cobra.Command, args []string) {
-			order, err := store.GetOrder(orderId)
+			order, err := store.GetOrder(account, orderId)
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while fetching order : %v", err))
 				return
@@ -26,12 +27,14 @@ func Retry(entropy []byte, store Store) *cobra.Command {
 			// in order to reset appropriate status we are subtracting 7 from current status
 			// statuses are in a sequence resulting in subtraction of 7 leading to its appropriate previous status
 			if order.Status >= FollowerRefunded {
-				store.PutStatus(order.SecretHash, order.Status-7)
+				store.PutStatus(account, order.SecretHash, order.Status-7)
 			}
 		},
 		DisableAutoGenTag: true,
 	}
 
+	cmd.Flags().Uint32Var(&account, "account", 0, "account")
+	cmd.MarkFlagRequired("account")
 	cmd.Flags().UintVar(&orderId, "order-id", 0, "order id")
 	cmd.MarkFlagRequired("order-id")
 	return cmd

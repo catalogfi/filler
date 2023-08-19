@@ -77,7 +77,7 @@ func Fill(entropy []byte, store Store) *cobra.Command {
 				cobra.CheckErr(fmt.Sprintf("Error while getting address string: %v", err))
 				return
 			}
-			if err = store.PutSecretHash(order.SecretHash, uint64(orderId)); err != nil {
+			if err = store.PutSecretHash(account, order.SecretHash, uint64(orderId)); err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while storing secret hash: %v", err))
 				return
 			}
