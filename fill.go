@@ -30,7 +30,7 @@ func Fill(keys utils.Keys, store store.Store) *cobra.Command {
 			if err != nil {
 				cobra.CheckErr(err)
 			}
-			client := rest.NewClient(url, hex.EncodeToString(crypto.FromECDSA(privKey)))
+			client := rest.NewClient(fmt.Sprintf("https://%s", url), hex.EncodeToString(crypto.FromECDSA(privKey)))
 			token, err := client.Login()
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while getting the signing key: %v", err))

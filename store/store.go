@@ -34,9 +34,9 @@ type Order struct {
 	UpdatedAt time.Time
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 
-	Account    uint32 `gorm:"primarykey"`
+	Account    uint32
 	OrderId    uint64
-	SecretHash string `gorm:"primarykey"`
+	SecretHash string
 	Secret     string
 	Status     Status
 	Error      string

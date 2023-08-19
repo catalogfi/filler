@@ -63,7 +63,7 @@ func Accounts(keys utils.Keys, config model.Config) *cobra.Command {
 					return
 				}
 
-				client := rest.NewClient(url, hex.EncodeToString(crypto.FromECDSA(ecdsaKey)))
+				client := rest.NewClient(fmt.Sprintf("https://%s", url), hex.EncodeToString(crypto.FromECDSA(ecdsaKey)))
 				token, err := client.Login()
 				if err != nil {
 					cobra.CheckErr(fmt.Sprintf("failed to get auth token: %v", err))

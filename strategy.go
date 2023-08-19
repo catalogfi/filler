@@ -57,7 +57,7 @@ func RunAutoCreateStrategy(url string, keys utils.Keys, config model.Config, sto
 			logger.Error("failed while getting address string", zap.Error(err))
 			return
 		}
-		toKey, err := keys.GetKey(fromChain, s.account, 0)
+		toKey, err := keys.GetKey(toChain, s.account, 0)
 		if err != nil {
 			logger.Error("failed while getting to key", zap.Error(err))
 			return
@@ -202,7 +202,7 @@ func RunAutoFillStrategy(url string, keys utils.Keys, config model.Config, store
 			}
 
 			if err = store.UserStore(s.account).PutSecretHash(order.SecretHash, uint64(order.ID)); err != nil {
-				logger.Error("failed storing secret hash: %v", zap.Error(err))
+				logger.Info("failed storing secret hash: %v", zap.Error(err))
 				continue
 			}
 			logger.Info("filled order ✅", zap.Uint("id", order.ID))

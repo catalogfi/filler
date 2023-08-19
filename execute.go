@@ -35,7 +35,7 @@ func Execute(keys utils.Keys, account uint32, url string, store store.UserStore,
 
 	for {
 		// connect to the websocket and subscribe on the signer's address
-		client, _, err := websocket.DefaultDialer.Dial(fmt.Sprintf("ws://%s/ws/orders", url), nil)
+		client, _, err := websocket.DefaultDialer.Dial(fmt.Sprintf("wss://%s/ws/orders", url), nil)
 		if err != nil {
 			childLogger.Error("failed to dial", zap.Error(err), zap.String("executor", signer.Hex()))
 			break

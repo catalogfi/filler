@@ -241,7 +241,7 @@ func LoadClient(url string, keys Keys, str store.Store, account, selector uint32
 	if err != nil {
 		return common.Address{}, nil, fmt.Errorf("failed to load ecdsa key: %v", err)
 	}
-	client := rest.NewClient(fmt.Sprintf("http://%s", url), hex.EncodeToString(crypto.FromECDSA(privKey)))
+	client := rest.NewClient(fmt.Sprintf("https://%s", url), hex.EncodeToString(crypto.FromECDSA(privKey)))
 	signer := crypto.PubkeyToAddress(privKey.PublicKey)
 
 	jwt, err := str.UserStore(account).Token(selector)

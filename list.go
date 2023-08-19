@@ -2,6 +2,7 @@ package cobi
 
 import (
 	"encoding/hex"
+	"fmt"
 	"os"
 	"strings"
 
@@ -34,7 +35,7 @@ func List() *cobra.Command {
 				cobra.CheckErr(err)
 				return
 			}
-			orders, err := rest.NewClient(url, hex.EncodeToString(crypto.FromECDSA(privKey))).GetOrders(rest.GetOrdersFilter{
+			orders, err := rest.NewClient(fmt.Sprintf("https://%s", url), hex.EncodeToString(crypto.FromECDSA(privKey))).GetOrders(rest.GetOrdersFilter{
 				Maker:      maker,
 				OrderPair:  orderPair,
 				SecretHash: secretHash,
