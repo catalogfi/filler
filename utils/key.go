@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 
@@ -240,7 +241,7 @@ func LoadClient(url string, keys Keys, str store.Store, account, selector uint32
 	if err != nil {
 		return common.Address{}, nil, fmt.Errorf("failed to load ecdsa key: %v", err)
 	}
-	client := rest.NewClient(fmt.Sprintf("http://%s", url), privKey.D.Text(16))
+	client := rest.NewClient(fmt.Sprintf("http://%s", url), hex.EncodeToString(crypto.FromECDSA(privKey)))
 	signer := crypto.PubkeyToAddress(privKey.PublicKey)
 
 	jwt, err := str.UserStore(account).Token(selector)
@@ -255,4 +256,8 @@ func LoadClient(url string, keys Keys, str store.Store, account, selector uint32
 		return common.Address{}, nil, fmt.Errorf("failed to set the jwt token: %v", err)
 	}
 	return signer, client, nil
+}
+
+func ToHex(key *ecdsa.PrivateKey) string {
+	return fmt.Sprintf("'%*s'", 10)
 }

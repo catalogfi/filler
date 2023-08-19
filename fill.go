@@ -1,12 +1,14 @@
 package cobi
 
 import (
+	"encoding/hex"
 	"fmt"
 
 	"github.com/catalogfi/cobi/store"
 	"github.com/catalogfi/cobi/utils"
 	"github.com/catalogfi/wbtc-garden/model"
 	"github.com/catalogfi/wbtc-garden/rest"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/cobra"
 )
 
@@ -28,7 +30,7 @@ func Fill(keys utils.Keys, store store.Store) *cobra.Command {
 			if err != nil {
 				cobra.CheckErr(err)
 			}
-			client := rest.NewClient(url, privKey.D.Text(16))
+			client := rest.NewClient(url, hex.EncodeToString(crypto.FromECDSA(privKey)))
 			token, err := client.Login()
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while getting the signing key: %v", err))

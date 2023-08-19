@@ -1,12 +1,14 @@
 package cobi
 
 import (
+	"encoding/hex"
 	"fmt"
 	"os"
 
 	"github.com/catalogfi/cobi/utils"
 	"github.com/catalogfi/wbtc-garden/model"
 	"github.com/catalogfi/wbtc-garden/rest"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/jedib0t/go-pretty/table"
 	"github.com/spf13/cobra"
 )
@@ -61,7 +63,7 @@ func Accounts(keys utils.Keys, config model.Config) *cobra.Command {
 					return
 				}
 
-				client := rest.NewClient(url, ecdsaKey.D.Text(16))
+				client := rest.NewClient(url, hex.EncodeToString(crypto.FromECDSA(ecdsaKey)))
 				token, err := client.Login()
 				if err != nil {
 					cobra.CheckErr(fmt.Sprintf("failed to get auth token: %v", err))

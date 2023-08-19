@@ -1,6 +1,7 @@
 package cobi
 
 import (
+	"encoding/hex"
 	"os"
 	"strings"
 
@@ -33,7 +34,7 @@ func List() *cobra.Command {
 				cobra.CheckErr(err)
 				return
 			}
-			orders, err := rest.NewClient(url, privKey.D.Text(16)).GetOrders(rest.GetOrdersFilter{
+			orders, err := rest.NewClient(url, hex.EncodeToString(crypto.FromECDSA(privKey))).GetOrders(rest.GetOrdersFilter{
 				Maker:      maker,
 				OrderPair:  orderPair,
 				SecretHash: secretHash,
