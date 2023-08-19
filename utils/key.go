@@ -143,7 +143,7 @@ func getParams(chain model.Chain) *chaincfg.Params {
 }
 
 func Balance(chain model.Chain, address string, config model.Config, asset model.Asset) (*big.Int, error) {
-	client, err := blockchain.LoadClient(chain, config.RPC)
+	client, err := blockchain.LoadClient(chain, config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load client: %v", err)
 	}

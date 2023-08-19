@@ -70,7 +70,7 @@ func Run(version string) error {
 	cmd.AddCommand(Retry(store))
 	cmd.AddCommand(Accounts(keys, config))
 	cmd.AddCommand(List())
-	cmd.AddCommand(Network(&config, logger))
+	cmd.AddCommand(Network(config, logger))
 	cmd.AddCommand(Update())
 
 	if err := cmd.Execute(); err != nil {

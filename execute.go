@@ -144,7 +144,7 @@ func execute(order model.Order, logger *zap.Logger, signer common.Address, keys 
 
 func handleRedeem(atomicSwap model.AtomicSwap, secret, secretHash string, keyInterface interface{}, config model.Config, userStore store.UserStore, logger *zap.Logger, isInitiator bool) {
 	logger.Info("redeeming an order")
-	redeemerSwap, err := blockchain.LoadRedeemerSwap(atomicSwap, keyInterface, secretHash, config.RPC, uint64(0))
+	redeemerSwap, err := blockchain.LoadRedeemerSwap(atomicSwap, keyInterface, secretHash, config, uint64(0))
 	if err != nil {
 		logger.Error("failed to load redeemer swap", zap.Error(err))
 		return
@@ -182,7 +182,7 @@ func handleRedeem(atomicSwap model.AtomicSwap, secret, secretHash string, keyInt
 
 func handleInitiate(atomicSwap model.AtomicSwap, secretHash string, keyInterface interface{}, config model.Config, userStore store.UserStore, logger *zap.Logger, isInitiator bool) {
 	logger.Info("initiating an order")
-	initiatorSwap, err := blockchain.LoadInitiatorSwap(atomicSwap, keyInterface, secretHash, config.RPC, uint64(0))
+	initiatorSwap, err := blockchain.LoadInitiatorSwap(atomicSwap, keyInterface, secretHash, config, uint64(0))
 	if err != nil {
 		logger.Error("failed to load initiator swap", zap.Error(err))
 		return
@@ -214,7 +214,7 @@ func handleInitiate(atomicSwap model.AtomicSwap, secretHash string, keyInterface
 }
 
 func handleRefund(swap model.AtomicSwap, secretHash string, keyInterface interface{}, config model.Config, userStore store.UserStore, logger *zap.Logger, isInitiator bool) {
-	initiatorSwap, err := blockchain.LoadInitiatorSwap(swap, keyInterface, secretHash, config.RPC, uint64(0))
+	initiatorSwap, err := blockchain.LoadInitiatorSwap(swap, keyInterface, secretHash, config, uint64(0))
 	if err != nil {
 		logger.Error("failed to load initiator swap", zap.Error(err))
 		return

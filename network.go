@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func Network(config *model.Config, logger *zap.Logger) *cobra.Command {
+func Network(config model.Config, logger *zap.Logger) *cobra.Command {
 	var cmd = &cobra.Command{
 		Use:   "network",
 		Short: "Configure supported chains and RPC URLs on COBI",
@@ -29,7 +29,7 @@ func Network(config *model.Config, logger *zap.Logger) *cobra.Command {
 	return cmd
 }
 
-func networkRemove(config *model.Config, logger *zap.Logger) *cobra.Command {
+func networkRemove(config model.Config, logger *zap.Logger) *cobra.Command {
 	var (
 		chain string
 	)
@@ -41,7 +41,7 @@ func networkRemove(config *model.Config, logger *zap.Logger) *cobra.Command {
 			if err != nil {
 				cobra.CheckErr(fmt.Errorf("failed to parse network (%s): %v", chain, err))
 			}
-			delete(config.RPC, chain)
+			delete(config, chain)
 			if err := writeConfig(config); err != nil {
 				cobra.CheckErr(fmt.Errorf("failed to write config to file: %v", err))
 			}
@@ -53,18 +53,19 @@ func networkRemove(config *model.Config, logger *zap.Logger) *cobra.Command {
 	return cmd
 }
 
-func networkList(config *model.Config) *cobra.Command {
+func networkList(config model.Config) *cobra.Command {
 	var cmd = &cobra.Command{
 		Use:   "list",
 		Short: "List all supported chains",
 		Run: func(c *cobra.Command, args []string) {
 			t := table.NewWriter()
 			t.SetOutputMirror(os.Stdout)
-			t.AppendHeader(table.Row{"Chain", "RPC URL"})
-			rows := make([]table.Row, len(config.RPC))
+			t.AppendHeader(table.Row{"Chain", "RPC", "Assets", "Expiry"})
+
+			rows := make([]table.Row, len(config))
 			i := 0
-			for chain, rpc := range config.RPC {
-				rows[i] = table.Row{chain, rpc}
+			for chain, netConfig := range config {
+				rows[i] = table.Row{chain, netConfig.RPC, netConfig.Assets, netConfig.Expiry}
 				i++
 			}
 			t.AppendRows(rows)
@@ -74,7 +75,7 @@ func networkList(config *model.Config) *cobra.Command {
 	return cmd
 }
 
-func networkAdd(config *model.Config, logger *zap.Logger) *cobra.Command {
+func networkAdd(config model.Config, logger *zap.Logger) *cobra.Command {
 	var (
 		chain string
 		rpc   string
@@ -87,11 +88,12 @@ func networkAdd(config *model.Config, logger *zap.Logger) *cobra.Command {
 			if err != nil {
 				cobra.CheckErr(fmt.Errorf("failed to parse network (%s): %v", chain, err))
 			}
-			oldRPC, ok := config.RPC[chain]
+			oldConfig, ok := config[chain]
 			if ok {
-				cobra.CheckErr(fmt.Errorf("network already exists (%s): %v", chain, oldRPC))
+				cobra.CheckErr(fmt.Errorf("network already exists (%s): %v", chain, oldConfig.RPC))
 			}
-			config.RPC[chain] = rpc
+			oldConfig.RPC = rpc
+			config[chain] = oldConfig
 			if err := writeConfig(config); err != nil {
 				cobra.CheckErr(fmt.Errorf("failed to write config to file: %v", err))
 			}
@@ -105,7 +107,7 @@ func networkAdd(config *model.Config, logger *zap.Logger) *cobra.Command {
 	return cmd
 }
 
-func networkUpdate(config *model.Config, logger *zap.Logger) *cobra.Command {
+func networkUpdate(config model.Config, logger *zap.Logger) *cobra.Command {
 	var (
 		chain string
 		rpc   string
@@ -118,11 +120,13 @@ func networkUpdate(config *model.Config, logger *zap.Logger) *cobra.Command {
 			if err != nil {
 				cobra.CheckErr(fmt.Errorf("failed to parse network (%s): %v", chain, err))
 			}
-			oldRPC, ok := config.RPC[chain]
+			oldConfig, ok := config[chain]
 			if !ok {
 				cobra.CheckErr(fmt.Errorf("network entry does not exist"))
 			}
-			config.RPC[chain] = rpc
+			oldRPC := oldConfig.RPC
+			oldConfig.RPC = rpc
+			config[chain] = oldConfig
 			if err := writeConfig(config); err != nil {
 				cobra.CheckErr(fmt.Errorf("failed to write config to file: %v", err))
 			}
@@ -136,7 +140,7 @@ func networkUpdate(config *model.Config, logger *zap.Logger) *cobra.Command {
 	return cmd
 }
 
-func writeConfig(config *model.Config) error {
+func writeConfig(config model.Config) error {
 	val, err := json.Marshal(config)
 	if err != nil {
 		return fmt.Errorf("unable to marshal config %s", err)

@@ -83,12 +83,10 @@ func NewMnemonic(path string) ([]byte, error) {
 }
 
 func LoadConfigFromFile(file string) model.Config {
-	var config model.Config
+	config := model.Config{}
 	configFile, err := os.ReadFile(file)
 	if err != nil {
-		return model.Config{
-			RPC: map[model.Chain]string{},
-		}
+		return config
 	}
 	json.Unmarshal(configFile, &config)
 	return config
