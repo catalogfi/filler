@@ -32,6 +32,7 @@ func Create(entropy []byte, store Store) *cobra.Command {
 			hash := sha256.Sum256(secret[:])
 			secretHash := hex.EncodeToString(hash[:])
 
+			userStore := store.UserStore(account)
 			// Load keys
 			keys := NewKeys()
 			key, err := keys.GetKey(entropy, model.Ethereum, account, 0)
@@ -87,7 +88,7 @@ func Create(entropy []byte, store Store) *cobra.Command {
 				return
 			}
 
-			if err = store.PutSecret(secretHash, hex.EncodeToString(secret[:]), uint64(id)); err != nil {
+			if err = userStore.PutSecret(secretHash, hex.EncodeToString(secret[:]), uint64(id)); err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while creating secret store: %v", err))
 				return
 			}

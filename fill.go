@@ -38,6 +38,7 @@ func Fill(entropy []byte, store Store) *cobra.Command {
 				cobra.CheckErr(fmt.Sprintf("Error to parse signing key: %v", err))
 				return
 			}
+			userStore := store.UserStore(account)
 
 			order, err := client.GetOrder(orderId)
 			if err != nil {
@@ -77,7 +78,7 @@ func Fill(entropy []byte, store Store) *cobra.Command {
 				cobra.CheckErr(fmt.Sprintf("Error while getting address string: %v", err))
 				return
 			}
-			if err = store.PutSecretHash(order.SecretHash, uint64(orderId)); err != nil {
+			if err = userStore.PutSecretHash(order.SecretHash, uint64(orderId)); err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while storing secret hash: %v", err))
 				return
 			}

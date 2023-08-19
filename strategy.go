@@ -6,15 +6,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"math"
 	"math/big"
-	"net/http"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/catalogfi/cobi/utils"
 	"github.com/catalogfi/wbtc-garden/model"
 	"github.com/catalogfi/wbtc-garden/rest"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -53,7 +51,7 @@ func Start(url string, entropy, strategy []byte, config model.Config, store Stor
 			wg.Add(1)
 			go func(account uint32, logger *zap.Logger) {
 				defer wg.Done()
-				RunExecute(entropy, account, url, store, config, logger)
+				RunExecute(utils.NewKeys(entropy), account, url, store.UserStore(account), config, logger)
 			}(strategy.Account(), logger.With(zap.Uint32("executor", strategy.Account())))
 			activeAccounts[strategy.Account()] = true
 		}
@@ -92,7 +90,7 @@ func RunAutoCreateStrategy(url string, entropy []byte, config model.Config, stor
 		cobra.CheckErr(err)
 	}
 
-	client := rest.NewClient(url, privKey.D.Text(16))
+	client := rest.NewClient(fmt.Sprintf("http://%s", url), privKey.D.Text(16))
 	maker := crypto.PubkeyToAddress(privKey.PublicKey)
 
 	token, err := client.Login()
@@ -140,7 +138,7 @@ func RunAutoCreateStrategy(url string, entropy []byte, config model.Config, stor
 
 		balance, err := getVirtualBalance(fromChain, fromAsset, s.orderPair, config, client, maker.Hex(), fromAddress, false)
 		if err != nil {
-			logger.Info("failed to get virtual balance", zap.Error(err))
+			logger.Info("failed to get virtual balance", zap.String("address", fromAddress), zap.Error(err))
 			continue
 		}
 
@@ -166,7 +164,7 @@ func RunAutoCreateStrategy(url string, entropy []byte, config model.Config, stor
 			return fmt.Errorf("failed while creating order: %v", err)
 		}
 
-		if err := store.PutSecret(hex.EncodeToString(secretHash[:]), hex.EncodeToString(secret[:]), uint64(id)); err != nil {
+		if err := store.UserStore(s.account).PutSecret(hex.EncodeToString(secretHash[:]), hex.EncodeToString(secret[:]), uint64(id)); err != nil {
 			return fmt.Errorf("failed to store secret: %v", err)
 		}
 
@@ -188,7 +186,7 @@ func RunAutoFillStrategy(url string, entropy []byte, config model.Config, store 
 		return fmt.Errorf("failed to get the ecdsa key: %v", err)
 	}
 	taker := crypto.PubkeyToAddress(privKey.PublicKey)
-	client := rest.NewClient(url, privKey.D.Text(16))
+	client := rest.NewClient(fmt.Sprintf("http://%s", url), privKey.D.Text(16))
 
 	for {
 		price, err := s.PriceStrategy().Price()
@@ -197,12 +195,13 @@ func RunAutoFillStrategy(url string, entropy []byte, config model.Config, store 
 			continue
 		}
 
-		orders, err := GetOrders(url, rest.GetOrdersFilter{
+		orders, err := client.GetOrders(rest.GetOrdersFilter{
 			Maker:     strings.Join(s.Makers, ","),
 			OrderPair: s.OrderPair(),
 			MinPrice:  price,
 			MaxPrice:  math.MaxFloat64,
 			Status:    int(model.OrderCreated),
+			Verbose:   true,
 		})
 		if err != nil {
 			logger.Info("failed parsing order pair", zap.Error(err), zap.Any("filter", rest.GetOrdersFilter{
@@ -216,7 +215,7 @@ func RunAutoFillStrategy(url string, entropy []byte, config model.Config, store 
 		}
 
 		for _, order := range orders {
-			fromChain, toChain, _, toAsset, err := model.ParseOrderPair(order.OrderPair)
+			toChain, fromChain, _, toAsset, err := model.ParseOrderPair(order.OrderPair)
 			if err != nil {
 				return fmt.Errorf("failed parsing order pair: %v", err)
 			}
@@ -230,7 +229,7 @@ func RunAutoFillStrategy(url string, entropy []byte, config model.Config, store 
 			if err != nil {
 				return fmt.Errorf("failed getting address string: %v", err)
 			}
-			toKey, err := keys.GetKey(entropy, fromChain, s.account, 0)
+			toKey, err := keys.GetKey(entropy, toChain, s.account, 0)
 			if err != nil {
 				return fmt.Errorf("failed getting to key: %v", err)
 			}
@@ -239,9 +238,14 @@ func RunAutoFillStrategy(url string, entropy []byte, config model.Config, store 
 				return fmt.Errorf("failed getting address string: %v", err)
 			}
 
-			balance, err := getVirtualBalance(toChain, toAsset, s.OrderPair(), config, client, taker.Hex(), fromAddress, true)
+			balance, err := getVirtualBalance(toChain, toAsset, s.OrderPair(), config, client, taker.Hex(), toAddress, true)
 			if err != nil {
-				logger.Info("failed to get virtual balance", zap.Error(err))
+				logger.Info("failed to get virtual balance", zap.String("address", toAddress), zap.Error(err))
+				continue
+			}
+
+			if order.FollowerAtomicSwap == nil {
+				logger.Error("malformed order", zap.Any("order", order))
 				continue
 			}
 
@@ -261,7 +265,7 @@ func RunAutoFillStrategy(url string, entropy []byte, config model.Config, store 
 				continue
 			}
 
-			if err = store.PutSecretHash(order.SecretHash, uint64(order.ID)); err != nil {
+			if err = store.UserStore(s.account).PutSecretHash(order.SecretHash, uint64(order.ID)); err != nil {
 				logger.Info("failed storing secret hash: %v", zap.Error(err))
 				continue
 			}
@@ -452,7 +456,7 @@ type Likewise struct {
 
 // FEE is in BIPS, 1 BIP = 0.01% and 10000 BIPS = 100%
 func (lw Likewise) CalculatereceiveAmount(val *big.Int) (*big.Int, error) {
-	return big.NewInt(val.Int64() * int64(lw.Fee) / 10000), nil
+	return big.NewInt(val.Int64() * int64(10000-lw.Fee) / 10000), nil
 }
 
 func (lw Likewise) Price() (float64, error) {
@@ -499,96 +503,4 @@ func getVirtualBalance(chain model.Chain, asset model.Asset, op string, config m
 	}
 
 	return new(big.Int).Sub(balance, commitedAmount), nil
-}
-
-func GetOrders(url string, filter rest.GetOrdersFilter) ([]model.Order, error) {
-	filterString := ""
-	if filter.Maker != "" {
-		filterString = appendFilterString(filterString, "maker", filter.Maker)
-	}
-
-	if filter.Taker != "" {
-		filterString = appendFilterString(filterString, "taker", filter.Taker)
-	}
-
-	if filter.OrderPair != "" {
-		filterString = appendFilterString(filterString, "order_pair", filter.OrderPair)
-	}
-
-	if filter.SecretHash != "" {
-		filterString = appendFilterString(filterString, "secret_hash", filter.SecretHash)
-	}
-
-	if filter.OrderBy != "" {
-		filterString = appendFilterString(filterString, "sort", filter.OrderBy)
-	}
-
-	if filter.Verbose {
-		filterString = appendFilterString(filterString, "verbose", "true")
-	}
-
-	if filter.Status != 0 {
-		filterString = appendFilterString(filterString, "status", strconv.Itoa(filter.Status))
-	}
-
-	if filter.MinPrice != 0 {
-		filterString = appendFilterString(filterString, "min_price", strconv.FormatFloat(filter.MinPrice, 'f', -1, 64))
-	}
-
-	if filter.MaxPrice != 0 {
-		filterString = appendFilterString(filterString, "max_price", strconv.FormatFloat(filter.MaxPrice, 'f', -1, 64))
-	}
-
-	if filter.Page != 0 {
-		filterString = appendFilterString(filterString, "page", strconv.Itoa(filter.Page))
-	}
-
-	if filter.PerPage != 0 {
-		filterString = appendFilterString(filterString, "per_page", strconv.Itoa(filter.PerPage))
-	}
-
-	if filter.MinAmount != 0 {
-		filterString = appendFilterString(filterString, "min_amount", strconv.FormatFloat(filter.MinAmount, 'f', -1, 64))
-	}
-	if filter.MaxAmount != 0 {
-		filterString = appendFilterString(filterString, "max_amount", strconv.FormatFloat(filter.MaxAmount, 'f', -1, 64))
-	}
-
-	resp, err := http.Get(fmt.Sprintf("%s/orders%s", url, filterString))
-	if err != nil {
-		return nil, fmt.Errorf("failed to get orders: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		var errorResponse map[string]string
-		data, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read error response: %v", err)
-		}
-		if err := json.Unmarshal(data, &errorResponse); err != nil {
-			return nil, fmt.Errorf("failed to decode error response (%s): %v", data, err)
-		}
-
-		// if err := json.NewDecoder(resp.Body).Decode(&errorResponse); err != nil {
-		// 	return nil, fmt.Errorf("failed to decode error response: %v", err)
-		// }
-		return nil, fmt.Errorf("failed to get orders: %v", errorResponse["error"])
-	}
-
-	var orders []model.Order
-	if err := json.NewDecoder(resp.Body).Decode(&orders); err != nil {
-		return nil, fmt.Errorf("failed to decode orders: %v", err)
-	}
-	return orders, nil
-}
-
-func appendFilterString(filterString, filterName, filterValue string) string {
-	if filterString == "" {
-		filterString += "?"
-	} else {
-		filterString += "&"
-	}
-	filterString += fmt.Sprintf("%s=%s", filterName, filterValue)
-	return filterString
 }

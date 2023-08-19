@@ -1,4 +1,4 @@
-package cobi
+package utils
 
 import (
 	"context"
@@ -101,22 +101,24 @@ func LoadKey(seed []byte, chain model.Chain, user, selector uint32) (*Key, error
 }
 
 type Keys struct {
-	m map[[32]byte]*Key
+	entropy []byte
+	m       map[[32]byte]*Key
 }
 
-func NewKeys() Keys {
+func NewKeys(entropy []byte) Keys {
 	return Keys{
-		m: map[[32]byte]*Key{},
+		entropy: entropy,
+		m:       map[[32]byte]*Key{},
 	}
 }
 
-func (keys Keys) GetKey(seed []byte, chain model.Chain, user, selector uint32) (*Key, error) {
-	digest := append(seed, []byte(fmt.Sprintf("%v_%v_%v", chain, user, selector))...)
+func (keys Keys) GetKey(chain model.Chain, user, selector uint32) (*Key, error) {
+	digest := append(keys.entropy, []byte(fmt.Sprintf("%v_%v_%v", chain, user, selector))...)
 	mapKey := sha256.Sum256(digest)
 	value, ok := keys.m[mapKey]
 	if !ok {
 		var err error
-		value, err = LoadKey(seed, chain, user, selector)
+		value, err = LoadKey(keys.entropy, chain, user, selector)
 		if err != nil {
 			return nil, err
 		}

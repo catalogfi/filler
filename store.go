@@ -31,14 +31,19 @@ const (
 type Order struct {
 	gorm.Model
 
+	Account    uint32 `gorm:"primaryKey"`
 	OrderId    uint64
-	SecretHash string
+	SecretHash string `gorm:"primaryKey"`
 	Secret     string
 	Status     Status
 	Error      string
 }
 
 type Store interface {
+	UserStore(account uint32) UserStore
+}
+
+type UserStore interface {
 	PutSecret(secretHash, secret string, orderId uint64) error
 	PutSecretHash(secretHash string, orderId uint64) error
 	Secret(secretHash string) (string, error)
@@ -54,6 +59,12 @@ type store struct {
 	db *gorm.DB
 }
 
+type userStore struct {
+	mu      *sync.RWMutex
+	db      *gorm.DB
+	account uint32
+}
+
 func NewStore(dialector gorm.Dialector, opts ...gorm.Option) (Store, error) {
 	db, err := gorm.Open(dialector, opts...)
 	if err != nil {
@@ -65,11 +76,16 @@ func NewStore(dialector gorm.Dialector, opts ...gorm.Option) (Store, error) {
 	return &store{mu: new(sync.RWMutex), db: db}, nil
 }
 
-func (s *store) PutSecretHash(secretHash string, orderId uint64) error {
+func (s *store) UserStore(user uint32) UserStore {
+	return &userStore{mu: s.mu, db: s.db, account: user}
+}
+
+func (s *userStore) PutSecretHash(secretHash string, orderId uint64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	order := Order{
+		Account:    s.account,
 		SecretHash: secretHash,
 		OrderId:    orderId,
 		Status:     Filled,
@@ -79,12 +95,12 @@ func (s *store) PutSecretHash(secretHash string, orderId uint64) error {
 	}
 	return nil
 }
-func (s *store) CheckStatus(secretHash string) (bool, string) {
+func (s *userStore) CheckStatus(secretHash string) (bool, string) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	var order Order
-	if tx := s.db.Where("secret_hash = ?", secretHash).First(&order); tx.Error != nil {
+	if tx := s.db.Where("account = ? AND secret_hash = ?", s.account, secretHash).First(&order); tx.Error != nil {
 		return false, fmt.Sprintf("Order not found in local storage")
 	}
 	if order.Status >= FollowerFailedToInitiate {
@@ -94,11 +110,12 @@ func (s *store) CheckStatus(secretHash string) (bool, string) {
 	return true, ""
 
 }
-func (s *store) PutSecret(secretHash, secret string, orderId uint64) error {
+func (s *userStore) PutSecret(secretHash, secret string, orderId uint64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	order := Order{
+		Account:    s.account,
 		SecretHash: secretHash,
 		OrderId:    orderId,
 		Secret:     secret,
@@ -109,12 +126,12 @@ func (s *store) PutSecret(secretHash, secret string, orderId uint64) error {
 	}
 	return nil
 }
-func (s *store) PutError(secretHash, err string, status Status) error {
+func (s *userStore) PutError(secretHash, err string, status Status) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	var order Order
-	if tx := s.db.Where("secret_hash = ?", secretHash).First(&order); tx.Error != nil {
+	if tx := s.db.Where("account = ? AND secret_hash = ?", s.account, secretHash).First(&order); tx.Error != nil {
 		return tx.Error
 	}
 	order.Error = err
@@ -125,23 +142,23 @@ func (s *store) PutError(secretHash, err string, status Status) error {
 	return nil
 }
 
-func (s *store) Secret(secretHash string) (string, error) {
+func (s *userStore) Secret(secretHash string) (string, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	var order Order
-	if tx := s.db.Where("secret_hash = ?", secretHash).First(&order); tx.Error != nil {
+	if tx := s.db.Where("account = ? AND secret_hash = ?", s.account, secretHash).First(&order); tx.Error != nil {
 		return "", tx.Error
 	}
 	return order.Secret, nil
 }
 
-func (s *store) PutStatus(secretHash string, status Status) error {
+func (s *userStore) PutStatus(secretHash string, status Status) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	var order Order
-	if tx := s.db.Where("secret_hash = ?", secretHash).First(&order); tx.Error != nil {
+	if tx := s.db.Where("account = ? AND secret_hash = ?", s.account, secretHash).First(&order); tx.Error != nil {
 		return tx.Error
 	}
 	order.Status = status
@@ -151,23 +168,23 @@ func (s *store) PutStatus(secretHash string, status Status) error {
 	return nil
 }
 
-func (s *store) Status(secretHash string) Status {
+func (s *userStore) Status(secretHash string) Status {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	var order Order
-	if tx := s.db.Where("secret_hash = ?", secretHash).First(&order); tx.Error != nil {
+	if tx := s.db.Where("account = ? AND secret_hash = ?", s.account, secretHash).First(&order); tx.Error != nil {
 		return 0
 	}
 	return order.Status
 }
 
-func (s *store) GetOrder(id uint) (Order, error) {
+func (s *userStore) GetOrder(id uint) (Order, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	var order Order
-	if tx := s.db.Where("order_id = ?", id).First(&order); tx.Error != nil {
+	if tx := s.db.Where("account = ? AND order_id = ?", s.account, id).First(&order); tx.Error != nil {
 		return Order{}, tx.Error
 	}
 	return order, nil
