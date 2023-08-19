@@ -26,9 +26,7 @@ func Start(keys utils.Keys, store store.Store, config model.Config, logger *zap.
 			if err != nil {
 				cobra.CheckErr(err)
 			}
-			if err := start(url, keys, strategyData, config, store, logger); err != nil {
-				cobra.CheckErr(err)
-			}
+			start(url, keys, strategyData, config, store, logger)
 		},
 		DisableAutoGenTag: true,
 	}
@@ -39,13 +37,13 @@ func Start(keys utils.Keys, store store.Store, config model.Config, logger *zap.
 	return cmd
 }
 
-func start(url string, keys utils.Keys, strategy []byte, config model.Config, store store.Store, logger *zap.Logger) error {
+func start(url string, keys utils.Keys, strategy []byte, config model.Config, store store.Store, logger *zap.Logger) {
 	wg := new(sync.WaitGroup)
 	activeAccounts := map[uint32]bool{}
 	strategies, err := UnmarshalStrategy(strategy)
 	if err != nil {
 		logger.Error("failed to unmarshal strategy", zap.Error(err))
-		return err
+		return
 	}
 	for index, strategy := range strategies {
 		if !activeAccounts[strategy.Account()] {
@@ -63,16 +61,13 @@ func start(url string, keys utils.Keys, strategy []byte, config model.Config, st
 			defer wg.Done()
 			switch strategy := strategies[i].(type) {
 			case AutoFillStrategy:
-				err := RunAutoFillStrategy(url, keys, config, store, logger, strategy)
-				logger.Error("auto fill strategy ended with", zap.Error(err))
+				RunAutoFillStrategy(url, keys, config, store, logger.With(zap.String("orderPair", strategy.OrderPair()), zap.String("priceStrategy", fmt.Sprintf("%T", strategy.PriceStrategy()))), strategy)
 			case AutoCreateStrategy:
-				err := RunAutoCreateStrategy(url, keys, config, store, logger, strategy)
-				logger.Error("auto create strategy ended with", zap.Error(err))
+				RunAutoCreateStrategy(url, keys, config, store, logger.With(zap.String("orderPair", strategy.OrderPair()), zap.String("priceStrategy", fmt.Sprintf("%T", strategy.PriceStrategy()))), strategy)
 			default:
 				logger.Error("unexpected strategy")
 			}
 		}(index, childLogger)
 	}
 	wg.Wait()
-	return nil
 }
