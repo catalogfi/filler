@@ -20,6 +20,7 @@ func Accounts(keys utils.Keys, config model.Config) *cobra.Command {
 		asset   string
 		page    int
 		perPage int
+		useIw   bool
 	)
 	cmd := &cobra.Command{
 		Use:   "accounts",
@@ -36,7 +37,7 @@ func Accounts(keys utils.Keys, config model.Config) *cobra.Command {
 			t.AppendHeader(table.Row{"#", "Address", "Current Balance", "Usable Balance"})
 			rows := make([]table.Row, 0)
 			for i := perPage*page - perPage; i < perPage*page; i++ {
-				key, err := keys.GetKey(ch, user, uint32(i))
+				key, err := keys.GetKey(ch, uint32(i), 0)
 				if err != nil {
 					cobra.CheckErr(fmt.Sprintf("Error parsing key: %v", err))
 					return
@@ -46,7 +47,7 @@ func Accounts(keys utils.Keys, config model.Config) *cobra.Command {
 					cobra.CheckErr(fmt.Sprintf("Error parsing address: %v", err))
 					return
 				}
-				balance, err := utils.Balance(ch, addr, config, a)
+				balance, err := utils.Balance(ch, addr, config, a, useIw)
 				if err != nil {
 					cobra.CheckErr(fmt.Sprintf("Error fetching balance: %v", err))
 					return
@@ -78,7 +79,7 @@ func Accounts(keys utils.Keys, config model.Config) *cobra.Command {
 					cobra.CheckErr(fmt.Sprintf("failed to calculate evm address: %v", err))
 					return
 				}
-				usableBalance, err := utils.VirtualBalance(ch, addr, config, a, signer.Hex(), client)
+				usableBalance, err := utils.VirtualBalance(ch, addr, config, a, signer.Hex(), client, useIw)
 				if err != nil {
 					cobra.CheckErr(fmt.Sprintf("failed to get usable balance: %v", err))
 					return
@@ -91,12 +92,12 @@ func Accounts(keys utils.Keys, config model.Config) *cobra.Command {
 		},
 		DisableAutoGenTag: true,
 	}
+	cmd.Flags().BoolVarP(&useIw, "instant-wallet", "i", false, "user can specify to use catalog instant wallets")
 	cmd.Flags().StringVarP(&asset, "asset", "a", "", "user should provide the asset")
 	cmd.MarkFlagRequired("asset")
 	cmd.Flags().StringVar(&url, "url", "", "user should provide the orderbook url")
 	cmd.MarkFlagRequired("url")
-	cmd.Flags().Uint32Var(&user, "account", 0, "user can provide the user id")
-	cmd.Flags().IntVar(&perPage, "per-page", 10, "User can provide number of accounts to display per page")
-	cmd.Flags().IntVar(&page, "page", 1, "User can provide which page to display")
+	cmd.Flags().IntVar(&perPage, "per-page", 10, "user can provide number of accounts to display per page")
+	cmd.Flags().IntVar(&page, "page", 1, "user can provide which page to display")
 	return cmd
 }
