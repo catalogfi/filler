@@ -1,20 +1,17 @@
-package utils
+package cobi
 
 import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"math/big"
 
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/catalogfi/cobi/store"
 	"github.com/catalogfi/wbtc-garden/blockchain"
 	"github.com/catalogfi/wbtc-garden/model"
-	"github.com/catalogfi/wbtc-garden/rest"
 	"github.com/catalogfi/wbtc-garden/swapper/bitcoin"
 	"github.com/catalogfi/wbtc-garden/swapper/ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -104,24 +101,22 @@ func LoadKey(seed []byte, chain model.Chain, user, selector uint32) (*Key, error
 }
 
 type Keys struct {
-	entropy []byte
-	m       map[[32]byte]*Key
+	m map[[32]byte]*Key
 }
 
-func NewKeys(entropy []byte) Keys {
+func NewKeys() Keys {
 	return Keys{
-		entropy: entropy,
-		m:       map[[32]byte]*Key{},
+		m: map[[32]byte]*Key{},
 	}
 }
 
-func (keys Keys) GetKey(chain model.Chain, user, selector uint32) (*Key, error) {
-	digest := append(keys.entropy, []byte(fmt.Sprintf("%v_%v_%v", chain, user, selector))...)
+func (keys Keys) GetKey(seed []byte, chain model.Chain, user, selector uint32) (*Key, error) {
+	digest := append(seed, []byte(fmt.Sprintf("%v_%v_%v", chain, user, selector))...)
 	mapKey := sha256.Sum256(digest)
 	value, ok := keys.m[mapKey]
 	if !ok {
 		var err error
-		value, err = LoadKey(keys.entropy, chain, user, selector)
+		value, err = LoadKey(seed, chain, user, selector)
 		if err != nil {
 			return nil, err
 		}
@@ -143,7 +138,7 @@ func getParams(chain model.Chain) *chaincfg.Params {
 	}
 }
 
-func Balance(chain model.Chain, address string, config model.Network, asset model.Asset, isIw bool) (*big.Int, error) {
+func getBalance(chain model.Chain, address string, config model.Network, asset model.Asset, isIw bool) (*big.Int, error) {
 	client, err := blockchain.LoadClient(chain, config, isIw)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load client: %v", err)
@@ -183,81 +178,4 @@ func Balance(chain model.Chain, address string, config model.Network, asset mode
 	default:
 		return nil, fmt.Errorf("unsupported chain: %s", chain)
 	}
-}
-
-func VirtualBalance(chain model.Chain, address string, config model.Network, asset model.Asset, signer string, client rest.Client, isIw bool) (*big.Int, error) {
-	balance, err := Balance(chain, address, config, asset, isIw)
-	if err != nil {
-		return nil, err
-	}
-
-	commitedAmount := big.NewInt(0)
-
-	fillOrders, err := client.GetOrders(rest.GetOrdersFilter{
-		Taker:   signer,
-		Status:  int(model.Filled),
-		Verbose: true,
-	})
-	if err != nil {
-		return nil, err
-	}
-	for _, fillOrder := range fillOrders {
-		if fillOrder.FollowerAtomicSwap.Asset == asset {
-			orderAmt, ok := new(big.Int).SetString(fillOrder.FollowerAtomicSwap.Amount, 10)
-			if !ok {
-				return nil, err
-			}
-			commitedAmount.Add(commitedAmount, orderAmt)
-		}
-	}
-
-	createOrders, err := client.GetOrders(rest.GetOrdersFilter{
-		Maker:   signer,
-		Status:  int(model.Filled),
-		Verbose: true,
-	})
-	if err != nil {
-		return nil, err
-	}
-	for _, createOrder := range createOrders {
-		if createOrder.InitiatorAtomicSwap.Asset == asset {
-			orderAmt, ok := new(big.Int).SetString(createOrder.InitiatorAtomicSwap.Amount, 10)
-			if !ok {
-				return nil, err
-			}
-			commitedAmount.Add(commitedAmount, orderAmt)
-		}
-	}
-
-	return new(big.Int).Sub(balance, commitedAmount), nil
-}
-
-func LoadClient(url string, keys Keys, str store.Store, account, selector uint32) (common.Address, rest.Client, error) {
-	key, err := keys.GetKey(model.Ethereum, account, selector)
-	if err != nil {
-		return common.Address{}, nil, fmt.Errorf("failed to get the signing key: %v", err)
-	}
-	privKey, err := key.ECDSA()
-	if err != nil {
-		return common.Address{}, nil, fmt.Errorf("failed to load ecdsa key: %v", err)
-	}
-	client := rest.NewClient(fmt.Sprintf("https://%s", url), hex.EncodeToString(crypto.FromECDSA(privKey)))
-	signer := crypto.PubkeyToAddress(privKey.PublicKey)
-
-	jwt, err := str.UserStore(account).Token(selector)
-	if err != nil {
-		jwt, err = client.Login()
-		if err != nil {
-			return common.Address{}, nil, fmt.Errorf("failed to login to the orderbook: %v", err)
-		}
-		str.UserStore(account).PutToken(selector, jwt)
-	}
-	if err := client.SetJwt(jwt); err != nil {
-		return common.Address{}, nil, fmt.Errorf("failed to set the jwt token: %v", err)
-	}
-	return signer, client, nil
-}
-
-func ToHex(key *ecdsa.PrivateKey) string {
-	return fmt.Sprintf("'%*s'", 10)
 }

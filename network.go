@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func Network(config model.Config, logger *zap.Logger) *cobra.Command {
+func Network(config model.Network, logger *zap.Logger) *cobra.Command {
 	var cmd = &cobra.Command{
 		Use:   "network",
 		Short: "Configure supported chains and RPC URLs on COBI",
@@ -29,7 +29,7 @@ func Network(config model.Config, logger *zap.Logger) *cobra.Command {
 	return cmd
 }
 
-func networkRemove(config model.Config, logger *zap.Logger) *cobra.Command {
+func networkRemove(config model.Network, logger *zap.Logger) *cobra.Command {
 	var (
 		chain string
 	)
@@ -53,7 +53,7 @@ func networkRemove(config model.Config, logger *zap.Logger) *cobra.Command {
 	return cmd
 }
 
-func networkList(config model.Config) *cobra.Command {
+func networkList(config model.Network) *cobra.Command {
 	var cmd = &cobra.Command{
 		Use:   "list",
 		Short: "List all supported chains",
@@ -65,7 +65,7 @@ func networkList(config model.Config) *cobra.Command {
 			rows := make([]table.Row, len(config))
 			i := 0
 			for chain, netConfig := range config {
-				rows[i] = table.Row{chain, netConfig.RPC, netConfig.Assets, netConfig.Expiry}
+				rows[i] = table.Row{chain, netConfig.RPC, netConfig.Oracles, netConfig.Expiry}
 				i++
 			}
 			t.AppendRows(rows)
@@ -75,7 +75,7 @@ func networkList(config model.Config) *cobra.Command {
 	return cmd
 }
 
-func networkAdd(config model.Config, logger *zap.Logger) *cobra.Command {
+func networkAdd(config model.Network, logger *zap.Logger) *cobra.Command {
 	var (
 		chain string
 		rpc   string
@@ -107,7 +107,7 @@ func networkAdd(config model.Config, logger *zap.Logger) *cobra.Command {
 	return cmd
 }
 
-func networkUpdate(config model.Config, logger *zap.Logger) *cobra.Command {
+func networkUpdate(config model.Network, logger *zap.Logger) *cobra.Command {
 	var (
 		chain string
 		rpc   string
@@ -140,7 +140,7 @@ func networkUpdate(config model.Config, logger *zap.Logger) *cobra.Command {
 	return cmd
 }
 
-func writeConfig(config model.Config) error {
+func writeConfig(config model.Network) error {
 	val, err := json.Marshal(config)
 	if err != nil {
 		return fmt.Errorf("unable to marshal config %s", err)

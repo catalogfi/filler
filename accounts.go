@@ -13,7 +13,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func Accounts(keys utils.Keys, config model.Config) *cobra.Command {
+func Accounts(keys utils.Keys, config model.Network) *cobra.Command {
 	var (
 		url     string
 		user    uint32

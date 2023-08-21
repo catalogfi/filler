@@ -16,7 +16,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func RunAutoCreateStrategy(url string, keys utils.Keys, config model.Config, store store.Store, logger *zap.Logger, s AutoCreateStrategy, isIw bool) {
+func RunAutoCreateStrategy(url string, keys utils.Keys, config model.Network, store store.Store, logger *zap.Logger, s AutoCreateStrategy, isIw bool) {
 	defer logger.Info("exiting auto create strategy")
 
 	signer, client, err := utils.LoadClient(url, keys, store, s.account, 0)
@@ -108,7 +108,7 @@ func RunAutoCreateStrategy(url string, keys utils.Keys, config model.Config, sto
 	}
 }
 
-func RunAutoFillStrategy(url string, keys utils.Keys, config model.Config, store store.Store, logger *zap.Logger, s AutoFillStrategy, isIw bool) {
+func RunAutoFillStrategy(url string, keys utils.Keys, config model.Network, store store.Store, logger *zap.Logger, s AutoFillStrategy, isIw bool) {
 	defer logger.Info("exiting auto fill strategy")
 
 	// Load keys
@@ -130,7 +130,7 @@ func RunAutoFillStrategy(url string, keys utils.Keys, config model.Config, store
 			OrderPair: s.OrderPair(),
 			MinPrice:  price,
 			MaxPrice:  math.MaxFloat64,
-			Status:    int(model.OrderCreated),
+			Status:    int(model.Created),
 			Verbose:   true,
 		})
 		if err != nil {
@@ -139,7 +139,7 @@ func RunAutoFillStrategy(url string, keys utils.Keys, config model.Config, store
 				OrderPair: s.OrderPair(),
 				MinPrice:  price,
 				MaxPrice:  math.MaxFloat64,
-				Status:    int(model.OrderCreated),
+				Status:    int(model.Created),
 				Verbose:   true,
 			}))
 			continue

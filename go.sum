@@ -62,6 +62,8 @@ github.com/catalogfi/wbtc-garden v0.0.0-20230820125624-7980202a1c19 h1:OCwT0rF+b
 github.com/catalogfi/wbtc-garden v0.0.0-20230820125624-7980202a1c19/go.mod h1:nk3GjOmeN0258l/37Ag7V3+VOeAm91vV3wQxxQ+Qhlc=
 github.com/catalogfi/wbtc-garden v0.0.0-20230821015010-73607cf5bd22 h1:gGp/FznHC8nnYZr5gt75OgHCOXmQVe30VIM09fUXVvA=
 github.com/catalogfi/wbtc-garden v0.0.0-20230821015010-73607cf5bd22/go.mod h1:nk3GjOmeN0258l/37Ag7V3+VOeAm91vV3wQxxQ+Qhlc=
+github.com/catalogfi/wbtc-garden v0.0.0-20230821060741-3e910079752b h1:Tn9IPgt+5Vj+itjgbuQ8/zqfg2NB7rUVSIS6NVJmpmA=
+github.com/catalogfi/wbtc-garden v0.0.0-20230821060741-3e910079752b/go.mod h1:0r/GNtgfBzQwwoGva5+8+6MZ7efNPlZQg+8BKblhx3Q=
 github.com/cespare/cp v0.1.0 h1:SE+dxFebS7Iik5LK0tsi1k9ZCxEaFX4AjQmoyA+1dJk=
 github.com/cespare/cp v0.1.0/go.mod h1:SOGHArjBr4JWaSDEVpWpo/hNg6RoKrls6Oh40hiwW+s=
 github.com/cespare/xxhash/v2 v2.2.0 h1:DC2CZ1Ep5Y4k3ZQ899DldepgrayRUGE6BBZ/cd9Cj44=

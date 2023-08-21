@@ -45,7 +45,7 @@ func List() *cobra.Command {
 				Page:       page,
 				PerPage:    perPage,
 				Verbose:    true,
-				Status:     int(model.OrderCreated),
+				Status:     int(model.Created),
 			})
 			if err != nil {
 				cobra.CheckErr(err)

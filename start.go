@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func Start(keys utils.Keys, store store.Store, config model.Config, logger *zap.Logger) *cobra.Command {
+func Start(keys utils.Keys, store store.Store, config model.Network, logger *zap.Logger) *cobra.Command {
 	var (
 		url      string
 		strategy string
@@ -39,7 +39,7 @@ func Start(keys utils.Keys, store store.Store, config model.Config, logger *zap.
 	return cmd
 }
 
-func start(url string, keys utils.Keys, strategy []byte, config model.Config, store store.Store, logger *zap.Logger, isIw bool) {
+func start(url string, keys utils.Keys, strategy []byte, config model.Network, store store.Store, logger *zap.Logger, isIw bool) {
 	wg := new(sync.WaitGroup)
 	activeAccounts := map[uint32]bool{}
 	strategies, err := UnmarshalStrategy(strategy)

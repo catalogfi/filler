@@ -82,8 +82,8 @@ func NewMnemonic(path string) ([]byte, error) {
 	return entropy[:], nil
 }
 
-func LoadConfigFromFile(file string) model.Config {
-	config := model.Config{}
+func LoadConfigFromFile(file string) model.Network {
+	config := model.Network{}
 	configFile, err := os.ReadFile(file)
 	if err != nil {
 		return config

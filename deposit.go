@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func Deposit(entropy []byte, config model.Config) *cobra.Command {
+func Deposit(entropy []byte, config model.Network) *cobra.Command {
 	var (
 		asset   string
 		account uint32
