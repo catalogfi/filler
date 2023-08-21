@@ -143,8 +143,8 @@ func getParams(chain model.Chain) *chaincfg.Params {
 	}
 }
 
-func Balance(chain model.Chain, address string, config model.Config, asset model.Asset) (*big.Int, error) {
-	client, err := blockchain.LoadClient(chain, config)
+func Balance(chain model.Chain, address string, config model.Config, asset model.Asset, isIw bool) (*big.Int, error) {
+	client, err := blockchain.LoadClient(chain, config, isIw)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load client: %v", err)
 	}
@@ -185,8 +185,8 @@ func Balance(chain model.Chain, address string, config model.Config, asset model
 	}
 }
 
-func VirtualBalance(chain model.Chain, address string, config model.Config, asset model.Asset, signer string, client rest.Client) (*big.Int, error) {
-	balance, err := Balance(chain, address, config, asset)
+func VirtualBalance(chain model.Chain, address string, config model.Config, asset model.Asset, signer string, client rest.Client, isIw bool) (*big.Int, error) {
+	balance, err := Balance(chain, address, config, asset, isIw)
 	if err != nil {
 		return nil, err
 	}

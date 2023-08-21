@@ -72,6 +72,7 @@ func Run(version string) error {
 	cmd.AddCommand(List())
 	cmd.AddCommand(Network(config, logger))
 	cmd.AddCommand(Update())
+	cmd.AddCommand(Deposit(entropy, config))
 
 	if err := cmd.Execute(); err != nil {
 		return err

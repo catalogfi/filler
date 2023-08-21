@@ -16,6 +16,7 @@ func Start(keys utils.Keys, store store.Store, config model.Config, logger *zap.
 	var (
 		url      string
 		strategy string
+		useIw    bool
 	)
 
 	var cmd = &cobra.Command{
@@ -26,10 +27,11 @@ func Start(keys utils.Keys, store store.Store, config model.Config, logger *zap.
 			if err != nil {
 				cobra.CheckErr(err)
 			}
-			start(url, keys, strategyData, config, store, logger)
+			start(url, keys, strategyData, config, store, logger, useIw)
 		},
 		DisableAutoGenTag: true,
 	}
+	cmd.Flags().BoolVarP(&useIw, "instant-wallet", "i", false, "user can specify to use catalog instant wallets")
 	cmd.Flags().StringVar(&url, "url", "", "url of the orderbook")
 	cmd.MarkFlagRequired("url")
 	cmd.Flags().StringVar(&strategy, "strategy", "", "strategy")
@@ -37,7 +39,7 @@ func Start(keys utils.Keys, store store.Store, config model.Config, logger *zap.
 	return cmd
 }
 
-func start(url string, keys utils.Keys, strategy []byte, config model.Config, store store.Store, logger *zap.Logger) {
+func start(url string, keys utils.Keys, strategy []byte, config model.Config, store store.Store, logger *zap.Logger, isIw bool) {
 	wg := new(sync.WaitGroup)
 	activeAccounts := map[uint32]bool{}
 	strategies, err := UnmarshalStrategy(strategy)
@@ -50,7 +52,7 @@ func start(url string, keys utils.Keys, strategy []byte, config model.Config, st
 			wg.Add(1)
 			go func(account uint32, logger *zap.Logger) {
 				defer wg.Done()
-				Execute(keys, account, url, store.UserStore(account), config, logger)
+				Execute(keys, account, url, store.UserStore(account), config, logger, isIw)
 			}(strategy.Account(), logger.With(zap.Uint32("executor", strategy.Account())))
 			activeAccounts[strategy.Account()] = true
 		}
@@ -61,9 +63,9 @@ func start(url string, keys utils.Keys, strategy []byte, config model.Config, st
 			defer wg.Done()
 			switch strategy := strategies[i].(type) {
 			case AutoFillStrategy:
-				RunAutoFillStrategy(url, keys, config, store, logger.With(zap.String("orderPair", strategy.OrderPair()), zap.String("priceStrategy", fmt.Sprintf("%T", strategy.PriceStrategy()))), strategy)
+				RunAutoFillStrategy(url, keys, config, store, logger.With(zap.String("orderPair", strategy.OrderPair()), zap.String("priceStrategy", fmt.Sprintf("%T", strategy.PriceStrategy()))), strategy, isIw)
 			case AutoCreateStrategy:
-				RunAutoCreateStrategy(url, keys, config, store, logger.With(zap.String("orderPair", strategy.OrderPair()), zap.String("priceStrategy", fmt.Sprintf("%T", strategy.PriceStrategy()))), strategy)
+				RunAutoCreateStrategy(url, keys, config, store, logger.With(zap.String("orderPair", strategy.OrderPair()), zap.String("priceStrategy", fmt.Sprintf("%T", strategy.PriceStrategy()))), strategy, isIw)
 			default:
 				logger.Error("unexpected strategy")
 			}

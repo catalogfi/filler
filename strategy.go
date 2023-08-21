@@ -16,7 +16,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func RunAutoCreateStrategy(url string, keys utils.Keys, config model.Config, store store.Store, logger *zap.Logger, s AutoCreateStrategy) {
+func RunAutoCreateStrategy(url string, keys utils.Keys, config model.Config, store store.Store, logger *zap.Logger, s AutoCreateStrategy, isIw bool) {
 	defer logger.Info("exiting auto create strategy")
 
 	signer, client, err := utils.LoadClient(url, keys, store, s.account, 0)
@@ -68,7 +68,7 @@ func RunAutoCreateStrategy(url string, keys utils.Keys, config model.Config, sto
 			return
 		}
 
-		balance, err := utils.VirtualBalance(fromChain, fromAddress, config, fromAsset, signer.Hex(), client)
+		balance, err := utils.VirtualBalance(fromChain, fromAddress, config, fromAsset, signer.Hex(), client, isIw)
 		if err != nil {
 			logger.Error("failed to get virtual balance", zap.String("address", fromAddress), zap.Error(err))
 			return
@@ -108,7 +108,7 @@ func RunAutoCreateStrategy(url string, keys utils.Keys, config model.Config, sto
 	}
 }
 
-func RunAutoFillStrategy(url string, keys utils.Keys, config model.Config, store store.Store, logger *zap.Logger, s AutoFillStrategy) {
+func RunAutoFillStrategy(url string, keys utils.Keys, config model.Config, store store.Store, logger *zap.Logger, s AutoFillStrategy, isIw bool) {
 	defer logger.Info("exiting auto fill strategy")
 
 	// Load keys
@@ -174,7 +174,7 @@ func RunAutoFillStrategy(url string, keys utils.Keys, config model.Config, store
 				return
 			}
 
-			balance, err := utils.VirtualBalance(toChain, toAddress, config, toAsset, signer.Hex(), client)
+			balance, err := utils.VirtualBalance(toChain, toAddress, config, toAsset, signer.Hex(), client, isIw)
 			if err != nil {
 				logger.Error("failed to get virtual balance", zap.String("address", toAddress), zap.Error(err))
 				continue

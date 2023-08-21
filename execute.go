@@ -17,7 +17,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func Execute(keys utils.Keys, account uint32, url string, store store.UserStore, config model.Config, logger *zap.Logger) {
+func Execute(keys utils.Keys, account uint32, url string, store store.UserStore, config model.Config, logger *zap.Logger, isIw bool) {
 	childLogger := logger.With(zap.Uint32("account", account))
 
 	// get the signer key
@@ -63,14 +63,14 @@ func Execute(keys utils.Keys, account uint32, url string, store store.UserStore,
 			childLogger.Info("recieved orders from the order book", zap.Int("count", len(orders)))
 			for _, order := range orders {
 				grandChildLogger := childLogger.With(zap.Uint("order id", order.ID), zap.String("pair", order.OrderPair))
-				execute(order, grandChildLogger, signer, keys, account, config, store)
+				execute(order, grandChildLogger, signer, keys, account, config, store, isIw)
 			}
 			childLogger.Info("executed orders recieved from the order book", zap.Int("count", len(orders)))
 		}
 	}
 }
 
-func execute(order model.Order, logger *zap.Logger, signer common.Address, keys utils.Keys, account uint32, config model.Config, userStore store.UserStore) {
+func execute(order model.Order, logger *zap.Logger, signer common.Address, keys utils.Keys, account uint32, config model.Config, userStore store.UserStore, isIw bool) {
 	logger.Info("processing order with id", zap.Uint("status", uint(order.Status)))
 	if isValid, err := userStore.CheckStatus(order.SecretHash); !isValid {
 		if err != "" {
@@ -107,7 +107,7 @@ func execute(order model.Order, logger *zap.Logger, signer common.Address, keys 
 	if strings.EqualFold(order.Maker, signer.Hex()) {
 		if order.Status == model.OrderFilled {
 			if status != store.InitiatorInitiated {
-				handleInitiate(*order.InitiatorAtomicSwap, order.SecretHash, fromKeyInterface, config, userStore, logger.With(zap.String("handler", "initiator initiate")), true)
+				handleInitiate(*order.InitiatorAtomicSwap, order.SecretHash, fromKeyInterface, config, userStore, logger.With(zap.String("handler", "initiator initiate")), true, isIw)
 			}
 		} else if order.Status == model.FollowerAtomicSwapDetected {
 			logger.Info("detected follower atomic swap", zap.String("txHash", order.FollowerAtomicSwap.InitiateTxHash))
@@ -118,37 +118,37 @@ func execute(order model.Order, logger *zap.Logger, signer common.Address, keys 
 					logger.Error("failed to retrieve the secret from db", zap.Error(err))
 					return
 				}
-				handleRedeem(*order.FollowerAtomicSwap, secret, order.SecretHash, toKeyInterface, config, userStore, logger.With(zap.String("handler", "initiator redeem")), true)
+				handleRedeem(*order.FollowerAtomicSwap, secret, order.SecretHash, toKeyInterface, config, userStore, logger.With(zap.String("handler", "initiator redeem")), true, isIw)
 			}
 		} else if order.Status == model.InitiatorAtomicSwapExpired {
 			if status == store.InitiatorInitiated {
 				// assuming that the function would just return nil if the swap has not expired yet
-				handleRefund(*order.InitiatorAtomicSwap, order.SecretHash, fromKeyInterface, config, userStore, logger.With(zap.String("handler", "initiator refund")), true)
+				handleRefund(*order.InitiatorAtomicSwap, order.SecretHash, fromKeyInterface, config, userStore, logger.With(zap.String("handler", "initiator refund")), true, isIw)
 			}
 		}
 	} else if strings.EqualFold(order.Taker, signer.Hex()) {
 		if order.Status == model.InitiatorAtomicSwapInitiated {
 			if status != store.FollowerInitiated {
-				handleInitiate(*order.FollowerAtomicSwap, order.SecretHash, toKeyInterface, config, userStore, logger.With(zap.String("handler", "follower initiate")), false)
+				handleInitiate(*order.FollowerAtomicSwap, order.SecretHash, toKeyInterface, config, userStore, logger.With(zap.String("handler", "follower initiate")), false, isIw)
 			}
 		} else if order.Status == model.InitiatorAtomicSwapDetected {
 			logger.Info("detected initiator atomic swap", zap.String("txHash", order.InitiatorAtomicSwap.InitiateTxHash))
 		} else if order.Status == model.FollowerAtomicSwapRedeemed {
 			if status != store.FollowerRedeemed {
-				handleRedeem(*order.InitiatorAtomicSwap, order.Secret, order.SecretHash, fromKeyInterface, config, userStore, logger.With(zap.String("handler", "follower redeem")), false)
+				handleRedeem(*order.InitiatorAtomicSwap, order.Secret, order.SecretHash, fromKeyInterface, config, userStore, logger.With(zap.String("handler", "follower redeem")), false, isIw)
 			}
 		} else if order.Status == model.FollowerAtomicSwapExpired {
 			// assuming that the function would just return nil if the swap has not expired yet
 			if status == store.FollowerInitiated {
-				handleRefund(*order.FollowerAtomicSwap, order.SecretHash, toKeyInterface, config, userStore, logger.With(zap.String("handler", "follower refund")), false)
+				handleRefund(*order.FollowerAtomicSwap, order.SecretHash, toKeyInterface, config, userStore, logger.With(zap.String("handler", "follower refund")), false, isIw)
 			}
 		}
 	}
 }
 
-func handleRedeem(atomicSwap model.AtomicSwap, secret, secretHash string, keyInterface interface{}, config model.Config, userStore store.UserStore, logger *zap.Logger, isInitiator bool) {
+func handleRedeem(atomicSwap model.AtomicSwap, secret, secretHash string, keyInterface interface{}, config model.Config, userStore store.UserStore, logger *zap.Logger, isInitiator bool, isIw bool) {
 	logger.Info("redeeming an order")
-	redeemerSwap, err := blockchain.LoadRedeemerSwap(atomicSwap, keyInterface, secretHash, config, uint64(0))
+	redeemerSwap, err := blockchain.LoadRedeemerSwap(atomicSwap, keyInterface, secretHash, config, uint64(0), isIw)
 	if err != nil {
 		logger.Error("failed to load redeemer swap", zap.Error(err))
 		return
@@ -184,9 +184,9 @@ func handleRedeem(atomicSwap model.AtomicSwap, secret, secretHash string, keyInt
 	}
 }
 
-func handleInitiate(atomicSwap model.AtomicSwap, secretHash string, keyInterface interface{}, config model.Config, userStore store.UserStore, logger *zap.Logger, isInitiator bool) {
+func handleInitiate(atomicSwap model.AtomicSwap, secretHash string, keyInterface interface{}, config model.Config, userStore store.UserStore, logger *zap.Logger, isInitiator bool, isIw bool) {
 	logger.Info("initiating an order")
-	initiatorSwap, err := blockchain.LoadInitiatorSwap(atomicSwap, keyInterface, secretHash, config, uint64(0))
+	initiatorSwap, err := blockchain.LoadInitiatorSwap(atomicSwap, keyInterface, secretHash, config, uint64(0), isIw)
 	if err != nil {
 		logger.Error("failed to load initiator swap", zap.Error(err))
 		return
@@ -217,8 +217,8 @@ func handleInitiate(atomicSwap model.AtomicSwap, secretHash string, keyInterface
 	}
 }
 
-func handleRefund(swap model.AtomicSwap, secretHash string, keyInterface interface{}, config model.Config, userStore store.UserStore, logger *zap.Logger, isInitiator bool) {
-	initiatorSwap, err := blockchain.LoadInitiatorSwap(swap, keyInterface, secretHash, config, uint64(0))
+func handleRefund(swap model.AtomicSwap, secretHash string, keyInterface interface{}, config model.Config, userStore store.UserStore, logger *zap.Logger, isInitiator bool, isIw bool) {
+	initiatorSwap, err := blockchain.LoadInitiatorSwap(swap, keyInterface, secretHash, config, uint64(0), isIw)
 	if err != nil {
 		logger.Error("failed to load initiator swap", zap.Error(err))
 		return
