@@ -2,7 +2,6 @@ package cobi
 
 import (
 	"fmt"
-	"os"
 	"sync"
 
 	"github.com/catalogfi/cobi/store"
@@ -12,38 +11,15 @@ import (
 	"go.uber.org/zap"
 )
 
-func Start(keys utils.Keys, store store.Store, config model.Config, logger *zap.Logger) *cobra.Command {
-	var (
-		url      string
-		strategy string
-	)
-
+func Start(url string, strategy []byte, keys utils.Keys, store store.Store, config model.Config, logger *zap.Logger) *cobra.Command {
 	var cmd = &cobra.Command{
 		Use:   "start",
 		Short: "Start the atomic swap executor",
 		Run: func(c *cobra.Command, args []string) {
-			//try loading strategy json object from env
-			var strategyData []byte
-			var err error
-			envStratedy := os.Getenv("STRATEGY")
-			if envStratedy != "" {
-				strategyData = []byte(envStratedy)
-			}else {
-				if strategy == "" {
-					cobra.CheckErr(fmt.Errorf("strategy is required"))
-				}
-				strategyData, err = os.ReadFile(strategy)
-				if err != nil {
-					cobra.CheckErr(err)
-				}
-			}
-			start(url, keys, strategyData, config, store, logger)
+			start(url, keys, strategy, config, store, logger)
 		},
 		DisableAutoGenTag: true,
 	}
-	cmd.Flags().StringVar(&url, "url", "", "url of the orderbook")
-	cmd.MarkFlagRequired("url")
-	cmd.Flags().StringVar(&strategy, "strategy", "", "strategy")
 	return cmd
 }
 

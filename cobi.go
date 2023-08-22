@@ -26,6 +26,7 @@ func Run(version string) error {
 		DisableAutoGenTag: true,
 	}
 	cmd.Flags().StringVar(&orderbook, "orderbook", "production", "url of the orderbook")
+	cmd.MarkFlagRequired("orderbook")
 	if orderbook == "production" {
 		orderbook = ""
 	} else if orderbook == "staging" {
@@ -64,12 +65,12 @@ func Run(version string) error {
 		return err
 	}
 
-	cmd.AddCommand(Create(keys, store))
-	cmd.AddCommand(Fill(keys, store))
-	cmd.AddCommand(Start(keys, store, config, logger))
+	cmd.AddCommand(Create(orderbook, keys, store))
+	cmd.AddCommand(Fill(orderbook, keys, store))
+	cmd.AddCommand(Start(orderbook, nil, keys, store, config, logger))
 	cmd.AddCommand(Retry(store))
-	cmd.AddCommand(Accounts(keys, config))
-	cmd.AddCommand(List())
+	cmd.AddCommand(Accounts(orderbook, keys, config))
+	cmd.AddCommand(List(orderbook))
 	cmd.AddCommand(Network(config, logger))
 	cmd.AddCommand(Update())
 

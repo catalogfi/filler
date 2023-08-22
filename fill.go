@@ -12,9 +12,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func Fill(keys utils.Keys, store store.Store) *cobra.Command {
+func Fill(url string, keys utils.Keys, store store.Store) *cobra.Command {
 	var (
-		url     string
 		account uint32
 		orderId uint
 	)
@@ -87,8 +86,6 @@ func Fill(keys utils.Keys, store store.Store) *cobra.Command {
 
 			fmt.Println("Order filled successfully")
 		}}
-	cmd.Flags().StringVar(&url, "url", "", "config file (default is ./config.json)")
-	cmd.MarkFlagRequired("url")
 	cmd.Flags().Uint32Var(&account, "account", 0, "config file (default: 0)")
 	cmd.Flags().UintVar(&orderId, "order-id", 0, "User should provide the order id")
 	cmd.MarkFlagRequired("order-id")

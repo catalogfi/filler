@@ -37,12 +37,11 @@ func DefaultConfigPath() string {
 	return filepath.Join(HomeDir, ".cobi", "config.json")
 }
 
+func DefaultStrategyPath() string {
+	return filepath.Join(HomeDir, ".cobi", "strategy.json")
+}
+
 func LoadMnemonic(path string) ([]byte, error) {
-	// try loading mnemonic from env variable else get from path
-	envMneumonic := os.Getenv("MNEMONIC")
-	if envMneumonic != "" {
-		return bip39.EntropyFromMnemonic(envMneumonic)
-	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -95,4 +94,22 @@ func LoadConfigFromFile(file string) model.Config {
 	}
 	json.Unmarshal(configFile, &config)
 	return config
+}
+
+type Config struct {
+	Network    model.Config
+	Strategies json.RawMessage
+	Mnemonic   string
+	OrderBook  string
+	DB         string
+	Sentry     string
+}
+
+func LoadExtendedConfig(path string) (Config, error) {
+	config := Config{}
+	configFile, err := os.ReadFile(path)
+	if err != nil {
+		return config, nil
+	}
+	return config, json.Unmarshal(configFile, &config)
 }

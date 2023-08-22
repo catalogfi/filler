@@ -13,9 +13,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func List() *cobra.Command {
+func List(url string) *cobra.Command {
 	var (
-		url        string
+		// url        string
 		maker      string
 		orderPair  string
 		secretHash string
@@ -66,8 +66,6 @@ func List() *cobra.Command {
 		DisableAutoGenTag: true,
 	}
 
-	cmd.Flags().StringVar(&url, "url", "", "config file (default is ./config.json)")
-	cmd.MarkFlagRequired("url")
 	cmd.Flags().StringVar(&maker, "maker", "", "maker address to filter with (default: any)")
 	cmd.Flags().StringVar(&orderPair, "order-pair", "", "order pair to filter with (default: any)")
 	cmd.Flags().StringVar(&secretHash, "secret-hash", "", "secret-hash to filter with (default: any)")

@@ -13,9 +13,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func Accounts(keys utils.Keys, config model.Config) *cobra.Command {
+func Accounts(url string, keys utils.Keys, config model.Config) *cobra.Command {
 	var (
-		url     string
 		user    uint32
 		asset   string
 		page    int
@@ -93,8 +92,6 @@ func Accounts(keys utils.Keys, config model.Config) *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&asset, "asset", "a", "", "user should provide the asset")
 	cmd.MarkFlagRequired("asset")
-	cmd.Flags().StringVar(&url, "url", "", "user should provide the orderbook url")
-	cmd.MarkFlagRequired("url")
 	cmd.Flags().Uint32Var(&user, "account", 0, "user can provide the user id")
 	cmd.Flags().IntVar(&perPage, "per-page", 10, "User can provide number of accounts to display per page")
 	cmd.Flags().IntVar(&page, "page", 1, "User can provide which page to display")

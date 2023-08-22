@@ -14,10 +14,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func Create(keys utils.Keys, store store.Store) *cobra.Command {
+func Create(url string, keys utils.Keys, store store.Store) *cobra.Command {
 	var (
 		account       uint32
-		url           string
 		orderPair     string
 		sendAmount    string
 		receiveAmount string
@@ -98,8 +97,6 @@ func Create(keys utils.Keys, store store.Store) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&url, "url", "", "URL of the orderbook server")
-	cmd.MarkFlagRequired("url")
 	cmd.Flags().Uint32Var(&account, "account", 0, "Account to be used (default: 0)")
 	cmd.Flags().StringVar(&orderPair, "order-pair", "", "User should provide the order pair")
 	cmd.MarkFlagRequired("order-pair")
