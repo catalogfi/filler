@@ -36,7 +36,7 @@ func Accounts(keys utils.Keys, config model.Config) *cobra.Command {
 			t.AppendHeader(table.Row{"#", "Address", "Current Balance", "Usable Balance"})
 			rows := make([]table.Row, 0)
 			for i := perPage*page - perPage; i < perPage*page; i++ {
-				key, err := keys.GetKey(ch, user, uint32(i))
+				key, err := keys.GetKey(ch, uint32(i), 0)
 				if err != nil {
 					cobra.CheckErr(fmt.Sprintf("Error parsing key: %v", err))
 					return

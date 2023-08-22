@@ -30,13 +30,11 @@ const (
 )
 
 type Order struct {
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt gorm.DeletedAt `gorm:"index"`
+	gorm.Model
 
-	Account    uint32
+	Account    uint32 `gorm:"index:,unique,composite:account_order"`
 	OrderId    uint64
-	SecretHash string
+	SecretHash string `gorm:"index:,unique,composite:account_order"`
 	Secret     string
 	Status     Status
 	Error      string
