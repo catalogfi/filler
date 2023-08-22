@@ -22,9 +22,20 @@ func Start(keys utils.Keys, store store.Store, config model.Config, logger *zap.
 		Use:   "start",
 		Short: "Start the atomic swap executor",
 		Run: func(c *cobra.Command, args []string) {
-			strategyData, err := os.ReadFile(strategy)
-			if err != nil {
-				cobra.CheckErr(err)
+			//try loading strategy json object from env
+			var strategyData []byte
+			var err error
+			envStratedy := os.Getenv("STRATEGY")
+			if envStratedy != "" {
+				strategyData = []byte(envStratedy)
+			}else {
+				if strategy == "" {
+					cobra.CheckErr(fmt.Errorf("strategy is required"))
+				}
+				strategyData, err = os.ReadFile(strategy)
+				if err != nil {
+					cobra.CheckErr(err)
+				}
 			}
 			start(url, keys, strategyData, config, store, logger)
 		},
@@ -33,7 +44,6 @@ func Start(keys utils.Keys, store store.Store, config model.Config, logger *zap.
 	cmd.Flags().StringVar(&url, "url", "", "url of the orderbook")
 	cmd.MarkFlagRequired("url")
 	cmd.Flags().StringVar(&strategy, "strategy", "", "strategy")
-	cmd.MarkFlagRequired("strategy")
 	return cmd
 }
 
