@@ -190,46 +190,60 @@ func VirtualBalance(chain model.Chain, address string, config model.Config, asse
 	if err != nil {
 		return nil, err
 	}
+	committedAmount := big.NewInt(0)
 
-	commitedAmount := big.NewInt(0)
-
+	// Subtract the amount we are about to fill as a taker
 	fillOrders, err := client.GetOrders(rest.GetOrdersFilter{
 		Taker:   signer,
-		Status:  int(model.OrderFilled),
 		Verbose: true,
 	})
 	if err != nil {
 		return nil, err
 	}
 	for _, fillOrder := range fillOrders {
+		switch fillOrder.Status {
+		case model.OrderCreated, model.OrderFilled, model.InitiatorAtomicSwapInitiated:
+		default:
+			continue
+		}
 		if fillOrder.FollowerAtomicSwap.Asset == asset {
 			orderAmt, ok := new(big.Int).SetString(fillOrder.FollowerAtomicSwap.Amount, 10)
 			if !ok {
 				return nil, err
 			}
-			commitedAmount.Add(commitedAmount, orderAmt)
+			committedAmount.Add(committedAmount, orderAmt)
 		}
 	}
 
+	// Subtract the amount we open as a maker
 	createOrders, err := client.GetOrders(rest.GetOrdersFilter{
 		Maker:   signer,
-		Status:  int(model.OrderCreated),
 		Verbose: true,
 	})
 	if err != nil {
 		return nil, err
 	}
 	for _, createOrder := range createOrders {
+		switch createOrder.Status {
+		case model.OrderCreated, model.OrderFilled:
+		default:
+			continue
+		}
+
 		if createOrder.InitiatorAtomicSwap.Asset == asset {
 			orderAmt, ok := new(big.Int).SetString(createOrder.InitiatorAtomicSwap.Amount, 10)
 			if !ok {
 				return nil, err
 			}
-			commitedAmount.Add(commitedAmount, orderAmt)
+			committedAmount.Add(committedAmount, orderAmt)
 		}
 	}
 
-	return new(big.Int).Sub(balance, commitedAmount), nil
+	if balance.Cmp(committedAmount) <= 0 {
+		return big.NewInt(0), nil
+	}
+
+	return new(big.Int).Sub(balance, committedAmount), nil
 }
 
 func LoadClient(url string, keys Keys, str store.Store, account, selector uint32) (common.Address, rest.Client, error) {
