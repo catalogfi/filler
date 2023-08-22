@@ -38,6 +38,11 @@ func DefaultConfigPath() string {
 }
 
 func LoadMnemonic(path string) ([]byte, error) {
+	// try loading mnemonic from env variable else get from path
+	envMneumonic := os.Getenv("MNEMONIC")
+	if envMneumonic != "" {
+		return bip39.EntropyFromMnemonic(envMneumonic)
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
