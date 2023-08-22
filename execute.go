@@ -9,8 +9,8 @@ import (
 
 	"github.com/catalogfi/cobi/store"
 	"github.com/catalogfi/cobi/utils"
-	"github.com/catalogfi/wbtc-garden/blockchain"
-	"github.com/catalogfi/wbtc-garden/model"
+	"github.com/catalogfi/cobi/wbtc-garden/blockchain"
+	"github.com/catalogfi/cobi/wbtc-garden/model"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gorilla/websocket"
