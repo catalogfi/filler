@@ -55,7 +55,7 @@ func Execute(keys utils.Keys, account uint32, url string, store store.UserStore,
 			}
 			var orders []model.Order
 			if err := json.Unmarshal(msg, &orders); err != nil {
-				childLogger.Info("ping message on websocket", zap.String("message", string(msg)), zap.Error(err))
+				childLogger.Info("ping message on websocket", zap.String("message", string(msg)), zap.Error(err), zap.String("executor", signer.Hex()))
 				continue
 			}
 

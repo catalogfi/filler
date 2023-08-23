@@ -64,7 +64,7 @@ func Fill(url string, keys utils.Keys, store store.Store) *cobra.Command {
 				cobra.CheckErr(fmt.Sprintf("Error while getting address string: %v", err))
 				return
 			}
-			toKey, err := keys.GetKey(fromChain, account, 0)
+			toKey, err := keys.GetKey(toChain, account, 0)
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while getting to key: %v", err))
 				return
@@ -75,7 +75,7 @@ func Fill(url string, keys utils.Keys, store store.Store) *cobra.Command {
 				return
 			}
 
-			if err := client.FillOrder(orderId, fromAddress, toAddress); err != nil {
+			if err := client.FillOrder(orderId, toAddress, fromAddress); err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while getting address string: %v", err))
 				return
 			}
