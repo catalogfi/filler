@@ -41,6 +41,10 @@ func DefaultStrategyPath() string {
 	return filepath.Join(HomeDir, ".cobi", "strategy.json")
 }
 
+func DefaultStorePath() string {
+	return filepath.Join(HomeDir, ".cobi", "data.db")
+}
+
 func LoadMnemonic(path string) ([]byte, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
