@@ -1,22 +1,22 @@
 package cobi
 
 import (
-	"errors"
-	"path/filepath"
+	"time"
 
+	"github.com/TheZeroSlave/zapsentry"
 	"github.com/catalogfi/cobi/store"
 	"github.com/catalogfi/cobi/utils"
+	"github.com/getsentry/sentry-go"
 	"github.com/spf13/cobra"
+	"github.com/tyler-smith/go-bip39"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
 func Run(version string) error {
-	var (
-		orderbook string
-	)
-
 	var cmd = &cobra.Command{
 		Use: "COBI - Catalog Order Book clI",
 		Run: func(c *cobra.Command, args []string) {
@@ -25,57 +25,65 @@ func Run(version string) error {
 		Version:           version,
 		DisableAutoGenTag: true,
 	}
-	cmd.Flags().StringVar(&orderbook, "orderbook", "production", "url of the orderbook")
-	cmd.MarkFlagRequired("orderbook")
-	if orderbook == "production" {
-		orderbook = ""
-	} else if orderbook == "staging" {
-		orderbook = ""
+
+	envConfig, err := utils.LoadExtendedConfig(utils.DefaultConfigPath())
+	if err != nil {
+		return err
 	}
 
 	logger, err := zap.NewProduction()
 	if err != nil {
 		return err
 	}
-
-	// Load or create a new mnemonic
-	mnemonicPath := utils.DefaultMnemonicPath()
-	entropy, err := utils.LoadMnemonic(mnemonicPath)
-	if err != nil {
-		if errors.Is(err, utils.ErrMnemonicFileMissing) {
-			entropy, err = utils.NewMnemonic(mnemonicPath)
-			if err != nil {
-				return err
-			}
+	if envConfig.Sentry != "" {
+		client, err := sentry.NewClient(sentry.ClientOptions{Dsn: envConfig.Sentry})
+		if err != nil {
+			return err
 		}
-		return err
+		cfg := zapsentry.Configuration{
+			Level: zapcore.ErrorLevel,
+		}
+		core, err := zapsentry.NewCore(cfg, zapsentry.NewSentryClientFromClient(client))
+		if err != nil {
+			return err
+		}
+		logger = zapsentry.AttachCoreToLogger(core, logger)
+		defer logger.Sync()
 	}
 
-	// Load the config file
-	configPath := utils.DefaultConfigPath()
-	config := utils.LoadConfigFromFile(configPath)
+	entropy, err := bip39.EntropyFromMnemonic(envConfig.Mnemonic)
+	if err != nil {
+		return err
+	}
 
 	// Load keys
 	keys := utils.NewKeys(entropy)
 
-	// Initialise db
-	db := sqlite.Open(filepath.Join(utils.DefaultCobiDirectory(), "data.db"))
-	store, err := store.NewStore(db, &gorm.Config{})
-	if err != nil {
-		return err
+	var str store.Store
+	if envConfig.DB != "" {
+		// Initialise db
+		str, err = store.NewStore(postgres.Open(envConfig.DB), &gorm.Config{
+			NowFunc: func() time.Time { return time.Now().UTC() },
+		})
+		if err != nil {
+			return err
+		}
+	} else {
+		str, err = store.NewStore(sqlite.Open(utils.DefaultStorePath()), &gorm.Config{
+			NowFunc: func() time.Time { return time.Now().UTC() },
+		})
+		if err != nil {
+			return err
+		}
 	}
 
-	cmd.AddCommand(Create(orderbook, keys, store))
-	cmd.AddCommand(Fill(orderbook, keys, store))
-	cmd.AddCommand(Start(orderbook, nil, keys, store, config, logger))
-	cmd.AddCommand(Retry(store))
-	cmd.AddCommand(Accounts(orderbook, keys, config))
-	cmd.AddCommand(List(orderbook))
-	cmd.AddCommand(Network(config, logger))
+	cmd.AddCommand(Create(envConfig.OrderBook, keys, str))
+	cmd.AddCommand(Fill(envConfig.OrderBook, keys, str))
+	cmd.AddCommand(Start(envConfig.OrderBook, envConfig.Strategies, keys, str, envConfig.Network, logger))
+	cmd.AddCommand(Retry(str))
+	cmd.AddCommand(Accounts(envConfig.OrderBook, keys, envConfig.Network))
+	cmd.AddCommand(List(envConfig.OrderBook))
+	cmd.AddCommand(Network(envConfig.Network, logger))
 	cmd.AddCommand(Update())
-
-	if err := cmd.Execute(); err != nil {
-		return err
-	}
-	return nil
+	return cmd.Execute()
 }

@@ -71,6 +71,11 @@ func Execute(keys utils.Keys, account uint32, url string, store store.UserStore,
 }
 
 func execute(order model.Order, logger *zap.Logger, signer common.Address, keys utils.Keys, account uint32, config model.Config, userStore store.UserStore) {
+	if order.Status <= model.OrderCreated && order.Status >= model.OrderExecuted {
+		logger.Info("skipping order as it has already been executed")
+		return
+	}
+
 	logger.Info("processing order with id", zap.Uint("status", uint(order.Status)))
 	if isValid, err := userStore.CheckStatus(order.SecretHash); !isValid {
 		if err != "" {
