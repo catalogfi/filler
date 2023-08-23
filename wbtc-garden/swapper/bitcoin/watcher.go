@@ -174,7 +174,6 @@ func (w *watcher) IsRefunded() (bool, string, error) {
 		return false, "", fmt.Errorf("failed to get UTXOs: %w", err)
 	}
 	if len(witness) == 4 && bal == 0 {
-		fmt.Println("Refunded:", witness)
 		// inputs are [ 0 : sig, 1 : spender.PubKey().SerializeCompressed(), 2 :[]byte{}, script]
 		return true, tx.TxID, nil
 

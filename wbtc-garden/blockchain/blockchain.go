@@ -65,7 +65,7 @@ func LoadInitiatorSwap(atomicSwap model.AtomicSwap, initiatorPrivateKey interfac
 		return bitcoin.NewInitiatorSwap(logger, initiatorPrivateKey.(*btcec.PrivateKey), redeemerAddress.(btcutil.Address), secHash, expiry.Int64(), minConfirmations, amt.Uint64(), client)
 	case ethereum.Client:
 		contractAddr := common.HexToAddress(atomicSwap.Asset.SecondaryID())
-		return ethereum.NewInitiatorSwap(initiatorPrivateKey.(*ecdsa.PrivateKey), redeemerAddress.(common.Address), contractAddr, secHash, expiry, big.NewInt(int64(minConfirmations)), amt, client)
+		return ethereum.NewInitiatorSwap(initiatorPrivateKey.(*ecdsa.PrivateKey), redeemerAddress.(common.Address), contractAddr, secHash, expiry, big.NewInt(int64(minConfirmations)), amt, client, config[atomicSwap.Chain].EventWindow)
 	default:
 		return nil, fmt.Errorf("unknown chain: %T", client)
 	}
@@ -118,7 +118,7 @@ func LoadWatcher(atomicSwap model.AtomicSwap, secretHash string, config model.Co
 	case ethereum.Client:
 		contractAddr := common.HexToAddress(atomicSwap.Asset.SecondaryID())
 		orderId := sha256.Sum256(append(secHash, common.HexToAddress(atomicSwap.InitiatorAddress).Hash().Bytes()...))
-		return ethereum.NewWatcher(contractAddr, secHash, orderId[:], expiry, big.NewInt(int64(minConfirmations)), amt, client)
+		return ethereum.NewWatcher(contractAddr, secHash, orderId[:], expiry, big.NewInt(int64(minConfirmations)), amt, client, config[atomicSwap.Chain].EventWindow)
 	default:
 		return nil, fmt.Errorf("unknown chain: %T", client)
 	}
@@ -156,7 +156,7 @@ func LoadRedeemerSwap(atomicSwap model.AtomicSwap, redeemerPrivateKey interface{
 		return bitcoin.NewRedeemerSwap(logger, redeemerPrivateKey.(*btcec.PrivateKey), initiatorAddress.(btcutil.Address), secHash, expiry.Int64(), minConfirmations, amt.Uint64(), client)
 	case ethereum.Client:
 		contractAddr := common.HexToAddress(atomicSwap.Asset.SecondaryID())
-		return ethereum.NewRedeemerSwap(redeemerPrivateKey.(*ecdsa.PrivateKey), initiatorAddress.(common.Address), contractAddr, secHash, expiry, amt, big.NewInt(int64(minConfirmations)), client)
+		return ethereum.NewRedeemerSwap(redeemerPrivateKey.(*ecdsa.PrivateKey), initiatorAddress.(common.Address), contractAddr, secHash, expiry, amt, big.NewInt(int64(minConfirmations)), client, config[atomicSwap.Chain].EventWindow)
 	default:
 		return nil, fmt.Errorf("unknown chain: %T", client)
 	}

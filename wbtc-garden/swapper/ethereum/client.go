@@ -151,8 +151,12 @@ func (client *client) InitiateAtomicSwap(contract common.Address, initiator *ecd
 	if err != nil {
 		return "", err
 	}
+	receipt, err := bind.WaitMined(context.Background(), client.provider, initTx)
+	if err != nil {
+		return "", err
+	}
 	client.logger.Info("initiate swap", zap.String("txHash", initTx.Hash().Hex()))
-	return initTx.Hash().Hex(), nil
+	return receipt.TxHash.Hex(), nil
 }
 
 func (client *client) RedeemAtomicSwap(contract common.Address, auth *bind.TransactOpts, token common.Address, orderID [32]byte, secret []byte) (string, error) {

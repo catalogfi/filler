@@ -246,7 +246,6 @@ func (c *client) GetOrders(filter GetOrdersFilter) ([]model.Order, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		var errorResponse ErrorResponse
-		fmt.Println(resp.Body)
 		if err := json.NewDecoder(resp.Body).Decode(&errorResponse); err != nil {
 			return nil, fmt.Errorf("failed to decode error response: %v", err)
 		}

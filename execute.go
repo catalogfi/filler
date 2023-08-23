@@ -53,9 +53,6 @@ func Execute(keys utils.Keys, account uint32, url string, store store.UserStore,
 				childLogger.Error("failed to read messege from the websocket", zap.Error(err))
 				break
 			}
-			if string(msg) == "null\n" {
-				continue
-			}
 			var orders []model.Order
 			if err := json.Unmarshal(msg, &orders); err != nil {
 				childLogger.Info("ping message on websocket", zap.String("message", string(msg)), zap.Error(err))

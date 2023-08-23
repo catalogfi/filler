@@ -12,10 +12,11 @@ import (
 	"github.com/catalogfi/cobi/wbtc-garden/swapper/ethereum/typings/AtomicSwap"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-const MaxQueryBlockRange = 500
+const MaxQueryBlockRange = 2000
 
 type initiatorSwap struct {
 	orderID          [32]byte
@@ -44,7 +45,7 @@ type redeemerSwap struct {
 	watcher          swapper.Watcher
 }
 
-func NewInitiatorSwap(initiator *ecdsa.PrivateKey, redeemerAddr, atomicSwapAddr common.Address, secretHash []byte, expiry, minConfirmations, amount *big.Int, client Client) (swapper.InitiatorSwap, error) {
+func NewInitiatorSwap(initiator *ecdsa.PrivateKey, redeemerAddr, atomicSwapAddr common.Address, secretHash []byte, expiry, minConfirmations, amount *big.Int, client Client, eventWindow int64) (swapper.InitiatorSwap, error) {
 
 	initiatorAddr := crypto.PubkeyToAddress(initiator.PublicKey)
 	orderId := sha256.Sum256(append(secretHash, initiatorAddr.Hash().Bytes()...))
@@ -54,7 +55,7 @@ func NewInitiatorSwap(initiator *ecdsa.PrivateKey, redeemerAddr, atomicSwapAddr 
 		latestCheckedBlock = big.NewInt(0)
 	}
 
-	watcher, err := NewWatcher(atomicSwapAddr, secretHash, orderId[:], expiry, minConfirmations, amount, client)
+	watcher, err := NewWatcher(atomicSwapAddr, secretHash, orderId[:], expiry, minConfirmations, amount, client, eventWindow)
 	if err != nil {
 		return &initiatorSwap{}, err
 	}
@@ -78,12 +79,8 @@ func NewInitiatorSwap(initiator *ecdsa.PrivateKey, redeemerAddr, atomicSwapAddr 
 	}, nil
 }
 
-func (initiatorSwap *initiatorSwap) Initiate() (txHash string, err error) {
-	defer func() {
-		fmt.Printf("Done Initiate on contract : %s : token : %s : err : %v \n", initiatorSwap.atomicSwapAddr, initiatorSwap.tokenAddr, err)
-	}()
-	txHash, err = initiatorSwap.client.InitiateAtomicSwap(initiatorSwap.atomicSwapAddr, initiatorSwap.initiator, initiatorSwap.redeemerAddr, initiatorSwap.tokenAddr, initiatorSwap.expiry, initiatorSwap.amount, initiatorSwap.secretHash)
-	return
+func (initiatorSwap *initiatorSwap) Initiate() (string, error) {
+	return initiatorSwap.client.InitiateAtomicSwap(initiatorSwap.atomicSwapAddr, initiatorSwap.initiator, initiatorSwap.redeemerAddr, initiatorSwap.tokenAddr, initiatorSwap.expiry, initiatorSwap.amount, initiatorSwap.secretHash)
 }
 
 func (initiatorSwap *initiatorSwap) Expired() (bool, error) {
@@ -110,7 +107,6 @@ func (initiatorSwap *initiatorSwap) IsRedeemed() (bool, []byte, string, error) {
 }
 
 func (initiatorSwap *initiatorSwap) Refund() (string, error) {
-	defer fmt.Println("Done refund")
 
 	// Initialise the transactor
 	transactor, err := initiatorSwap.client.GetTransactOpts(initiatorSwap.initiator)
@@ -125,9 +121,9 @@ func (initiatorSwap *initiatorSwap) Refund() (string, error) {
 	return tx, nil
 }
 
-func NewRedeemerSwap(redeemer *ecdsa.PrivateKey, initiatorAddr, atomicSwapAddr common.Address, secretHash []byte, expiry, amount, minConfirmations *big.Int, client Client) (swapper.RedeemerSwap, error) {
+func NewRedeemerSwap(redeemer *ecdsa.PrivateKey, initiatorAddr, atomicSwapAddr common.Address, secretHash []byte, expiry, amount, minConfirmations *big.Int, client Client, eventWindow int64) (swapper.RedeemerSwap, error) {
 	orderId := sha256.Sum256(append(secretHash, initiatorAddr.Hash().Bytes()...))
-	watcher, err := NewWatcher(atomicSwapAddr, secretHash, orderId[:], expiry, minConfirmations, amount, client)
+	watcher, err := NewWatcher(atomicSwapAddr, secretHash, orderId[:], expiry, minConfirmations, amount, client, eventWindow)
 	if err != nil {
 		return &redeemerSwap{}, err
 	}
@@ -153,8 +149,6 @@ func NewRedeemerSwap(redeemer *ecdsa.PrivateKey, initiatorAddr, atomicSwapAddr c
 }
 
 func (redeemerSwap *redeemerSwap) Redeem(secret []byte) (string, error) {
-	defer fmt.Println("Done redeem")
-	fmt.Println("redeeming...")
 	transactor, err := redeemerSwap.client.GetTransactOpts(redeemerSwap.redeemer)
 	if err != nil {
 		return "", err
@@ -167,11 +161,9 @@ func (redeemerSwap *redeemerSwap) IsInitiated() (bool, []string, uint64, error) 
 }
 
 func (redeemerSwap *redeemerSwap) WaitForInitiate() ([]string, error) {
-	defer fmt.Println("Done WaitForInitiate")
 	for {
 		initiated, txHash, _, err := redeemerSwap.IsInitiated()
 		if initiated {
-			fmt.Printf("Initiation Found on contract : %s : token : %s \n", redeemerSwap.atomicSwapAddr, redeemerSwap.tokenAddr)
 			return txHash, nil
 		}
 		if err != nil {
@@ -191,9 +183,10 @@ type watcher struct {
 	orderId          []byte
 	minConfirmations *big.Int
 	initiatedBlock   *big.Int
+	eventWindow      *big.Int
 }
 
-func NewWatcher(atomicSwapAddr common.Address, secretHash, orderId []byte, expiry, minConfirmations, amount *big.Int, client Client) (swapper.Watcher, error) {
+func NewWatcher(atomicSwapAddr common.Address, secretHash, orderId []byte, expiry, minConfirmations, amount *big.Int, client Client, eventWindow int64) (swapper.Watcher, error) {
 	latestCheckedBlock := new(big.Int).Sub(expiry, big.NewInt(12000))
 	if latestCheckedBlock.Cmp(big.NewInt(0)) == -1 {
 		latestCheckedBlock = big.NewInt(0)
@@ -207,6 +200,7 @@ func NewWatcher(atomicSwapAddr common.Address, secretHash, orderId []byte, expir
 		secretHash:       secretHash,
 		minConfirmations: minConfirmations,
 		orderId:          orderId,
+		eventWindow:      big.NewInt(eventWindow),
 	}, nil
 }
 
@@ -227,7 +221,6 @@ func (watcher *watcher) Expired() (bool, error) {
 }
 
 func (watcher *watcher) IsInitiated() (bool, []string, uint64, error) {
-	fmt.Println("Checking if initiated")
 	currBlock, err := watcher.client.GetCurrentBlock()
 	if err != nil {
 		return false, []string{}, 0, err
@@ -243,27 +236,9 @@ func (watcher *watcher) IsInitiated() (bool, []string, uint64, error) {
 	}
 
 	initiatedEvent := atomicSwapAbi.Events["Initiated"]
-	query := ethereum.FilterQuery{
-		FromBlock: watcher.lastCheckedBlock,
-		ToBlock:   currentBlock,
-		Addresses: []common.Address{
-			watcher.atomicSwapAddr,
-		},
-		Topics: [][]common.Hash{{initiatedEvent.ID}, {common.BytesToHash(watcher.orderId)}, {common.BytesToHash(watcher.secretHash)}},
-	}
-
-	logs, err := watcher.client.GetProvider().FilterLogs(context.Background(), query)
-	if err != nil {
-		return false, []string{}, 0, err
-	}
-
+	eventIds := [][]common.Hash{{initiatedEvent.ID}, {common.BytesToHash(watcher.orderId)}, {common.BytesToHash(watcher.secretHash)}}
+	logs, err := watcher.checkLogs(currentBlock, eventIds)
 	if len(logs) == 0 {
-		// Update the last checked block height
-		// newLastCheckedBlock := big.NewInt(0).Sub(currentBlock, watcher.minConfirmations)
-		// if newLastCheckedBlock.Cmp(watcher.lastCheckedBlock) == 1 {
-		// 	watcher.lastCheckedBlock = currentBlock
-		// }
-		fmt.Println("No logs found")
 		return false, []string{}, 0, err
 	}
 
@@ -298,17 +273,9 @@ func (watcher *watcher) IsRedeemed() (bool, []byte, string, error) {
 	}
 
 	redeemedEvent := atomicSwapAbi.Events["Redeemed"]
-	query := ethereum.FilterQuery{
-		FromBlock: watcher.lastCheckedBlock,
-		ToBlock:   currentBlock,
-		Addresses: []common.Address{
-			watcher.atomicSwapAddr,
-		},
-		Topics: [][]common.Hash{{redeemedEvent.ID}, {common.BytesToHash(watcher.orderId)}, {common.BytesToHash(watcher.secretHash)}},
-	}
-
-	logs, err := watcher.client.GetProvider().FilterLogs(context.Background(), query)
-	if err != nil {
+	eventIds := [][]common.Hash{{redeemedEvent.ID}, {common.BytesToHash(watcher.orderId)}, {common.BytesToHash(watcher.secretHash)}}
+	logs, err := watcher.checkLogs(currentBlock, eventIds)
+	if len(logs) == 0 {
 		return false, nil, "", err
 	}
 
@@ -318,7 +285,6 @@ func (watcher *watcher) IsRedeemed() (bool, []byte, string, error) {
 		// if newLastCheckedBlock.Cmp(watcher.lastCheckedBlock) == 1 {
 		// 	watcher.lastCheckedBlock = currentBlock
 		// }
-		fmt.Println("No logs found")
 		return false, nil, "", err
 	}
 
@@ -348,16 +314,11 @@ func (watcher *watcher) IsRefunded() (bool, string, error) {
 	}
 
 	refundedEvent := atomicSwapAbi.Events["Refunded"]
-	query := ethereum.FilterQuery{
-		FromBlock: watcher.lastCheckedBlock,
-		ToBlock:   currentBlock,
-		Addresses: []common.Address{
-			watcher.atomicSwapAddr,
-		},
-		Topics: [][]common.Hash{{refundedEvent.ID}, {common.BytesToHash(watcher.orderId)}},
+	eventIds := [][]common.Hash{{refundedEvent.ID}, {common.BytesToHash(watcher.orderId)}}
+	logs, err := watcher.checkLogs(currentBlock, eventIds)
+	if len(logs) == 0 {
+		return false, "", err
 	}
-
-	logs, err := watcher.client.GetProvider().FilterLogs(context.Background(), query)
 	if err != nil {
 		return false, "", err
 	}
@@ -368,8 +329,31 @@ func (watcher *watcher) IsRefunded() (bool, string, error) {
 		// if newLastCheckedBlock.Cmp(watcher.lastCheckedBlock) == 1 {
 		// 	watcher.lastCheckedBlock = currentBlock
 		// }
-		fmt.Println("No logs found")
 		return false, "", err
 	}
 	return true, logs[0].TxHash.Hex(), nil
+}
+
+func (watcher *watcher) checkLogs(maxBlock *big.Int, eventIds [][]common.Hash) ([]types.Log, error) {
+	leastWindow := new(big.Int).Sub(maxBlock, watcher.eventWindow)
+
+	for maxBlock.Cmp(leastWindow) >= 0 {
+		query := ethereum.FilterQuery{
+			FromBlock: new(big.Int).Sub(maxBlock, big.NewInt(MaxQueryBlockRange)),
+			ToBlock:   maxBlock,
+			Addresses: []common.Address{
+				watcher.atomicSwapAddr,
+			},
+			Topics: eventIds,
+		}
+		logs, err := watcher.client.GetProvider().FilterLogs(context.Background(), query)
+		if len(logs) > 0 {
+			return logs, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		maxBlock = maxBlock.Sub(maxBlock, big.NewInt(MaxQueryBlockRange))
+	}
+	return nil, nil
 }

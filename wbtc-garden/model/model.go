@@ -15,9 +15,10 @@ import (
 
 type Config map[Chain]NetworkConfig
 type NetworkConfig struct {
-	Assets map[Asset]bool
-	RPC    string
-	Expiry int64
+	Assets      map[Asset]bool
+	RPC         string
+	Expiry      int64
+	EventWindow int64
 }
 
 type Chain string
@@ -310,4 +311,9 @@ func GetParams(chain Chain) (*chaincfg.Params, error) {
 	default:
 		return nil, errors.New("constraint violation: unknown chain")
 	}
+}
+func CompareOrder(a, b Order) bool {
+	return a.Status == b.Status &&
+		a.InitiatorAtomicSwap.CurrentConfirmationStatus == b.InitiatorAtomicSwap.CurrentConfirmationStatus &&
+		a.FollowerAtomicSwap.CurrentConfirmationStatus == b.FollowerAtomicSwap.CurrentConfirmationStatus
 }

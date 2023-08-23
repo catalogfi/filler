@@ -1,0 +1,8 @@
+*.db
+*.json
+*.out
+.env
+.env.*
+.idea
+cob
+thinkfile

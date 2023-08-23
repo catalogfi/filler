@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -15,6 +16,12 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/spruceid/siwe-go"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
+)
+
+const (
+	GetOrderMessageRegex  = `^(?P<action>subscribe):(?P<orderID>\d+)$`
+	GetOrdersMessageRegex = `^(?P<action>subscribe):(?P<address>0x[a-fA-F0-9]{40})$`
 )
 
 var upgrader = websocket.Upgrader{
@@ -157,62 +164,74 @@ func (s *Server) GetOrderBySocket() gin.HandlerFunc {
 		// upgrade get request to websocket protocol
 		ws, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 		if err != nil {
-			fmt.Println(err)
+			s.logger.Error("failed to upgrade '/ws/order' to websocket")
 			return
 		}
 		defer ws.Close()
-		for {
-			// Read Message from client
-			mt, message, err := ws.ReadMessage()
+
+		// Wait for the initiating message
+		_, message, err := ws.ReadMessage()
+		if err != nil {
+			s.logger.Debug("read message", zap.Error(err))
+			return
+		}
+
+		// Verify the user message
+		action, orderStr, match := ParseGetOrderMessage(string(message))
+		if !match {
+			res := map[string]string{
+				"error": "invalid action message",
+			}
+			ws.WriteJSON(res)
+			return
+		}
+		orderID, err := strconv.ParseUint(orderStr, 10, 64)
+		if err != nil {
+			res := map[string]string{
+				"error": "invalid order ID",
+			}
+			ws.WriteJSON(res)
+			return
+		}
+
+		switch action {
+		case "subscribe":
+			// Fetch the current status of the order and send it to client
+			order, err := s.store.GetOrder(uint(orderID))
 			if err != nil {
-				fmt.Println(err)
-				break
+				s.logger.Debug("get order", zap.String("api", "/ws/order"))
+				return
+			}
+			if err := ws.WriteJSON(*order); err != nil {
+				return
 			}
 
-			// json.Unmarshal(data []byte, v any)
-			vals := strings.Split(string(message), ":")
-			if vals[0] == "subscribe" {
-				val, err := strconv.ParseUint(vals[1], 10, 64)
+			// Check the order status periodically and write updates to client
+			ticker := time.NewTicker(15 * time.Second)
+
+			for ; true; <-ticker.C {
+				if order.Status >= model.OrderExecuted {
+					break
+				}
+				if err := ws.WriteJSON(map[string]string{
+					"event": "ping",
+				}); err != nil {
+					return
+				}
+				newOrder, err := s.store.GetOrder(uint(orderID))
 				if err != nil {
-					ws.WriteMessage(mt, []byte(err.Error()))
-					break
+					s.logger.Error("get order", zap.String("api", "/ws/order"))
+					continue
 				}
-				order, err := s.store.GetOrder(uint(val))
-				if err != nil {
-					fmt.Println(err)
-					break
-				}
-				if err := ws.WriteJSON(*order); err != nil {
-					fmt.Println(err)
-					break
-				}
-
-				for {
-					if order.Status >= model.OrderExecuted {
-						break
+				if newOrder.Status != order.Status {
+					if err := ws.WriteJSON(*newOrder); err != nil {
+						return
 					}
-					order2, err := s.store.GetOrder(uint(val))
-					if err != nil {
-						fmt.Println(err)
-						break
-					}
-					if order2.Status != order.Status {
-						if err := ws.WriteJSON(*order2); err != nil {
-							fmt.Println(err)
-							break
-						}
-						order = order2
-						time.Sleep(2)
-					}
+					order = newOrder
 				}
 			}
-
-			// Response message to client
-			err = ws.WriteMessage(mt, message)
-			if err != nil {
-				fmt.Println(err)
-				break
-			}
+		default:
+			// ignore all unknown actions
 		}
 	}
 }
@@ -226,66 +245,66 @@ func (s *Server) GetOrdersSocket() gin.HandlerFunc {
 			return
 		}
 		defer ws.Close()
-		var socketError error = nil
-		for {
-			// Read Message from client
-			_, message, err := ws.ReadMessage()
-			if err != nil {
-				s.logger.Debug("failed to read a message", zap.Error(err))
-				socketError = err
-				break
-			}
-			vals := strings.Split(string(message), ":")
-			if vals[0] == "subscribe" {
-				makerOrTaker := strings.ToLower(string(vals[1]))
-				var orders []model.Order
-				for {
-					makerOrders, err := s.store.FilterOrders(makerOrTaker, "", "", "", "", model.Status(0), 0.0, 0.0, 0.0, 0.0, 0, 0, true)
-					if err != nil {
-						s.logger.Debug("failed to filter maker orders", zap.Error(err))
-						ws.WriteJSON(map[string]interface{}{
-							"error": err,
-						})
-						break
-					}
-					takerOrders, err := s.store.FilterOrders("", makerOrTaker, "", "", "", model.Status(0), 0.0, 0.0, 0.0, 0.0, 0, 0, true)
-					if err != nil {
-						s.logger.Debug("failed to filter taker orders", zap.Error(err))
-						ws.WriteJSON(map[string]interface{}{
-							"error": err,
-						})
-						break
-					}
-					var newOrders []model.Order
-					newOrders = append(newOrders, makerOrders...)
-					newOrders = append(newOrders, takerOrders...)
 
-					if len(orders) == 0 || !model.CompareOrderSlices(newOrders, orders) {
-						if err := ws.WriteJSON(newOrders); err != nil {
-							s.logger.Debug("failed to write updated orders", zap.Error(err))
-							ws.WriteJSON(map[string]interface{}{
-								"error": err,
-							})
-							break
-						}
-						orders = newOrders
+		// Read message from client
+		_, message, err := ws.ReadMessage()
+		if err != nil {
+			s.logger.Debug("failed to read a message", zap.Error(err))
+			return
+		}
+
+		// Verify the user message
+		action, userAddr, match := ParseGetOrdersMessage(string(message))
+		if !match {
+			res := map[string]string{
+				"error": "invalid action message",
+			}
+			ws.WriteJSON(res)
+			return
+		}
+
+		switch action {
+		case "subscribe":
+			userAddr = strings.ToLower(userAddr)
+			var orders []model.Order
+
+			// Check the order status periodically and write updates to client
+			ticker := time.NewTicker(15 * time.Second)
+
+			for first := true; true; <-ticker.C {
+
+				// Send a Ping message
+				if err := ws.WriteJSON(map[string]string{
+					"event": "ping",
+				}); err != nil {
+					return
+				}
+
+				// Fetch all orders has the userAddress
+				makerOrders, err := s.store.FilterOrders(userAddr, "", "", "", "", model.Status(0), 0.0, 0.0, 0.0, 0.0, 0, 0, true)
+				if err != nil && err != gorm.ErrRecordNotFound {
+					s.logger.Error("load maker orders", zap.Error(err))
+					continue
+				}
+				takerOrders, err := s.store.FilterOrders("", userAddr, "", "", "", model.Status(0), 0.0, 0.0, 0.0, 0.0, 0, 0, true)
+				if err != nil && err != gorm.ErrRecordNotFound {
+					s.logger.Error("load taker orders", zap.Error(err))
+					continue
+				}
+				newOrders := []model.Order{}
+				newOrders = append(newOrders, takerOrders...)
+				newOrders = append(newOrders, makerOrders...)
+				notUpdated := model.CompareOrderSlices(orders, newOrders)
+				if !notUpdated || first {
+					if err := ws.WriteJSON(newOrders); err != nil {
+						return
 					}
-					time.Sleep(time.Second * 2)
+					first = false
+					orders = newOrders
 				}
 			}
-
-			// Response message to client
-			if socketError != nil {
-				s.logger.Debug("invalid socket connection request", zap.Error(socketError))
-				err = ws.WriteJSON(map[string]interface{}{
-					"error": fmt.Sprintf("%v", socketError),
-				})
-				if err != nil {
-					fmt.Println(err)
-					break
-				}
-			}
-			time.Sleep(time.Second * 2)
+		default:
+			// ignore all unknown actions
 		}
 	}
 }
@@ -524,4 +543,28 @@ func (s *Server) Verify() gin.HandlerFunc {
 		ctx.JSON(http.StatusOK, gin.H{"token": tokenString})
 
 	}
+}
+
+func ParseGetOrderMessage(message string) (string, string, bool) {
+	messageRegex := regexp.MustCompile(GetOrderMessageRegex)
+	if !messageRegex.MatchString(message) {
+		return "", "", false
+	}
+	matches := messageRegex.FindStringSubmatch(message)
+	if len(matches) != 3 {
+		return "", "", false
+	}
+	return matches[1], matches[2], true
+}
+
+func ParseGetOrdersMessage(message string) (string, string, bool) {
+	messageRegex := regexp.MustCompile(GetOrdersMessageRegex)
+	if !messageRegex.MatchString(message) {
+		return "", "", false
+	}
+	matches := messageRegex.FindStringSubmatch(message)
+	if len(matches) != 3 {
+		return "", "", false
+	}
+	return matches[1], matches[2], true
 }
