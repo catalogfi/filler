@@ -75,7 +75,7 @@ func RunAutoCreateStrategy(url string, keys utils.Keys, config model.Config, sto
 		}
 
 		if balance.Cmp(randAmount) < 0 {
-			logger.Info("insufficient balance", zap.String("have", balance.String()), zap.String("need", randAmount.String()))
+			logger.Info("insufficient balance", zap.String("chain", string(fromChain)), zap.String("asset", string(fromAsset)), zap.String("address", fromAddress), zap.String("have", balance.String()), zap.String("need", randAmount.String()))
 			continue
 		}
 
@@ -146,7 +146,7 @@ func RunAutoFillStrategy(url string, keys utils.Keys, config model.Config, store
 		}
 
 		for _, order := range orders {
-			toChain, fromChain, _, toAsset, err := model.ParseOrderPair(order.OrderPair)
+			toChain, fromChain, _, fromAsset, err := model.ParseOrderPair(order.OrderPair)
 			if err != nil {
 				logger.Error("failed parsing order pair", zap.Error(err))
 				return
@@ -174,9 +174,9 @@ func RunAutoFillStrategy(url string, keys utils.Keys, config model.Config, store
 				return
 			}
 
-			balance, err := utils.VirtualBalance(toChain, toAddress, config, toAsset, signer.Hex(), client)
+			balance, err := utils.VirtualBalance(fromChain, fromAddress, config, fromAsset, signer.Hex(), client)
 			if err != nil {
-				logger.Error("failed to get virtual balance", zap.String("address", toAddress), zap.Error(err))
+				logger.Error("failed to get virtual balance", zap.String("address", fromAddress), zap.Error(err))
 				continue
 			}
 
@@ -192,7 +192,7 @@ func RunAutoFillStrategy(url string, keys utils.Keys, config model.Config, store
 			}
 
 			if balance.Cmp(orderAmount) < 0 {
-				logger.Info("insufficient balance", zap.String("have", balance.String()), zap.String("need", orderAmount.String()))
+				logger.Info("insufficient balance", zap.String("chain", string(fromChain)), zap.String("asset", string(fromAsset)), zap.String("address", fromAddress), zap.String("have", balance.String()), zap.String("need", orderAmount.String()))
 				continue
 			}
 
@@ -202,7 +202,7 @@ func RunAutoFillStrategy(url string, keys utils.Keys, config model.Config, store
 			}
 
 			if err = store.UserStore(s.account).PutSecretHash(order.SecretHash, uint64(order.ID)); err != nil {
-				logger.Info("failed storing secret hash: %v", zap.Error(err))
+				logger.Error("failed storing secret hash: %v", zap.Error(err))
 				continue
 			}
 			logger.Info("filled order ✅", zap.Uint("id", order.ID))

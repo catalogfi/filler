@@ -14,6 +14,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	glogger "gorm.io/gorm/logger"
 )
 
 func Run(version string) error {
@@ -64,6 +65,7 @@ func Run(version string) error {
 		// Initialise db
 		str, err = store.NewStore(postgres.Open(envConfig.DB), &gorm.Config{
 			NowFunc: func() time.Time { return time.Now().UTC() },
+			Logger:  glogger.Default.LogMode(glogger.Error),
 		})
 		if err != nil {
 			return err

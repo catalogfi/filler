@@ -53,10 +53,13 @@ func Execute(keys utils.Keys, account uint32, url string, store store.UserStore,
 				childLogger.Error("failed to read messege from the websocket", zap.Error(err))
 				break
 			}
+			if string(msg) == "null\n" {
+				continue
+			}
 			var orders []model.Order
 			if err := json.Unmarshal(msg, &orders); err != nil {
-				childLogger.Error("failed to unmarshal orders recived on the websocket", zap.String("message", string(msg)), zap.Error(err))
-				break
+				childLogger.Info("ping message on websocket", zap.String("message", string(msg)), zap.Error(err))
+				continue
 			}
 
 			// execute orders
@@ -77,13 +80,14 @@ func execute(order model.Order, logger *zap.Logger, signer common.Address, keys 
 	}
 
 	logger.Info("processing order with id", zap.Uint("status", uint(order.Status)))
-	if isValid, err := userStore.CheckStatus(order.SecretHash); !isValid {
-		if err != "" {
-			logger.Error("failed to check status", zap.Error(errors.New(err)))
+
+	if isValid, err := userStore.CheckStatus(order.SecretHash); err != "" {
+		if isValid {
+			logger.Info("skipping order as it failed earlier", zap.Error(errors.New(err)))
 		} else {
-			logger.Info("skipping order as it failed earlier")
+			logger.Error("failed to load a swap from the db", zap.Error(errors.New(err)))
+			return
 		}
-		return
 	}
 
 	status := userStore.Status(order.SecretHash)

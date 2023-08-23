@@ -41,6 +41,19 @@ func start(url string, keys utils.Keys, strategy []byte, config model.Config, st
 			activeAccounts[strategy.Account()] = true
 		}
 
+		go func() {
+			// Load keys
+			_, client, err := utils.LoadClient(url, keys, store, strategy.Account(), 0)
+			if err != nil {
+				logger.Error("can't load the client", zap.Error(err))
+				return
+			}
+			if err := Recover(store.UserStore(strategy.Account()), client); err != nil {
+				logger.Error("can't recover swaps", zap.Error(err))
+				return
+			}
+		}()
+
 		childLogger := logger.With(zap.String("strategy", fmt.Sprintf("%T", strategy)), zap.String("orderPair", strategy.OrderPair()), zap.Uint32("account", strategy.Account()))
 		wg.Add(1)
 		go func(i int, logger *zap.Logger) {

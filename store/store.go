@@ -64,6 +64,7 @@ type UserStore interface {
 	CheckStatus(secretHash string) (bool, string)
 	Status(secretHash string) Status
 	GetOrder(id uint) (Order, error)
+	Orders() ([]Order, error)
 }
 
 type store struct {
@@ -107,9 +108,6 @@ func (s *userStore) PutToken(selector uint32, token string) error {
 }
 
 func (s *userStore) Token(selector uint32) (string, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
 	var token Token
 	if tx := s.db.Where("account = ? AND selector = ?", s.account, selector).First(&token); tx.Error != nil {
 		return "", tx.Error
@@ -136,20 +134,16 @@ func (s *userStore) PutSecretHash(secretHash string, orderId uint64) error {
 	return nil
 }
 func (s *userStore) CheckStatus(secretHash string) (bool, string) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
 	var order Order
 	if tx := s.db.Where("account = ? AND secret_hash = ?", s.account, secretHash).First(&order); tx.Error != nil {
-		return false, fmt.Sprintf("Order not found in local storage")
+		return false, tx.Error.Error()
 	}
-	if order.Status >= FollowerFailedToInitiate {
-		return false, order.Error
+	if order.Status >= InitiatorFailedToInitiate {
+		return true, order.Error
 	}
-
 	return true, ""
-
 }
+
 func (s *userStore) PutSecret(secretHash, secret string, orderId uint64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -183,9 +177,6 @@ func (s *userStore) PutError(secretHash, err string, status Status) error {
 }
 
 func (s *userStore) Secret(secretHash string) (string, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
 	var order Order
 	if tx := s.db.Where("account = ? AND secret_hash = ?", s.account, secretHash).First(&order); tx.Error != nil {
 		return "", tx.Error
@@ -228,4 +219,15 @@ func (s *userStore) GetOrder(id uint) (Order, error) {
 		return Order{}, tx.Error
 	}
 	return order, nil
+}
+
+func (s *userStore) Orders() ([]Order, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	orders := []Order{}
+	if tx := s.db.Where("account = ?", s.account).Find(&orders); tx.Error != nil {
+		return orders, tx.Error
+	}
+	return orders, nil
 }
