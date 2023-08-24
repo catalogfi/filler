@@ -22,6 +22,7 @@ func Fill(keys utils.Keys, store store.Store, config model.Network) *cobra.Comma
 		Use:   "fill",
 		Short: "Fill an order",
 		Run: func(c *cobra.Command, args []string) {
+			iwConfig := utils.GetIWConfig(false)
 			key, err := keys.GetKey(model.Ethereum, account, 0)
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while getting the signing key: %v", err))
@@ -60,7 +61,7 @@ func Fill(keys utils.Keys, store store.Store, config model.Network) *cobra.Comma
 				cobra.CheckErr(fmt.Sprintf("Error while getting from key: %v", err))
 				return
 			}
-			fromAddress, err := fromKey.Address(fromChain, config, false)
+			fromAddress, err := fromKey.Address(fromChain, config, iwConfig)
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while getting address string: %v", err))
 				return
@@ -70,7 +71,7 @@ func Fill(keys utils.Keys, store store.Store, config model.Network) *cobra.Comma
 				cobra.CheckErr(fmt.Sprintf("Error while getting to key: %v", err))
 				return
 			}
-			toAddress, err := toKey.Address(toChain, config, false)
+			toAddress, err := toKey.Address(toChain, config, iwConfig)
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while getting address string: %v", err))
 				return

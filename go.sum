@@ -46,6 +46,10 @@ github.com/catalogfi/wbtc-garden v0.0.0-20230821060741-3e910079752b h1:Tn9IPgt+5
 github.com/catalogfi/wbtc-garden v0.0.0-20230821060741-3e910079752b/go.mod h1:0r/GNtgfBzQwwoGva5+8+6MZ7efNPlZQg+8BKblhx3Q=
 github.com/catalogfi/wbtc-garden v0.0.0-20230822054648-3000024678b9 h1:wMMviWM2OvYYCZYgHDfcPvDiWaI5YsE9b3eoa6uyB40=
 github.com/catalogfi/wbtc-garden v0.0.0-20230822054648-3000024678b9/go.mod h1:0r/GNtgfBzQwwoGva5+8+6MZ7efNPlZQg+8BKblhx3Q=
+github.com/catalogfi/wbtc-garden v0.0.0-20230824095322-0f4eef103c85 h1:AhXdrIACMKpLqz7d8g/02Tz+NXOrJfOJnpgXQbOeAWk=
+github.com/catalogfi/wbtc-garden v0.0.0-20230824095322-0f4eef103c85/go.mod h1:0r/GNtgfBzQwwoGva5+8+6MZ7efNPlZQg+8BKblhx3Q=
+github.com/catalogfi/wbtc-garden v0.0.0-20230824105546-2f3eecd40d37 h1:B0rJvliN52VyJntbWylXvUGt8iPgLiK6KL2iL7gTWy0=
+github.com/catalogfi/wbtc-garden v0.0.0-20230824105546-2f3eecd40d37/go.mod h1:0r/GNtgfBzQwwoGva5+8+6MZ7efNPlZQg+8BKblhx3Q=
 github.com/cespare/cp v0.1.0 h1:SE+dxFebS7Iik5LK0tsi1k9ZCxEaFX4AjQmoyA+1dJk=
 github.com/cespare/xxhash/v2 v2.2.0 h1:DC2CZ1Ep5Y4k3ZQ899DldepgrayRUGE6BBZ/cd9Cj44=
 github.com/chenzhuoyu/base64x v0.0.0-20211019084208-fb5309c8db06/go.mod h1:DH46F32mSOjUmXrMHnKwZdA8wcEefY7UVqBKYGjpdQY=

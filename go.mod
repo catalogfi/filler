@@ -6,7 +6,7 @@ require (
 	github.com/btcsuite/btcd v0.23.4
 	github.com/btcsuite/btcd/btcec/v2 v2.3.2
 	github.com/btcsuite/btcd/btcutil v1.1.3
-	github.com/catalogfi/wbtc-garden v0.0.0-20230822054648-3000024678b9
+	github.com/catalogfi/wbtc-garden v0.0.0-20230824105546-2f3eecd40d37
 	github.com/ethereum/go-ethereum v1.12.1
 	github.com/fatih/color v1.7.0
 	github.com/gorilla/websocket v1.5.0

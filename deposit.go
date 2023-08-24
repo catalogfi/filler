@@ -26,7 +26,8 @@ func Deposit(entropy []byte, config model.Network) *cobra.Command {
 				cobra.CheckErr(fmt.Sprintf("Error while generating secret: %v", err))
 				return
 			}
-			client, err := blockchain.LoadClient(chain, config, true)
+			iwConfig := utils.GetIWConfig(true)
+			client, err := blockchain.LoadClient(chain, config, iwConfig)
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("failed to load client: %v", err))
 				return

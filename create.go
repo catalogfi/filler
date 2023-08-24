@@ -34,7 +34,7 @@ func Create(keys utils.Keys, store store.Store, config model.Network) *cobra.Com
 			}
 			hash := sha256.Sum256(secret[:])
 			secretHash := hex.EncodeToString(hash[:])
-
+			iwConfig := utils.GetIWConfig(false)
 			userStore := store.UserStore(account)
 			key, err := keys.GetKey(model.Ethereum, account, 0)
 			if err != nil {
@@ -67,7 +67,7 @@ func Create(keys utils.Keys, store store.Store, config model.Network) *cobra.Com
 				cobra.CheckErr(fmt.Sprintf("Error while getting from key: %v", err))
 				return
 			}
-			fromAddress, err := fromKey.Address(fromChain, config, false)
+			fromAddress, err := fromKey.Address(fromChain, config, iwConfig)
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while getting address string: %v", err))
 				return
@@ -77,7 +77,7 @@ func Create(keys utils.Keys, store store.Store, config model.Network) *cobra.Com
 				cobra.CheckErr(fmt.Sprintf("Error while getting to key: %v", err))
 				return
 			}
-			toAddress, err := toKey.Address(toChain, config, false)
+			toAddress, err := toKey.Address(toChain, config, iwConfig)
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while getting address string: %v", err))
 				return

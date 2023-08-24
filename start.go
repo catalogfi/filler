@@ -27,7 +27,8 @@ func Start(keys utils.Keys, store store.Store, config model.Network, logger *zap
 			if err != nil {
 				cobra.CheckErr(err)
 			}
-			start(url, keys, strategyData, config, store, logger, useIw)
+			iwConfig := utils.GetIWConfig(useIw)
+			start(url, keys, strategyData, config, store, logger, iwConfig)
 		},
 		DisableAutoGenTag: true,
 	}
@@ -39,7 +40,7 @@ func Start(keys utils.Keys, store store.Store, config model.Network, logger *zap
 	return cmd
 }
 
-func start(url string, keys utils.Keys, strategy []byte, config model.Network, store store.Store, logger *zap.Logger, isIw bool) {
+func start(url string, keys utils.Keys, strategy []byte, config model.Network, store store.Store, logger *zap.Logger, iwConfig model.InstantWalletConfig) {
 	wg := new(sync.WaitGroup)
 	activeAccounts := map[uint32]bool{}
 	strategies, err := UnmarshalStrategy(strategy)
@@ -52,7 +53,7 @@ func start(url string, keys utils.Keys, strategy []byte, config model.Network, s
 			wg.Add(1)
 			go func(account uint32, logger *zap.Logger) {
 				defer wg.Done()
-				Execute(keys, account, url, store.UserStore(account), config, logger, isIw)
+				Execute(keys, account, url, store.UserStore(account), config, logger, iwConfig)
 			}(strategy.Account(), logger.With(zap.Uint32("executor", strategy.Account())))
 			activeAccounts[strategy.Account()] = true
 		}
@@ -63,9 +64,9 @@ func start(url string, keys utils.Keys, strategy []byte, config model.Network, s
 			defer wg.Done()
 			switch strategy := strategies[i].(type) {
 			case AutoFillStrategy:
-				RunAutoFillStrategy(url, keys, config, store, logger.With(zap.String("orderPair", strategy.OrderPair()), zap.String("priceStrategy", fmt.Sprintf("%T", strategy.PriceStrategy()))), strategy, isIw)
+				RunAutoFillStrategy(url, keys, config, store, logger.With(zap.String("orderPair", strategy.OrderPair()), zap.String("priceStrategy", fmt.Sprintf("%T", strategy.PriceStrategy()))), strategy, iwConfig)
 			case AutoCreateStrategy:
-				RunAutoCreateStrategy(url, keys, config, store, logger.With(zap.String("orderPair", strategy.OrderPair()), zap.String("priceStrategy", fmt.Sprintf("%T", strategy.PriceStrategy()))), strategy, isIw)
+				RunAutoCreateStrategy(url, keys, config, store, logger.With(zap.String("orderPair", strategy.OrderPair()), zap.String("priceStrategy", fmt.Sprintf("%T", strategy.PriceStrategy()))), strategy, iwConfig)
 			default:
 				logger.Error("unexpected strategy")
 			}

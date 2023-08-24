@@ -11,6 +11,8 @@ import (
 	"github.com/catalogfi/wbtc-garden/model"
 	"github.com/fatih/color"
 	"github.com/tyler-smith/go-bip39"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
 
 var HomeDir string
@@ -35,6 +37,19 @@ func DefaultMnemonicPath() string {
 
 func DefaultConfigPath() string {
 	return filepath.Join(HomeDir, ".cobi", "config.json")
+}
+
+func DefaultInstantWalletDBDialector() gorm.Dialector {
+	return sqlite.Open(filepath.Join(HomeDir, ".cobi", "btciw.db"))
+}
+
+func GetIWConfig(isIW bool) model.InstantWalletConfig {
+	if isIW {
+		return model.InstantWalletConfig{
+			Dialector: DefaultInstantWalletDBDialector(),
+		}
+	}
+	return model.InstantWalletConfig{}
 }
 
 func LoadMnemonic(path string) ([]byte, error) {
