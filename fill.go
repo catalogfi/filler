@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func Fill(keys utils.Keys, store store.Store) *cobra.Command {
+func Fill(keys utils.Keys, store store.Store, config model.Network) *cobra.Command {
 	var (
 		url     string
 		account uint32
@@ -60,7 +60,7 @@ func Fill(keys utils.Keys, store store.Store) *cobra.Command {
 				cobra.CheckErr(fmt.Sprintf("Error while getting from key: %v", err))
 				return
 			}
-			fromAddress, err := fromKey.Address(fromChain)
+			fromAddress, err := fromKey.Address(fromChain, config, false)
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while getting address string: %v", err))
 				return
@@ -70,7 +70,7 @@ func Fill(keys utils.Keys, store store.Store) *cobra.Command {
 				cobra.CheckErr(fmt.Sprintf("Error while getting to key: %v", err))
 				return
 			}
-			toAddress, err := toKey.Address(toChain)
+			toAddress, err := toKey.Address(toChain, config, false)
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while getting address string: %v", err))
 				return

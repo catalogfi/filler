@@ -52,7 +52,7 @@ func RunAutoCreateStrategy(url string, keys utils.Keys, config model.Network, st
 			logger.Error("failed while getting from key", zap.Error(err))
 			return
 		}
-		fromAddress, err := fromKey.Address(fromChain)
+		fromAddress, err := fromKey.Address(fromChain, config, isIw)
 		if err != nil {
 			logger.Error("failed while getting address string", zap.Error(err))
 			return
@@ -62,7 +62,7 @@ func RunAutoCreateStrategy(url string, keys utils.Keys, config model.Network, st
 			logger.Error("failed while getting to key", zap.Error(err))
 			return
 		}
-		toAddress, err := toKey.Address(toChain)
+		toAddress, err := toKey.Address(toChain, config, isIw)
 		if err != nil {
 			logger.Error("failed while getting address string", zap.Error(err))
 			return
@@ -158,7 +158,7 @@ func RunAutoFillStrategy(url string, keys utils.Keys, config model.Network, stor
 				logger.Error("failed getting from key", zap.Error(err))
 				return
 			}
-			fromAddress, err := fromKey.Address(fromChain)
+			fromAddress, err := fromKey.Address(fromChain, config, isIw)
 			if err != nil {
 				logger.Error("failed getting from address string", zap.Error(err))
 				return
@@ -168,7 +168,7 @@ func RunAutoFillStrategy(url string, keys utils.Keys, config model.Network, stor
 				logger.Error("failed getting to key", zap.Error(err))
 				return
 			}
-			toAddress, err := toKey.Address(toChain)
+			toAddress, err := toKey.Address(toChain, config, isIw)
 			if err != nil {
 				logger.Error("failed getting to address string", zap.Error(err))
 				return

@@ -43,10 +43,13 @@ func (key *Key) ECDSA() (*ecdsa.PrivateKey, error) {
 	return crypto.ToECDSA(key.inner.Key)
 }
 
-func (key *Key) Address(chain model.Chain) (string, error) {
+func (key *Key) Address(chain model.Chain, network model.Network, useIW bool) (string, error) {
 	switch {
 	case chain.IsBTC():
 		params := getParams(chain)
+		if useIW {
+			return key.InstantWalletAddress(chain, network)
+		}
 		addr, err := key.WitnessAddress(params)
 		if err != nil {
 			return "", err
@@ -61,6 +64,16 @@ func (key *Key) Address(chain model.Chain) (string, error) {
 	default:
 		return "", fmt.Errorf("unsupport chain type %v", chain)
 	}
+}
+
+func (key *Key) InstantWalletAddress(chain model.Chain, config model.Network) (string, error) {
+	client, err := blockchain.LoadClient(chain, config, true)
+	if err != nil {
+		return "", fmt.Errorf("failed to load client: %v", err)
+	}
+	iwClient := client.(bitcoin.InstantClient)
+	pk := key.BtcKey()
+	return iwClient.GetInstantWalletAddress(pk)
 }
 
 func (key *Key) WitnessAddress(network *chaincfg.Params) (btcutil.Address, error) {
@@ -150,12 +163,14 @@ func Balance(chain model.Chain, address string, config model.Network, asset mode
 	}
 
 	switch client := client.(type) {
-	case bitcoin.Client:
-		address, err := btcutil.DecodeAddress(address, client.Net())
+
+	case bitcoin.Client, bitcoin.InstantClient:
+		c := client.(bitcoin.Client)
+		address, err := btcutil.DecodeAddress(address, c.Net())
 		if err != nil {
 			return nil, fmt.Errorf("failed to create address (%s): %v", address, err)
 		}
-		_, balance, err := client.GetUTXOs(address, 0)
+		_, balance, err := c.GetUTXOs(address, 0)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get UTXOs: %v", err)
 		}
