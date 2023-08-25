@@ -84,8 +84,11 @@ func retryOrder(order model.Order, logger *zap.Logger, signer common.Address, ke
 		}
 		return
 	}
-
-	status := userStore.Status(order.SecretHash)
+	// so the idea behind retry in bussiness logic is to change status in store object
+	// by changing status in store object watcher will try to re-execute the order
+	// in order to reset appropriate status we are subtracting 7 from current status
+	// statuses are in a sequence resulting in subtraction of 7 leading to its appropriate previous status
+	status := store.Status(userStore.Status(order.SecretHash)-7)
 	fromKey, err := keys.GetKey(order.InitiatorAtomicSwap.Chain, account, 0)
 	if err != nil {
 		logger.Error("failed to load sender key", zap.Error(err))
