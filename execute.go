@@ -56,7 +56,7 @@ func Execute(keys utils.Keys, account uint32, url string, store store.UserStore,
 			var orders []model.Order
 			if err := json.Unmarshal(msg, &orders); err != nil {
 				childLogger.Error("failed to unmarshal orders recived on the websocket", zap.String("message", string(msg)), zap.Error(err))
-				break
+				continue
 			}
 
 			// execute orders

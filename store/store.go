@@ -64,6 +64,7 @@ type UserStore interface {
 	CheckStatus(secretHash string) (bool, string)
 	Status(secretHash string) Status
 	GetOrder(id uint) (Order, error)
+	CheckRetryStatus(secretHash string) (bool, string) 
 }
 
 type store struct {
@@ -148,6 +149,22 @@ func (s *userStore) CheckStatus(secretHash string) (bool, string) {
 	}
 
 	return true, ""
+
+}
+
+func (s *userStore) CheckRetryStatus(secretHash string) (bool, string) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var order Order
+	if tx := s.db.Where("account = ? AND secret_hash = ?", s.account, secretHash).First(&order); tx.Error != nil {
+		return false, fmt.Sprintf("Order not found in local storage")
+	}
+	if order.Status >= FollowerFailedToInitiate {
+		return true, ""
+	}
+
+	return false, "Order still under Watch"
 
 }
 func (s *userStore) PutSecret(secretHash, secret string, orderId uint64) error {

@@ -67,7 +67,7 @@ func Run(version string) error {
 	cmd.AddCommand(Create(keys, store))
 	cmd.AddCommand(Fill(keys, store))
 	cmd.AddCommand(Start(keys, store, config, logger))
-	cmd.AddCommand(Retry(store))
+	cmd.AddCommand(Retry(keys, config, store, logger))
 	cmd.AddCommand(Accounts(keys, config))
 	cmd.AddCommand(List())
 	cmd.AddCommand(Network(config, logger))
