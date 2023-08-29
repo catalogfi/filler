@@ -206,7 +206,7 @@ func VirtualBalance(chain model.Chain, address string, config model.Network, ass
 		return nil, err
 	}
 
-	commitedAmount := big.NewInt(0)
+	committedAmount := big.NewInt(0)
 
 	fillOrders, err := client.GetOrders(rest.GetOrdersFilter{
 		Taker:   signer,
@@ -217,18 +217,23 @@ func VirtualBalance(chain model.Chain, address string, config model.Network, ass
 		return nil, err
 	}
 	for _, fillOrder := range fillOrders {
+		switch fillOrder.Status {
+		case model.Created, model.Filled:
+		default:
+			continue
+		}
 		if fillOrder.FollowerAtomicSwap.Asset == asset {
 			orderAmt, ok := new(big.Int).SetString(fillOrder.FollowerAtomicSwap.Amount, 10)
 			if !ok {
 				return nil, err
 			}
-			commitedAmount.Add(commitedAmount, orderAmt)
+			committedAmount.Add(committedAmount, orderAmt)
 		}
 	}
 
 	createOrders, err := client.GetOrders(rest.GetOrdersFilter{
-		Maker:   signer,
-		Status:  int(model.Filled),
+		Maker: signer,
+		// Status:  int(model.Filled),
 		Verbose: true,
 	})
 	if err != nil {
@@ -240,11 +245,11 @@ func VirtualBalance(chain model.Chain, address string, config model.Network, ass
 			if !ok {
 				return nil, err
 			}
-			commitedAmount.Add(commitedAmount, orderAmt)
+			committedAmount.Add(committedAmount, orderAmt)
 		}
 	}
 
-	return new(big.Int).Sub(balance, commitedAmount), nil
+	return new(big.Int).Sub(balance, committedAmount), nil
 }
 
 func LoadClient(url string, keys Keys, str store.Store, account, selector uint32) (common.Address, rest.Client, error) {

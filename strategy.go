@@ -146,7 +146,7 @@ func RunAutoFillStrategy(url string, keys utils.Keys, config model.Network, stor
 		}
 
 		for _, order := range orders {
-			toChain, fromChain, _, toAsset, err := model.ParseOrderPair(order.OrderPair)
+			toChain, fromChain, _, fromAsset, err := model.ParseOrderPair(order.OrderPair)
 			if err != nil {
 				logger.Error("failed parsing order pair", zap.Error(err))
 				return
@@ -174,7 +174,7 @@ func RunAutoFillStrategy(url string, keys utils.Keys, config model.Network, stor
 				return
 			}
 
-			balance, err := utils.VirtualBalance(toChain, toAddress, config, toAsset, signer.Hex(), client, iwConfig)
+			balance, err := utils.VirtualBalance(fromChain, fromAddress, config, fromAsset, signer.Hex(), client, iwConfig)
 			if err != nil {
 				logger.Error("failed to get virtual balance", zap.String("address", toAddress), zap.Error(err))
 				continue
