@@ -55,8 +55,8 @@ func Execute(keys utils.Keys, account uint32, url string, store store.UserStore,
 			}
 			var orders []model.Order
 			if err := json.Unmarshal(msg, &orders); err != nil {
-				childLogger.Error("failed to unmarshal orders recived on the websocket", zap.String("message", string(msg)), zap.Error(err))
-				break
+				// childLogger.Error("failed to unmarshal orders recived on the websocket", zap.String("message", string(msg)), zap.Error(err))
+				continue
 			}
 
 			// execute orders
@@ -106,41 +106,43 @@ func execute(order model.Order, logger *zap.Logger, signer common.Address, keys 
 
 	if strings.EqualFold(order.Maker, signer.Hex()) {
 		if order.Status == model.Filled {
-			if status != store.InitiatorInitiated {
+			if order.FollowerAtomicSwap.Status == model.Detected {
+				logger.Info("detected follower atomic swap", zap.String("txHash", order.FollowerAtomicSwap.InitiateTxHash))
+			} else if status != store.InitiatorInitiated && status != store.InitiatorFailedToInitiate {
 				handleInitiate(*order.InitiatorAtomicSwap, order.SecretHash, fromKeyInterface, config, userStore, logger.With(zap.String("handler", "initiator initiate")), true, iwConfig)
-			}
-		} else if order.FollowerAtomicSwap.Status == model.Detected {
-			logger.Info("detected follower atomic swap", zap.String("txHash", order.FollowerAtomicSwap.InitiateTxHash))
-		} else if order.FollowerAtomicSwap.Status == model.Initiated {
-			if status != store.InitiatorRedeemed {
-				secret, err := userStore.Secret(order.SecretHash)
-				if err != nil {
-					logger.Error("failed to retrieve the secret from db", zap.Error(err))
-					return
+			} else if order.FollowerAtomicSwap.Status == model.Initiated {
+				if status != store.InitiatorRedeemed && status != store.InitiatorFailedToRedeem {
+					secret, err := userStore.Secret(order.SecretHash)
+					if err != nil {
+						logger.Error("failed to retrieve the secret from db", zap.Error(err))
+						return
+					}
+					handleRedeem(*order.FollowerAtomicSwap, secret, order.SecretHash, toKeyInterface, config, userStore, logger.With(zap.String("handler", "initiator redeem")), true, iwConfig)
 				}
-				handleRedeem(*order.FollowerAtomicSwap, secret, order.SecretHash, toKeyInterface, config, userStore, logger.With(zap.String("handler", "initiator redeem")), true, iwConfig)
-			}
-		} else if order.InitiatorAtomicSwap.Status == model.Expired {
-			if status == store.InitiatorInitiated {
-				// assuming that the function would just return nil if the swap has not expired yet
-				handleRefund(*order.InitiatorAtomicSwap, order.SecretHash, fromKeyInterface, config, userStore, logger.With(zap.String("handler", "initiator refund")), true, iwConfig)
+			} else if order.InitiatorAtomicSwap.Status == model.Expired {
+				if status == store.InitiatorInitiated && status != store.InitiatorRefunded && status != store.InitiatorFailedToRefund {
+					// assuming that the function would just return nil if the swap has not expired yet
+					handleRefund(*order.InitiatorAtomicSwap, order.SecretHash, fromKeyInterface, config, userStore, logger.With(zap.String("handler", "initiator refund")), true, iwConfig)
+				}
 			}
 		}
 	} else if strings.EqualFold(order.Taker, signer.Hex()) {
-		if order.InitiatorAtomicSwap.Status == model.Initiated {
-			if status != store.FollowerInitiated {
-				handleInitiate(*order.FollowerAtomicSwap, order.SecretHash, toKeyInterface, config, userStore, logger.With(zap.String("handler", "follower initiate")), false, iwConfig)
-			}
-		} else if order.InitiatorAtomicSwap.Status == model.Detected {
-			logger.Info("detected initiator atomic swap", zap.String("txHash", order.InitiatorAtomicSwap.InitiateTxHash))
-		} else if order.FollowerAtomicSwap.Status == model.Redeemed {
-			if status != store.FollowerRedeemed {
-				handleRedeem(*order.InitiatorAtomicSwap, order.Secret, order.SecretHash, fromKeyInterface, config, userStore, logger.With(zap.String("handler", "follower redeem")), false, iwConfig)
-			}
-		} else if order.FollowerAtomicSwap.Status == model.Expired {
-			// assuming that the function would just return nil if the swap has not expired yet
-			if status == store.FollowerInitiated {
-				handleRefund(*order.FollowerAtomicSwap, order.SecretHash, toKeyInterface, config, userStore, logger.With(zap.String("handler", "follower refund")), false, iwConfig)
+		if order.Status == model.Filled {
+			if order.InitiatorAtomicSwap.Status == model.Detected {
+				logger.Info("detected initiator atomic swap", zap.String("txHash", order.InitiatorAtomicSwap.InitiateTxHash))
+			} else if order.FollowerAtomicSwap.Status == model.Redeemed && order.InitiatorAtomicSwap.Status == model.Initiated {
+				if status != store.FollowerRedeemed && status != store.FollowerFailedToRedeem {
+					handleRedeem(*order.InitiatorAtomicSwap, order.Secret, order.SecretHash, fromKeyInterface, config, userStore, logger.With(zap.String("handler", "follower redeem")), false, iwConfig)
+				}
+			} else if order.InitiatorAtomicSwap.Status == model.Initiated {
+				if status != store.FollowerInitiated && status != store.FollowerFailedToInitiate {
+					handleInitiate(*order.FollowerAtomicSwap, order.SecretHash, toKeyInterface, config, userStore, logger.With(zap.String("handler", "follower initiate")), false, iwConfig)
+				}
+			} else if order.FollowerAtomicSwap.Status == model.Expired {
+				// assuming that the function would just return nil if the swap has not expired yet
+				if status == store.FollowerInitiated && status != store.FollowerRefunded && status != store.FollowerFailedToRefund {
+					handleRefund(*order.FollowerAtomicSwap, order.SecretHash, toKeyInterface, config, userStore, logger.With(zap.String("handler", "follower refund")), false, iwConfig)
+				}
 			}
 		}
 	}
