@@ -5,6 +5,8 @@ github.com/FactomProject/btcutilecc v0.0.0-20130527213604-d3a63a5752ec h1:1Qb69m
 github.com/FactomProject/btcutilecc v0.0.0-20130527213604-d3a63a5752ec/go.mod h1:CD8UlnlLDiqb36L110uqiP2iSflVjx9g/3U9hCI4q2U=
 github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 h1:fLjPD/aNc3UIOA6tDi6QXUemppXK3P9BI7mr2hd6gx8=
 github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6/go.mod h1:3eOhrUMpNV+6aFIbp5/iudMxNCF27Vw2OZgy4xEx0Fg=
+github.com/TheZeroSlave/zapsentry v1.17.0 h1:RIQCG89U7vWWZVmmCxeUz/g32WEcAYXUrXHoMlbSDmc=
+github.com/TheZeroSlave/zapsentry v1.17.0/go.mod h1:D1YMfSuu6xnkhwFXxrronesmsiyDhIqo+86I3Ok+r64=
 github.com/VictoriaMetrics/fastcache v1.6.0 h1:C/3Oi3EiBCqufydp1neRZkqcwmEiuRT9c3fqvvgKm5o=
 github.com/aead/siphash v1.0.1/go.mod h1:Nywa3cDsYNNK3gaciGTWPwHt0wlpNV15vwmswBAUSII=
 github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 h1:DklsrG3dyBCFEj5IhUbnKptjxatkF07cF2ak3yi77so=
@@ -42,14 +44,12 @@ github.com/btcsuite/winsvc v1.0.0/go.mod h1:jsenWakMcC0zFBFurPLEAyrnc/teJEM1O46f
 github.com/bytedance/sonic v1.5.0/go.mod h1:ED5hyg4y6t3/9Ku1R6dU/4KyJ48DZ4jPhfY1O2AihPM=
 github.com/bytedance/sonic v1.9.1 h1:6iJ6NqdoxCDr6mbY8h18oSO+cShGSMRGCEo7F2h0x8s=
 github.com/bytedance/sonic v1.9.1/go.mod h1:i736AoUSYt75HyZLoJW9ERYxcy6eaN6h4BZXU064P/U=
-github.com/catalogfi/wbtc-garden v0.0.0-20230821060741-3e910079752b h1:Tn9IPgt+5Vj+itjgbuQ8/zqfg2NB7rUVSIS6NVJmpmA=
-github.com/catalogfi/wbtc-garden v0.0.0-20230821060741-3e910079752b/go.mod h1:0r/GNtgfBzQwwoGva5+8+6MZ7efNPlZQg+8BKblhx3Q=
-github.com/catalogfi/wbtc-garden v0.0.0-20230822054648-3000024678b9 h1:wMMviWM2OvYYCZYgHDfcPvDiWaI5YsE9b3eoa6uyB40=
-github.com/catalogfi/wbtc-garden v0.0.0-20230822054648-3000024678b9/go.mod h1:0r/GNtgfBzQwwoGva5+8+6MZ7efNPlZQg+8BKblhx3Q=
-github.com/catalogfi/wbtc-garden v0.0.0-20230824095322-0f4eef103c85 h1:AhXdrIACMKpLqz7d8g/02Tz+NXOrJfOJnpgXQbOeAWk=
-github.com/catalogfi/wbtc-garden v0.0.0-20230824095322-0f4eef103c85/go.mod h1:0r/GNtgfBzQwwoGva5+8+6MZ7efNPlZQg+8BKblhx3Q=
 github.com/catalogfi/wbtc-garden v0.0.0-20230824105546-2f3eecd40d37 h1:B0rJvliN52VyJntbWylXvUGt8iPgLiK6KL2iL7gTWy0=
 github.com/catalogfi/wbtc-garden v0.0.0-20230824105546-2f3eecd40d37/go.mod h1:0r/GNtgfBzQwwoGva5+8+6MZ7efNPlZQg+8BKblhx3Q=
+github.com/catalogfi/wbtc-garden v0.0.0-20230828191007-b4dc1fa550b9 h1:bl9ZeBlRHv/giifLRXANHXeFBYB/NlliOQFMrXUMAro=
+github.com/catalogfi/wbtc-garden v0.0.0-20230828191007-b4dc1fa550b9/go.mod h1:0r/GNtgfBzQwwoGva5+8+6MZ7efNPlZQg+8BKblhx3Q=
+github.com/catalogfi/wbtc-garden v0.0.0-20230829100708-98d748499c85 h1:XN17tUta85RZneTa56IMXOFr0VwYMksJZUNkygN+Cnw=
+github.com/catalogfi/wbtc-garden v0.0.0-20230829100708-98d748499c85/go.mod h1:0r/GNtgfBzQwwoGva5+8+6MZ7efNPlZQg+8BKblhx3Q=
 github.com/cespare/cp v0.1.0 h1:SE+dxFebS7Iik5LK0tsi1k9ZCxEaFX4AjQmoyA+1dJk=
 github.com/cespare/xxhash/v2 v2.2.0 h1:DC2CZ1Ep5Y4k3ZQ899DldepgrayRUGE6BBZ/cd9Cj44=
 github.com/chenzhuoyu/base64x v0.0.0-20211019084208-fb5309c8db06/go.mod h1:DH46F32mSOjUmXrMHnKwZdA8wcEefY7UVqBKYGjpdQY=
@@ -96,6 +96,7 @@ github.com/gabriel-vasile/mimetype v1.4.2 h1:w5qFW6JKBz9Y393Y4q372O9A7cUSequkh1Q
 github.com/gabriel-vasile/mimetype v1.4.2/go.mod h1:zApsH/mKG4w07erKIaJPFiX0Tsq9BFQgN3qGY5GnNgA=
 github.com/gballet/go-libpcsclite v0.0.0-20190607065134-2772fd86a8ff h1:tY80oXqGNY4FhTFhk+o9oFHGINQ/+vhlm8HFzi6znCI=
 github.com/getsentry/sentry-go v0.18.0 h1:MtBW5H9QgdcJabtZcuJG80BMOwaBpkRDZkxRkNC1sN0=
+github.com/getsentry/sentry-go v0.18.0/go.mod h1:Kgon4Mby+FJ7ZWHFUAZgVaIa8sxHtnRJRLTXZr51aKQ=
 github.com/gin-contrib/cors v1.4.0 h1:oJ6gwtUl3lqV0WEIwM/LxPF1QZ5qe2lGWdY2+bz7y0g=
 github.com/gin-contrib/cors v1.4.0/go.mod h1:bs9pNM0x/UsmHPBWT2xZz9ROh8xYjYkiURUfmBoMlcs=
 github.com/gin-contrib/sse v0.1.0 h1:Y/yl/+YNO8GZSjAhjMsSuLt29uWRFHdHYUb5lYOV9qE=
