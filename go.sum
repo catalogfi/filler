@@ -50,6 +50,8 @@ github.com/catalogfi/wbtc-garden v0.0.0-20230828191007-b4dc1fa550b9 h1:bl9ZeBlRH
 github.com/catalogfi/wbtc-garden v0.0.0-20230828191007-b4dc1fa550b9/go.mod h1:0r/GNtgfBzQwwoGva5+8+6MZ7efNPlZQg+8BKblhx3Q=
 github.com/catalogfi/wbtc-garden v0.0.0-20230829100708-98d748499c85 h1:XN17tUta85RZneTa56IMXOFr0VwYMksJZUNkygN+Cnw=
 github.com/catalogfi/wbtc-garden v0.0.0-20230829100708-98d748499c85/go.mod h1:0r/GNtgfBzQwwoGva5+8+6MZ7efNPlZQg+8BKblhx3Q=
+github.com/catalogfi/wbtc-garden v0.0.0-20230830053238-2df7e86415f9 h1:Auw7rPy/DWeXpUnJ/VotLYmaJqc2Jl8hG42sfuvgrdU=
+github.com/catalogfi/wbtc-garden v0.0.0-20230830053238-2df7e86415f9/go.mod h1:8gs6GZc/VE6dg1o0XdRZeRhD6PWjbl6TwEivVCCPZbs=
 github.com/cespare/cp v0.1.0 h1:SE+dxFebS7Iik5LK0tsi1k9ZCxEaFX4AjQmoyA+1dJk=
 github.com/cespare/xxhash/v2 v2.2.0 h1:DC2CZ1Ep5Y4k3ZQ899DldepgrayRUGE6BBZ/cd9Cj44=
 github.com/chenzhuoyu/base64x v0.0.0-20211019084208-fb5309c8db06/go.mod h1:DH46F32mSOjUmXrMHnKwZdA8wcEefY7UVqBKYGjpdQY=
