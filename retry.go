@@ -88,7 +88,14 @@ func retryOrder(order model.Order, logger *zap.Logger, signer common.Address, ke
 	// by changing status in store object watcher will try to re-execute the order
 	// in order to reset appropriate status we are subtracting 7 from current status
 	// statuses are in a sequence resulting in subtraction of 7 leading to its appropriate previous status
-	status := store.Status(userStore.Status(order.SecretHash)-7)
+	var status store.Status
+	StoreStatus := userStore.Status(order.SecretHash)
+	if uint(StoreStatus) >= 13 {
+		status = StoreStatus - 10
+	} else {
+		status = StoreStatus - 7
+	}
+
 	fromKey, err := keys.GetKey(order.InitiatorAtomicSwap.Chain, account, 0)
 	if err != nil {
 		logger.Error("failed to load sender key", zap.Error(err))
