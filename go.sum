@@ -44,14 +44,10 @@ github.com/btcsuite/winsvc v1.0.0/go.mod h1:jsenWakMcC0zFBFurPLEAyrnc/teJEM1O46f
 github.com/bytedance/sonic v1.5.0/go.mod h1:ED5hyg4y6t3/9Ku1R6dU/4KyJ48DZ4jPhfY1O2AihPM=
 github.com/bytedance/sonic v1.9.1 h1:6iJ6NqdoxCDr6mbY8h18oSO+cShGSMRGCEo7F2h0x8s=
 github.com/bytedance/sonic v1.9.1/go.mod h1:i736AoUSYt75HyZLoJW9ERYxcy6eaN6h4BZXU064P/U=
-github.com/catalogfi/wbtc-garden v0.0.0-20230824105546-2f3eecd40d37 h1:B0rJvliN52VyJntbWylXvUGt8iPgLiK6KL2iL7gTWy0=
-github.com/catalogfi/wbtc-garden v0.0.0-20230824105546-2f3eecd40d37/go.mod h1:0r/GNtgfBzQwwoGva5+8+6MZ7efNPlZQg+8BKblhx3Q=
-github.com/catalogfi/wbtc-garden v0.0.0-20230828191007-b4dc1fa550b9 h1:bl9ZeBlRHv/giifLRXANHXeFBYB/NlliOQFMrXUMAro=
-github.com/catalogfi/wbtc-garden v0.0.0-20230828191007-b4dc1fa550b9/go.mod h1:0r/GNtgfBzQwwoGva5+8+6MZ7efNPlZQg+8BKblhx3Q=
-github.com/catalogfi/wbtc-garden v0.0.0-20230829100708-98d748499c85 h1:XN17tUta85RZneTa56IMXOFr0VwYMksJZUNkygN+Cnw=
-github.com/catalogfi/wbtc-garden v0.0.0-20230829100708-98d748499c85/go.mod h1:0r/GNtgfBzQwwoGva5+8+6MZ7efNPlZQg+8BKblhx3Q=
-github.com/catalogfi/wbtc-garden v0.0.0-20230830053238-2df7e86415f9 h1:Auw7rPy/DWeXpUnJ/VotLYmaJqc2Jl8hG42sfuvgrdU=
-github.com/catalogfi/wbtc-garden v0.0.0-20230830053238-2df7e86415f9/go.mod h1:8gs6GZc/VE6dg1o0XdRZeRhD6PWjbl6TwEivVCCPZbs=
+github.com/catalogfi/wbtc-garden v0.0.0-20230904190537-6956ffd3fc1a h1:znafleO527iGxJ/3GNt/OkT+zDVEBw1egOkWp1GmN00=
+github.com/catalogfi/wbtc-garden v0.0.0-20230904190537-6956ffd3fc1a/go.mod h1:8gs6GZc/VE6dg1o0XdRZeRhD6PWjbl6TwEivVCCPZbs=
+github.com/catalogfi/wbtc-garden v0.0.0-20230904195347-adeeea35552d h1:U0O/A3iVYNliJwgGI5AyC8ryzoOTUh3FdAy/2h0fHVo=
+github.com/catalogfi/wbtc-garden v0.0.0-20230904195347-adeeea35552d/go.mod h1:8gs6GZc/VE6dg1o0XdRZeRhD6PWjbl6TwEivVCCPZbs=
 github.com/cespare/cp v0.1.0 h1:SE+dxFebS7Iik5LK0tsi1k9ZCxEaFX4AjQmoyA+1dJk=
 github.com/cespare/xxhash/v2 v2.2.0 h1:DC2CZ1Ep5Y4k3ZQ899DldepgrayRUGE6BBZ/cd9Cj44=
 github.com/chenzhuoyu/base64x v0.0.0-20211019084208-fb5309c8db06/go.mod h1:DH46F32mSOjUmXrMHnKwZdA8wcEefY7UVqBKYGjpdQY=
@@ -317,6 +313,7 @@ github.com/youmark/pkcs8 v0.0.0-20181117223130-1be2e3e5546d/go.mod h1:rHwXgn7Jul
 go.mongodb.org/mongo-driver v1.11.3 h1:Ql6K6qYHEzB6xvu4+AU0BoRoqf9vFPcc4o7MUIdPW8Y=
 go.mongodb.org/mongo-driver v1.11.3/go.mod h1:PTSz5yu21bkT/wXpkS7WR5f0ddqw5quethTUn9WM+2g=
 go.uber.org/goleak v1.2.0 h1:xqgm/S+aQvhWFTtR0XK3Jvg7z8kGV8P4X14IzwN3Eqk=
+go.uber.org/mock v0.2.0 h1:TaP3xedm7JaAgScZO7tlvlKrqT0p7I6OsdGB5YNSMDU=
 go.uber.org/multierr v1.11.0 h1:blXXJkSxSSfBVBlC76pxqeO+LN3aDfLQo+309xJstO0=
 go.uber.org/multierr v1.11.0/go.mod h1:20+QtiLqy0Nd6FdQB9TLXag12DsQkrbs3htMFfDN80Y=
 go.uber.org/zap v1.25.0 h1:4Hvk6GtkucQ790dqmj7l1eEnRdKm3k3ZUrUMS2d5+5c=

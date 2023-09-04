@@ -6,10 +6,9 @@ require (
 	github.com/btcsuite/btcd v0.23.4
 	github.com/btcsuite/btcd/btcec/v2 v2.3.2
 	github.com/btcsuite/btcd/btcutil v1.1.3
-	github.com/catalogfi/wbtc-garden v0.0.0-20230830053238-2df7e86415f9
+	github.com/catalogfi/wbtc-garden v0.0.0-20230904195347-adeeea35552d
 	github.com/ethereum/go-ethereum v1.12.1
 	github.com/fatih/color v1.7.0
-	github.com/gorilla/websocket v1.5.0
 	github.com/jedib0t/go-pretty v4.3.0+incompatible
 	github.com/spf13/cobra v1.7.0
 	github.com/tyler-smith/go-bip32 v1.0.0
@@ -50,6 +49,7 @@ require (
 	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/google/uuid v1.3.0 // indirect
+	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/holiman/uint256 v1.2.3 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect

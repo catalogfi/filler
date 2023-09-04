@@ -2,7 +2,6 @@ package cobi
 
 import (
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -11,9 +10,9 @@ import (
 	"github.com/catalogfi/cobi/utils"
 	"github.com/catalogfi/wbtc-garden/blockchain"
 	"github.com/catalogfi/wbtc-garden/model"
+	"github.com/catalogfi/wbtc-garden/rest"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
 )
 
@@ -35,37 +34,26 @@ func Execute(keys utils.Keys, account uint32, url string, store store.UserStore,
 
 	for {
 		// connect to the websocket and subscribe on the signer's address
-		client, _, err := websocket.DefaultDialer.Dial(fmt.Sprintf("wss://%s/ws/orders", url), nil)
-		if err != nil {
-			childLogger.Error("failed to dial", zap.Error(err), zap.String("executor", signer.Hex()))
-			break
-		}
+		client := rest.NewWSClient(fmt.Sprintf("wss://%s/", url), childLogger)
+		client.Subscribe(fmt.Sprintf("subscribe_%v", signer))
+		respChan := client.Listen()
 
-		if err := client.WriteMessage(websocket.BinaryMessage, []byte(fmt.Sprintf("subscribe:%v", signer))); err != nil {
-			childLogger.Error("failed to subscribe to the events of the user", zap.Error(err), zap.String("executor", signer.Hex()))
-			break
-		}
-
-		for {
-			// listen to new orders from the orderbook
-			_, msg, err := client.ReadMessage()
-			if err != nil {
-				childLogger.Error("failed to read messege from the websocket", zap.Error(err))
+		for resp := range respChan {
+			switch resp.(type) {
+			case rest.WebsocketError:
 				break
-			}
-			var orders []model.Order
-			if err := json.Unmarshal(msg, &orders); err != nil {
-				// childLogger.Error("failed to unmarshal orders recived on the websocket", zap.String("message", string(msg)), zap.Error(err))
-				continue
-			}
+			case rest.UpdatedOrders:
+				// execute orders
+				orders := resp.(rest.UpdatedOrders).Orders
+				count := len(orders)
+				childLogger.Info("recieved orders from the order book", zap.Int("count", count))
+				for _, order := range orders {
+					grandChildLogger := childLogger.With(zap.Uint("order id", order.ID), zap.String("pair", order.OrderPair))
+					execute(order, grandChildLogger, signer, keys, account, config, store, iwConfig)
+				}
+				childLogger.Info("executed orders recieved from the order book", zap.Int("count", count))
 
-			// execute orders
-			childLogger.Info("recieved orders from the order book", zap.Int("count", len(orders)))
-			for _, order := range orders {
-				grandChildLogger := childLogger.With(zap.Uint("order id", order.ID), zap.String("pair", order.OrderPair))
-				execute(order, grandChildLogger, signer, keys, account, config, store, iwConfig)
 			}
-			childLogger.Info("executed orders recieved from the order book", zap.Int("count", len(orders)))
 		}
 	}
 }
@@ -108,7 +96,7 @@ func execute(order model.Order, logger *zap.Logger, signer common.Address, keys 
 		if order.Status == model.Filled {
 			if order.FollowerAtomicSwap.Status == model.Detected {
 				logger.Info("detected follower atomic swap", zap.String("txHash", order.FollowerAtomicSwap.InitiateTxHash))
-			} else if status != store.InitiatorInitiated && status != store.InitiatorFailedToInitiate {
+			} else if status != store.InitiatorInitiated && status != store.InitiatorFailedToInitiate && order.FollowerAtomicSwap.Status == model.SwapStatus(model.Unknown){
 				handleInitiate(*order.InitiatorAtomicSwap, order.SecretHash, fromKeyInterface, config, userStore, logger.With(zap.String("handler", "initiator initiate")), true, iwConfig)
 			} else if order.FollowerAtomicSwap.Status == model.Initiated {
 				if status != store.InitiatorRedeemed && status != store.InitiatorFailedToRedeem {
@@ -127,6 +115,7 @@ func execute(order model.Order, logger *zap.Logger, signer common.Address, keys 
 			}
 		}
 	} else if strings.EqualFold(order.Taker, signer.Hex()) {
+		fmt.Println(order.InitiatorAtomicSwap.Status,order.FollowerAtomicSwap.Status, order.ID, "here",order.FollowerAtomicSwap.Status == model.Redeemed && order.InitiatorAtomicSwap.Status == model.Initiated)
 		if order.Status == model.Filled {
 			if order.InitiatorAtomicSwap.Status == model.Detected {
 				logger.Info("detected initiator atomic swap", zap.String("txHash", order.InitiatorAtomicSwap.InitiateTxHash))
