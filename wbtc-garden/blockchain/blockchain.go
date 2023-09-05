@@ -20,7 +20,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"go.uber.org/zap"
-	"gorm.io/gorm"
 )
 
 // The function `LoadClient` returns a client for a given blockchain chain and its corresponding URLs(set during config).
@@ -43,7 +42,7 @@ func LoadClient(chain model.Chain, config model.Network, iwConfig ...model.Insta
 		}
 		client := bitcoin.NewClient(indexer, getParams(chain))
 		if model.ValidateIWCOnfig(iwConfig) {
-			store, err := bitcoin.NewStore(iwConfig[0].Dialector, &gorm.Config{})
+			store, err := bitcoin.NewStore(iwConfig[0].Dialector, iwConfig[0].Opts)
 			if err != nil {
 				return nil, err
 			}

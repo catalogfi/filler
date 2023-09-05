@@ -19,6 +19,7 @@ type NetworkConfig struct {
 }
 type InstantWalletConfig struct {
 	Dialector gorm.Dialector
+	Opts      gorm.Option
 }
 type Config struct {
 	Network    Network

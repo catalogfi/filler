@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func Create(url string, keys utils.Keys, store store.Store,config model.Network) *cobra.Command {
+func Create(url string, keys utils.Keys, store store.Store, config model.Network) *cobra.Command {
 	var (
 		account       uint32
 		orderPair     string
@@ -71,7 +71,7 @@ func Create(url string, keys utils.Keys, store store.Store,config model.Network)
 				cobra.CheckErr(fmt.Sprintf("Error while getting address string: %v", err))
 				return
 			}
-			toKey, err := keys.GetKey(fromChain, account, 0)
+			toKey, err := keys.GetKey(toChain, account, 0)
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while getting to key: %v", err))
 				return

@@ -3,23 +3,37 @@ package cobi
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/catalogfi/cobi/store"
 	"github.com/catalogfi/cobi/utils"
 	"github.com/catalogfi/cobi/wbtc-garden/model"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
-func Start(url string, strategy []byte, keys utils.Keys, store store.Store, config model.Network, logger *zap.Logger, iwConfig model.InstantWalletConfig) *cobra.Command {
+func Start(url string, strategy []byte, keys utils.Keys, store store.Store, config model.Network, logger *zap.Logger, db string) *cobra.Command {
+	var (
+		useIw bool
+	)
 	var cmd = &cobra.Command{
 		Use:   "start",
 		Short: "Start the atomic swap executor",
 		Run: func(c *cobra.Command, args []string) {
+			iwConfig := model.InstantWalletConfig{}
+			if useIw {
+				iwConfig.Dialector = postgres.Open(db)
+				iwConfig.Opts = &gorm.Config{
+					NowFunc: func() time.Time { return time.Now().UTC() },
+				}
+			}
 			start(url, keys, strategy, config, store, logger, iwConfig)
 		},
 		DisableAutoGenTag: true,
 	}
+	cmd.Flags().BoolVarP(&useIw, "instant-wallet", "i", false, "user can specify to use catalog instant wallets")
 	return cmd
 }
 

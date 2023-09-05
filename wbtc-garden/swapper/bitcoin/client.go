@@ -39,6 +39,7 @@ type Client interface {
 	Net() *chaincfg.Params
 	CalculateTransferFee(nInputs, nOutputs int, txVersion int32) (uint64, error)
 	CalculateRedeemFee() (uint64, error)
+	GetFeeRates() (FeeRates, error)
 }
 
 type client struct {
@@ -210,29 +211,39 @@ func (client *client) Spend(script []byte, redeemScript wire.TxWitness, spender 
 
 // CalculateFee estimates the fees of the bitcoin tx with given number of inputs and outputs.
 func (client *client) CalculateTransferFee(nInputs, nOutputs int, txVersion int32) (uint64, error) {
-	feeRates, err := client.indexer.GetFeeRates()
+	feeRates, err := client.GetFeeRates()
 	if err != nil {
 		return 0, err
+	}
+	if feeRates.FastestFee < 2 {
+		feeRates.FastestFee = 2
 	}
 	switch txVersion {
 	case 1:
 		// inputs + 1 to account for input that might be used for fee
 		// but if fee is already accounted in the selected utxos it will just lead to a slighty speedy transaction
-		return uint64((nInputs+1)*148+nOutputs*34+10) * (uint64(feeRates.FastestFee)) * 2, nil
+		return uint64((nInputs+1)*148+nOutputs*34+10) * (uint64(feeRates.FastestFee)), nil
 	case 2:
-		return uint64(nInputs*68+nOutputs*31+10) * uint64(feeRates.FastestFee) * 2, nil
+		return uint64(nInputs*68+nOutputs*31+10) * uint64(feeRates.FastestFee), nil
 	}
 	return 0, fmt.Errorf("tx type not supported")
 
 }
 
 func (client *client) CalculateRedeemFee() (uint64, error) {
-	feeRates, err := client.indexer.GetFeeRates()
+	feeRates, err := client.GetFeeRates()
 	if err != nil {
 		return 0, err
 	}
+	if feeRates.FastestFee < 2 {
+		feeRates.FastestFee = 2
+	}
 	// 141.5 is size in vbytes for the redeem transaction
 	return 150 * uint64(feeRates.FastestFee) * 2, nil
+}
+
+func (client *client) GetFeeRates() (FeeRates, error) {
+	return client.indexer.GetFeeRates()
 }
 
 type FeeRates struct {

@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/btcsuite/btcd/btcec/v2"
@@ -14,6 +15,7 @@ import (
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
+	"github.com/btcsuite/btcwallet/wallet/txsizes"
 	"github.com/tyler-smith/go-bip32"
 )
 
@@ -64,6 +66,10 @@ func InstantWalletWrapper(url string, store Store, client Client) InstantClient 
 	return &instantClient{url: url, indexerClient: client, store: store}
 }
 
+func (client *instantClient) GetFeeRates() (FeeRates, error) {
+	return client.indexerClient.GetFeeRates()
+}
+
 func (client *instantClient) Net() *chaincfg.Params {
 	return client.indexerClient.Net()
 }
@@ -78,6 +84,75 @@ func (client *instantClient) CalculateTransferFee(nInputs, nOutputs int, txType 
 
 func (client *instantClient) CalculateRedeemFee() (uint64, error) {
 	return client.indexerClient.CalculateRedeemFee()
+}
+func (client *instantClient) CalculateIWRedeemFee(recipients []Recipient) uint64 {
+	feeRates, err := client.GetFeeRates()
+	if err != nil {
+		return 1500
+	}
+	size, err := EstimateRedeemTxSize(recipients)
+	if err != nil {
+		return 1500
+	}
+	if feeRates.FastestFee < 2 {
+		feeRates.FastestFee = 2
+	}
+	return uint64(feeRates.FastestFee) * uint64(size) * 2
+}
+func (client *instantClient) CalculateIWRefundFee() uint64 {
+	feeRates, err := client.GetFeeRates()
+	if err != nil {
+		return 10 * uint64(EstimateRefundTxSize())
+	}
+	if feeRates.FastestFee < 2 {
+		feeRates.FastestFee = 2
+	}
+	return uint64(feeRates.FastestFee) * uint64(EstimateRefundTxSize())
+}
+func EstimateRefundTxSize() int {
+	baseSize := 8 +
+		wire.VarIntSerializeSize(1) + // 1 input
+		wire.VarIntSerializeSize(1) + // 1 output
+		32 + // input txid
+		4 + // input vout
+		1 + // sigScript
+		4 + // input sequence
+		8 + // output amount
+		1 + // pkScript size
+		34 // p2wsk size
+
+	swSize := 1 + 1 + // marker + flag
+		1 + 4*1 + // stack number and each stack size
+		72 + 72 + 106 // 2 * signature + script
+	vsizeFloat := (float64(baseSize)*4 + float64(swSize)) / 4
+	return int(math.Ceil(vsizeFloat))
+}
+
+func EstimateRedeemTxSize(recipients []Recipient) (int, error) {
+	baseSize := 8 +
+		wire.VarIntSerializeSize(1) + // 1 input
+		32 + // input txid
+		4 + // input vout
+		1 + // sigScript
+		4 // input sequence
+
+	// Adding outputs size
+	outputs := make([]*wire.TxOut, len(recipients))
+	for i := range recipients {
+		payScript, err := txscript.PayToAddrScript(recipients[i].To)
+		if err != nil {
+			return 0, err
+		}
+		outputs[i] = wire.NewTxOut(recipients[i].Amount, payScript)
+	}
+	size := txsizes.SumOutputSerializeSizes(outputs)
+	baseSize += size
+
+	swSize := 1 + 1 + // marker + flag
+		1 + 4*1 + // stack number and each stack size
+		72 + 72 + 106 // 2 * signature + script
+	vsizeFloat := (float64(baseSize)*4 + float64(swSize)) / 4
+	return int(math.Ceil(vsizeFloat)), nil
 }
 
 func (client *instantClient) GetTipBlockHeight() (uint64, error) {
@@ -185,12 +260,12 @@ func (client *instantClient) Spend(script []byte, redeemScript wire.TxWitness, f
 		if err != nil {
 			return "", fmt.Errorf("failed to create script for address: %w", err)
 		}
-		FEE, err := client.CalculateTransferFee(len(tx.TxIn), 2, 2)
+		FEE, err := client.CalculateRedeemFee()
 		if err != nil {
 			return "", fmt.Errorf("failed to calculate fee: %w", err)
 		}
 		if balance < FEE {
-			return "", fmt.Errorf("balance is not enough to pay fee")
+			return "", fmt.Errorf("balance is not enough to pay fee balance:%d , fee:%d", balance, FEE)
 		}
 		tx.AddTxOut(wire.NewTxOut(int64(balance-FEE), spenderToScript))
 		for i := range tx.TxIn {
@@ -208,13 +283,15 @@ func (client *instantClient) Spend(script []byte, redeemScript wire.TxWitness, f
 		}
 		outIndex := uint32(len(tx.TxOut) - 1)
 
+		refundFee := client.CalculateIWRefundFee()
+
 		_, err = client.createRefundSignature(&CreateRefundSignatureRequest{
 			WalletAddress:    *wallet.WalletAddress,
 			RevokeSecretHash: hex.EncodeToString(newSecretHash[:]),
 			FundingTxID:      tx.TxHash().String(),
 			FundingTxIndex:   &outIndex,
 			Amount:           int64(balance) - int64(FEE),
-			RefundFee:        int64(FEE),
+			RefundFee:        int64(refundFee),
 		})
 		if err != nil {
 			return "", err
@@ -234,12 +311,7 @@ func (client *instantClient) Spend(script []byte, redeemScript wire.TxWitness, f
 	} else {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 		defer cancel()
-		newSecret, err := randomBytes(32)
-		if err != nil {
-			return "", fmt.Errorf("error generating secret: %w", err)
-		}
-		newSecretHash := sha256.Sum256([]byte(hex.EncodeToString(newSecret)))
-		FEE, err := client.CalculateTransferFee(len(tx.TxIn), 2, 2)
+		FEE, err := client.CalculateRedeemFee()
 		if err != nil {
 			return "", fmt.Errorf("failed to calculate fee: %w", err)
 		}

@@ -87,9 +87,6 @@ func (client *instantClient) GetRedeemTx(ctx context.Context, asTxIns []*wire.Tx
 	if err != nil {
 		return nil, err
 	}
-	if balance+amount < uint64(fee) {
-		return nil, fmt.Errorf("insufficient balance for fee")
-	}
 	newInstantWallet, err := client.getInstantWalletDetails(masterKey, client.code+1)
 	if err != nil {
 		return nil, err
@@ -98,6 +95,15 @@ func (client *instantClient) GetRedeemTx(ctx context.Context, asTxIns []*wire.Tx
 	nextWalletAddr, err := btcutil.DecodeAddress(*newInstantWallet.WalletAddress, client.Net())
 	if err != nil {
 		return nil, err
+	}
+	var recipientsWithoutFee []Recipient
+	recipientsWithoutFee = append(recipientsWithoutFee, Recipient{To: nextWalletAddr, Amount: int64(balance)})
+	redeemFee := client.CalculateIWRedeemFee(recipientsWithoutFee)
+	if err != nil {
+		return nil, err
+	}
+	if balance+amount < uint64(fee+redeemFee) {
+		return nil, fmt.Errorf("insufficient balance for fee")
 	}
 
 	payScript, err := txscript.PayToAddrScript(nextWalletAddr)
@@ -110,7 +116,7 @@ func (client *instantClient) GetRedeemTx(ctx context.Context, asTxIns []*wire.Tx
 		return nil, err
 	}
 	var recipients []Recipient
-	recipients = append(recipients, Recipient{To: nextWalletAddr, Amount: int64(balance - fee)})
+	recipients = append(recipients, Recipient{To: nextWalletAddr, Amount: int64(balance - redeemFee - fee)})
 	redeemTx := wire.NewMsgTx(2)
 	redeemTx.AddTxIn(wire.NewTxIn(wire.NewOutPoint(txID, *wallet.FundingTxIndex), nil, nil))
 	for _, asTxIn := range asTxIns {
@@ -118,12 +124,12 @@ func (client *instantClient) GetRedeemTx(ctx context.Context, asTxIns []*wire.Tx
 	}
 	var outAmt int64
 	if change > DUST {
-		outAmt = int64(balance + amount - fee)
-		redeemTx.AddTxOut(wire.NewTxOut(int64(balance+amount-fee), payScript))
+		outAmt = int64(balance + amount - fee - redeemFee)
+		redeemTx.AddTxOut(wire.NewTxOut(int64(balance+amount-fee-redeemFee), payScript))
 		redeemTx.AddTxOut(wire.NewTxOut(int64(change), fromScript))
 	} else {
-		outAmt = int64(balance + change + amount - fee)
-		redeemTx.AddTxOut(wire.NewTxOut(int64(balance+change+amount-fee), payScript))
+		outAmt = int64(balance + change + amount - fee - redeemFee)
+		redeemTx.AddTxOut(wire.NewTxOut(int64(balance+change+amount-fee-redeemFee), payScript))
 	}
 	var buf bytes.Buffer
 	redeemTx.Serialize(&buf)
@@ -131,7 +137,7 @@ func (client *instantClient) GetRedeemTx(ctx context.Context, asTxIns []*wire.Tx
 	_, err = client.setupRedeemTransactionFromHex(&SetupRedeemTransactionFromHexRequest{
 		WalletAddress: *wallet.WalletAddress,
 		Recipients:    recipients,
-		Fees:          int64(fee),
+		Fees:          int64(fee + redeemFee),
 		RedeemTxHex:   hex.EncodeToString(buf.Bytes()),
 	})
 	if err != nil {
@@ -146,13 +152,15 @@ func (client *instantClient) GetRedeemTx(ctx context.Context, asTxIns []*wire.Tx
 	}
 	fundingTxIndex := uint32(0)
 
+	refundFee := client.CalculateIWRefundFee()
+
 	_, err = client.createRefundSignature(&CreateRefundSignatureRequest{
 		WalletAddress:    nextWalletAddr.String(),
 		RevokeSecretHash: nextRevokerSecretHash,
 		FundingTxID:      redeemTx.TxHash().String(),
 		FundingTxIndex:   &fundingTxIndex,
 		Amount:           outAmt,
-		RefundFee:        int64(fee),
+		RefundFee:        int64(refundFee),
 	})
 	if err != nil {
 		return nil, err
@@ -204,9 +212,9 @@ func (client *instantClient) Transfer(ctx context.Context, recipients []Recipien
 		sendAmount += recipient.Amount
 	}
 	var refundAddr btcutil.Address
-	utxos, balance, _ := client.GetUTXOs(walletAddr, 0)
-	// recipients + 2 for change and fee
-	fee, err := client.CalculateTransferFee(len(utxos), len(recipients)+2, 2)
+	_, balance, _ := client.GetUTXOs(walletAddr, 0)
+	// recipients * 2 for change and fee
+	fee := client.CalculateIWRedeemFee(recipients) * 2
 	if err != nil {
 		return "", fmt.Errorf("failed to calculate fee with %v", err)
 	}
@@ -252,13 +260,14 @@ func (client *instantClient) Transfer(ctx context.Context, recipients []Recipien
 	if balance > uint64(sendAmount)+fee {
 		outIndex := uint32(len(redeemTx.TxOut) - 1)
 		// fmt.Println("outIndex", outIndex)
+		refundFee := client.CalculateIWRefundFee()
 		_, err := client.createRefundSignature(&CreateRefundSignatureRequest{
 			WalletAddress:    refundAddr.String(),
 			RevokeSecretHash: nextRevokerSecretHash,
 			FundingTxID:      redeemTx.TxHash().String(),
 			FundingTxIndex:   &outIndex,
 			Amount:           int64(balance - uint64(sendAmount) - fee),
-			RefundFee:        int64(fee),
+			RefundFee:        int64(refundFee),
 		})
 		if err != nil {
 			return "", err
@@ -906,6 +915,7 @@ func (client *instantClient) Deposit(ctx context.Context, amount int64, revokeSe
 	}
 	// print serialized tx
 	fundingTxIndex := uint32(0)
+	refundFee := client.CalculateIWRefundFee()
 
 	_, err = client.createRefundSignature(&CreateRefundSignatureRequest{
 		WalletAddress:    *wallet.WalletAddress,
@@ -913,7 +923,7 @@ func (client *instantClient) Deposit(ctx context.Context, amount int64, revokeSe
 		FundingTxID:      tx.TxHash().String(),
 		FundingTxIndex:   &fundingTxIndex,
 		Amount:           amount,
-		RefundFee:        int64(fee),
+		RefundFee:        int64(refundFee),
 	})
 	if err != nil {
 		return "", err

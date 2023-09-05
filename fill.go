@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func Fill(url string, keys utils.Keys, store store.Store,config model.Network) *cobra.Command {
+func Fill(url string, keys utils.Keys, store store.Store, config model.Network) *cobra.Command {
 	var (
 		account uint32
 		orderId uint
@@ -48,7 +48,7 @@ func Fill(url string, keys utils.Keys, store store.Store,config model.Network) *
 				return
 			}
 
-			fromChain, toChain, _, _, err := model.ParseOrderPair(order.OrderPair)
+			toChain, fromChain, _, _, err := model.ParseOrderPair(order.OrderPair)
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while parsing order pair: %v", err))
 				return
@@ -76,7 +76,7 @@ func Fill(url string, keys utils.Keys, store store.Store,config model.Network) *
 				return
 			}
 
-			if err := client.FillOrder(orderId, toAddress, fromAddress); err != nil {
+			if err := client.FillOrder(orderId, fromAddress, toAddress); err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while getting address string: %v", err))
 				return
 			}

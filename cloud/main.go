@@ -7,7 +7,6 @@ import (
 	"github.com/catalogfi/cobi"
 	"github.com/catalogfi/cobi/store"
 	"github.com/catalogfi/cobi/utils"
-	"github.com/catalogfi/cobi/wbtc-garden/model"
 	"github.com/getsentry/sentry-go"
 	"github.com/spf13/cobra"
 	"github.com/tyler-smith/go-bip39"
@@ -70,10 +69,11 @@ func main() {
 
 	cmd.AddCommand(cobi.Create(envConfig.OrderBook, keys, store, envConfig.Network))
 	cmd.AddCommand(cobi.Fill(envConfig.OrderBook, keys, store, envConfig.Network))
-	cmd.AddCommand(cobi.Start(envConfig.OrderBook, envConfig.Strategies, keys, store, envConfig.Network, logger, model.InstantWalletConfig{}))
+	cmd.AddCommand(cobi.Start(envConfig.OrderBook, envConfig.Strategies, keys, store, envConfig.Network, logger, envConfig.DB))
 	cmd.AddCommand(cobi.Retry(store))
 	cmd.AddCommand(cobi.Accounts(envConfig.OrderBook, keys, envConfig.Network))
 	cmd.AddCommand(cobi.List(envConfig.OrderBook))
+	cmd.AddCommand(cobi.Deposit(entropy, envConfig.Network, envConfig.DB))
 	// cmd.AddCommand(cobi.Network(envConfig.Network, logger))
 	cmd.AddCommand(cobi.Update())
 

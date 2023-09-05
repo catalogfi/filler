@@ -270,17 +270,17 @@ func LoadClient(url string, keys Keys, str store.Store, account, selector uint32
 	client := rest.NewClient(fmt.Sprintf("https://%s", url), hex.EncodeToString(crypto.FromECDSA(privKey)))
 	signer := crypto.PubkeyToAddress(privKey.PublicKey)
 
-	// jwt, err := str.UserStore(account).Token(selector)
-	// if err != nil {
-	// 	jwt, err = client.Login()
-	// 	if err != nil {
-	// 		return common.Address{}, nil, fmt.Errorf("failed to login to the orderbook: %v", err)
-	// 	}
-	// 	str.UserStore(account).PutToken(selector, jwt)
-	// }
-	// if err := client.SetJwt(jwt); err != nil {
-	// 	return common.Address{}, nil, fmt.Errorf("failed to set the jwt token: %v", err)
-	// }
+	jwt, err := str.UserStore(account).Token(selector)
+	if err != nil {
+		jwt, err = client.Login()
+		if err != nil {
+			return common.Address{}, nil, fmt.Errorf("failed to login to the orderbook: %v", err)
+		}
+		str.UserStore(account).PutToken(selector, jwt)
+	}
+	if err := client.SetJwt(jwt); err != nil {
+		return common.Address{}, nil, fmt.Errorf("failed to set the jwt token: %v", err)
+	}
 	return signer, client, nil
 }
 

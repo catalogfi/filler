@@ -6,7 +6,6 @@ import (
 	"github.com/TheZeroSlave/zapsentry"
 	"github.com/catalogfi/cobi/store"
 	"github.com/catalogfi/cobi/utils"
-	"github.com/catalogfi/cobi/wbtc-garden/model"
 	"github.com/getsentry/sentry-go"
 	"github.com/spf13/cobra"
 	"github.com/tyler-smith/go-bip39"
@@ -82,13 +81,13 @@ func Run(version string) error {
 
 	cmd.AddCommand(Create(envConfig.OrderBook, keys, str, envConfig.Network))
 	cmd.AddCommand(Fill(envConfig.OrderBook, keys, str, envConfig.Network))
-	cmd.AddCommand(Start(envConfig.OrderBook, envConfig.Strategies, keys, str, envConfig.Network, logger, model.InstantWalletConfig{}))
+	cmd.AddCommand(Start(envConfig.OrderBook, envConfig.Strategies, keys, str, envConfig.Network, logger, envConfig.DB))
 	cmd.AddCommand(Retry(str))
 	cmd.AddCommand(Accounts(envConfig.OrderBook, keys, envConfig.Network))
 	cmd.AddCommand(List(envConfig.OrderBook))
 	// cmd.AddCommand(Network(envConfig.Network, logger))
 	cmd.AddCommand(Update())
-	cmd.AddCommand(Deposit(entropy, envConfig.Network))
+	cmd.AddCommand(Deposit(entropy, envConfig.Network, envConfig.DB))
 	if err := cmd.Execute(); err != nil {
 		return err
 	}

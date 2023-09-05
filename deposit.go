@@ -2,15 +2,18 @@ package cobi
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/catalogfi/cobi/utils"
 	"github.com/catalogfi/cobi/wbtc-garden/blockchain"
 	"github.com/catalogfi/cobi/wbtc-garden/model"
 	"github.com/catalogfi/cobi/wbtc-garden/swapper/bitcoin"
 	"github.com/spf13/cobra"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
-func Deposit(entropy []byte, config model.Network) *cobra.Command {
+func Deposit(entropy []byte, config model.Network, db string) *cobra.Command {
 	var (
 		asset   string
 		account uint32
@@ -26,7 +29,13 @@ func Deposit(entropy []byte, config model.Network) *cobra.Command {
 				cobra.CheckErr(fmt.Sprintf("Error while generating secret: %v", err))
 				return
 			}
-			iwConfig := utils.GetIWConfig(true)
+			iwConfig := model.InstantWalletConfig{}
+
+			iwConfig.Dialector = postgres.Open(db)
+			iwConfig.Opts = &gorm.Config{
+				NowFunc: func() time.Time { return time.Now().UTC() },
+			}
+
 			client, err := blockchain.LoadClient(chain, config, iwConfig)
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("failed to load client: %v", err))
