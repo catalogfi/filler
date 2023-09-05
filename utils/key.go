@@ -12,11 +12,11 @@ import (
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/catalogfi/cobi/store"
-	"github.com/catalogfi/wbtc-garden/blockchain"
-	"github.com/catalogfi/wbtc-garden/model"
-	"github.com/catalogfi/wbtc-garden/rest"
-	"github.com/catalogfi/wbtc-garden/swapper/bitcoin"
-	"github.com/catalogfi/wbtc-garden/swapper/ethereum"
+	"github.com/catalogfi/cobi/wbtc-garden/blockchain"
+	"github.com/catalogfi/cobi/wbtc-garden/model"
+	"github.com/catalogfi/cobi/wbtc-garden/rest"
+	"github.com/catalogfi/cobi/wbtc-garden/swapper/bitcoin"
+	"github.com/catalogfi/cobi/wbtc-garden/swapper/ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/tyler-smith/go-bip32"
@@ -205,7 +205,6 @@ func VirtualBalance(chain model.Chain, address string, config model.Network, ass
 	if err != nil {
 		return nil, err
 	}
-
 	committedAmount := big.NewInt(0)
 
 	fillOrders, err := client.GetOrders(rest.GetOrdersFilter{
@@ -231,6 +230,7 @@ func VirtualBalance(chain model.Chain, address string, config model.Network, ass
 		}
 	}
 
+	// Subtract the amount we open as a maker
 	createOrders, err := client.GetOrders(rest.GetOrdersFilter{
 		Maker: signer,
 		// Status:  int(model.Filled),
@@ -240,6 +240,12 @@ func VirtualBalance(chain model.Chain, address string, config model.Network, ass
 		return nil, err
 	}
 	for _, createOrder := range createOrders {
+		switch createOrder.Status {
+		case model.Created, model.Filled:
+		default:
+			continue
+		}
+
 		if createOrder.InitiatorAtomicSwap.Asset == asset {
 			orderAmt, ok := new(big.Int).SetString(createOrder.InitiatorAtomicSwap.Amount, 10)
 			if !ok {
@@ -264,17 +270,17 @@ func LoadClient(url string, keys Keys, str store.Store, account, selector uint32
 	client := rest.NewClient(fmt.Sprintf("https://%s", url), hex.EncodeToString(crypto.FromECDSA(privKey)))
 	signer := crypto.PubkeyToAddress(privKey.PublicKey)
 
-	jwt, err := str.UserStore(account).Token(selector)
-	if err != nil {
-		jwt, err = client.Login()
-		if err != nil {
-			return common.Address{}, nil, fmt.Errorf("failed to login to the orderbook: %v", err)
-		}
-		str.UserStore(account).PutToken(selector, jwt)
-	}
-	if err := client.SetJwt(jwt); err != nil {
-		return common.Address{}, nil, fmt.Errorf("failed to set the jwt token: %v", err)
-	}
+	// jwt, err := str.UserStore(account).Token(selector)
+	// if err != nil {
+	// 	jwt, err = client.Login()
+	// 	if err != nil {
+	// 		return common.Address{}, nil, fmt.Errorf("failed to login to the orderbook: %v", err)
+	// 	}
+	// 	str.UserStore(account).PutToken(selector, jwt)
+	// }
+	// if err := client.SetJwt(jwt); err != nil {
+	// 	return common.Address{}, nil, fmt.Errorf("failed to set the jwt token: %v", err)
+	// }
 	return signer, client, nil
 }
 

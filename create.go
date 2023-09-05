@@ -8,16 +8,15 @@ import (
 
 	"github.com/catalogfi/cobi/store"
 	"github.com/catalogfi/cobi/utils"
-	"github.com/catalogfi/wbtc-garden/model"
-	"github.com/catalogfi/wbtc-garden/rest"
+	"github.com/catalogfi/cobi/wbtc-garden/model"
+	"github.com/catalogfi/cobi/wbtc-garden/rest"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/cobra"
 )
 
-func Create(keys utils.Keys, store store.Store, config model.Network) *cobra.Command {
+func Create(url string, keys utils.Keys, store store.Store,config model.Network) *cobra.Command {
 	var (
 		account       uint32
-		url           string
 		orderPair     string
 		sendAmount    string
 		receiveAmount string
@@ -98,8 +97,6 @@ func Create(keys utils.Keys, store store.Store, config model.Network) *cobra.Com
 		},
 	}
 
-	cmd.Flags().StringVar(&url, "url", "", "URL of the orderbook server")
-	cmd.MarkFlagRequired("url")
 	cmd.Flags().Uint32Var(&account, "account", 0, "Account to be used (default: 0)")
 	cmd.Flags().StringVar(&orderPair, "order-pair", "", "User should provide the order pair")
 	cmd.MarkFlagRequired("order-pair")

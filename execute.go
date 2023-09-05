@@ -8,9 +8,9 @@ import (
 
 	"github.com/catalogfi/cobi/store"
 	"github.com/catalogfi/cobi/utils"
-	"github.com/catalogfi/wbtc-garden/blockchain"
-	"github.com/catalogfi/wbtc-garden/model"
-	"github.com/catalogfi/wbtc-garden/rest"
+	"github.com/catalogfi/cobi/wbtc-garden/blockchain"
+	"github.com/catalogfi/cobi/wbtc-garden/model"
+	"github.com/catalogfi/cobi/wbtc-garden/rest"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"go.uber.org/zap"
@@ -69,6 +69,17 @@ func execute(order model.Order, logger *zap.Logger, signer common.Address, keys 
 		return
 	}
 
+	logger.Info("processing order with id", zap.Uint("status", uint(order.Status)))
+
+	if isValid, err := userStore.CheckStatus(order.SecretHash); err != "" {
+		if isValid {
+			logger.Info("skipping order as it failed earlier", zap.Error(errors.New(err)))
+		} else {
+			logger.Error("failed to load a swap from the db", zap.Error(errors.New(err)))
+			return
+		}
+	}
+
 	status := userStore.Status(order.SecretHash)
 	fromKey, err := keys.GetKey(order.InitiatorAtomicSwap.Chain, account, 0)
 	if err != nil {
@@ -96,7 +107,7 @@ func execute(order model.Order, logger *zap.Logger, signer common.Address, keys 
 		if order.Status == model.Filled {
 			if order.FollowerAtomicSwap.Status == model.Detected {
 				logger.Info("detected follower atomic swap", zap.String("txHash", order.FollowerAtomicSwap.InitiateTxHash))
-			} else if status != store.InitiatorInitiated && status != store.InitiatorFailedToInitiate && order.FollowerAtomicSwap.Status == model.SwapStatus(model.Unknown){
+			} else if status != store.InitiatorInitiated && status != store.InitiatorFailedToInitiate && order.FollowerAtomicSwap.Status == model.SwapStatus(model.Unknown) {
 				handleInitiate(*order.InitiatorAtomicSwap, order.SecretHash, fromKeyInterface, config, userStore, logger.With(zap.String("handler", "initiator initiate")), true, iwConfig)
 			} else if order.FollowerAtomicSwap.Status == model.Initiated {
 				if status != store.InitiatorRedeemed && status != store.InitiatorFailedToRedeem {
@@ -115,7 +126,6 @@ func execute(order model.Order, logger *zap.Logger, signer common.Address, keys 
 			}
 		}
 	} else if strings.EqualFold(order.Taker, signer.Hex()) {
-		fmt.Println(order.InitiatorAtomicSwap.Status,order.FollowerAtomicSwap.Status, order.ID, "here",order.FollowerAtomicSwap.Status == model.Redeemed && order.InitiatorAtomicSwap.Status == model.Initiated)
 		if order.Status == model.Filled {
 			if order.InitiatorAtomicSwap.Status == model.Detected {
 				logger.Info("detected initiator atomic swap", zap.String("txHash", order.InitiatorAtomicSwap.InitiateTxHash))

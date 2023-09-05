@@ -11,8 +11,8 @@ import (
 
 	"github.com/catalogfi/cobi/store"
 	"github.com/catalogfi/cobi/utils"
-	"github.com/catalogfi/wbtc-garden/model"
-	"github.com/catalogfi/wbtc-garden/rest"
+	"github.com/catalogfi/cobi/wbtc-garden/model"
+	"github.com/catalogfi/cobi/wbtc-garden/rest"
 	"go.uber.org/zap"
 )
 
@@ -75,7 +75,7 @@ func RunAutoCreateStrategy(url string, keys utils.Keys, config model.Network, st
 		}
 
 		if balance.Cmp(randAmount) < 0 {
-			logger.Info("insufficient balance", zap.String("have", balance.String()), zap.String("need", randAmount.String()))
+			logger.Info("insufficient balance", zap.String("chain", string(fromChain)), zap.String("asset", string(fromAsset)), zap.String("address", fromAddress), zap.String("have", balance.String()), zap.String("need", randAmount.String()))
 			continue
 		}
 
@@ -176,7 +176,7 @@ func RunAutoFillStrategy(url string, keys utils.Keys, config model.Network, stor
 
 			balance, err := utils.VirtualBalance(fromChain, fromAddress, config, fromAsset, signer.Hex(), client, iwConfig)
 			if err != nil {
-				logger.Error("failed to get virtual balance", zap.String("address", toAddress), zap.Error(err))
+				logger.Error("failed to get virtual balance", zap.String("address", fromAddress), zap.Error(err))
 				continue
 			}
 
@@ -192,7 +192,7 @@ func RunAutoFillStrategy(url string, keys utils.Keys, config model.Network, stor
 			}
 
 			if balance.Cmp(orderAmount) < 0 {
-				logger.Info("insufficient balance", zap.String("have", balance.String()), zap.String("need", orderAmount.String()))
+				logger.Info("insufficient balance", zap.String("chain", string(fromChain)), zap.String("asset", string(fromAsset)), zap.String("address", fromAddress), zap.String("have", balance.String()), zap.String("need", orderAmount.String()))
 				continue
 			}
 
@@ -202,7 +202,7 @@ func RunAutoFillStrategy(url string, keys utils.Keys, config model.Network, stor
 			}
 
 			if err = store.UserStore(s.account).PutSecretHash(order.SecretHash, uint64(order.ID)); err != nil {
-				logger.Info("failed storing secret hash: %v", zap.Error(err))
+				logger.Error("failed storing secret hash: %v", zap.Error(err))
 				continue
 			}
 			logger.Info("filled order ✅", zap.Uint("id", order.ID))

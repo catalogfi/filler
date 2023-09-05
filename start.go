@@ -2,41 +2,24 @@ package cobi
 
 import (
 	"fmt"
-	"os"
 	"sync"
 
 	"github.com/catalogfi/cobi/store"
 	"github.com/catalogfi/cobi/utils"
-	"github.com/catalogfi/wbtc-garden/model"
+	"github.com/catalogfi/cobi/wbtc-garden/model"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
 
-func Start(keys utils.Keys, store store.Store, config model.Network, logger *zap.Logger) *cobra.Command {
-	var (
-		url      string
-		strategy string
-		useIw    bool
-	)
-
+func Start(url string, strategy []byte, keys utils.Keys, store store.Store, config model.Network, logger *zap.Logger, iwConfig model.InstantWalletConfig) *cobra.Command {
 	var cmd = &cobra.Command{
 		Use:   "start",
 		Short: "Start the atomic swap executor",
 		Run: func(c *cobra.Command, args []string) {
-			strategyData, err := os.ReadFile(strategy)
-			if err != nil {
-				cobra.CheckErr(err)
-			}
-			iwConfig := utils.GetIWConfig(useIw)
-			start(url, keys, strategyData, config, store, logger, iwConfig)
+			start(url, keys, strategy, config, store, logger, iwConfig)
 		},
 		DisableAutoGenTag: true,
 	}
-	cmd.Flags().BoolVarP(&useIw, "instant-wallet", "i", false, "user can specify to use catalog instant wallets")
-	cmd.Flags().StringVar(&url, "url", "", "url of the orderbook")
-	cmd.MarkFlagRequired("url")
-	cmd.Flags().StringVar(&strategy, "strategy", "", "strategy")
-	cmd.MarkFlagRequired("strategy")
 	return cmd
 }
 
@@ -57,6 +40,19 @@ func start(url string, keys utils.Keys, strategy []byte, config model.Network, s
 			}(strategy.Account(), logger.With(zap.Uint32("executor", strategy.Account())))
 			activeAccounts[strategy.Account()] = true
 		}
+
+		go func() {
+			// Load keys
+			_, client, err := utils.LoadClient(url, keys, store, strategy.Account(), 0)
+			if err != nil {
+				logger.Error("can't load the client", zap.Error(err))
+				return
+			}
+			if err := Recover(store.UserStore(strategy.Account()), client); err != nil {
+				logger.Error("can't recover swaps", zap.Error(err))
+				return
+			}
+		}()
 
 		childLogger := logger.With(zap.String("strategy", fmt.Sprintf("%T", strategy)), zap.String("orderPair", strategy.OrderPair()), zap.Uint32("account", strategy.Account()))
 		wg.Add(1)

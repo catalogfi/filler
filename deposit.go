@@ -4,9 +4,9 @@ import (
 	"fmt"
 
 	"github.com/catalogfi/cobi/utils"
-	"github.com/catalogfi/wbtc-garden/blockchain"
-	"github.com/catalogfi/wbtc-garden/model"
-	"github.com/catalogfi/wbtc-garden/swapper/bitcoin"
+	"github.com/catalogfi/cobi/wbtc-garden/blockchain"
+	"github.com/catalogfi/cobi/wbtc-garden/model"
+	"github.com/catalogfi/cobi/wbtc-garden/swapper/bitcoin"
 	"github.com/spf13/cobra"
 )
 

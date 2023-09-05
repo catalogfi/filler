@@ -6,15 +6,14 @@ import (
 
 	"github.com/catalogfi/cobi/store"
 	"github.com/catalogfi/cobi/utils"
-	"github.com/catalogfi/wbtc-garden/model"
-	"github.com/catalogfi/wbtc-garden/rest"
+	"github.com/catalogfi/cobi/wbtc-garden/model"
+	"github.com/catalogfi/cobi/wbtc-garden/rest"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/cobra"
 )
 
-func Fill(keys utils.Keys, store store.Store, config model.Network) *cobra.Command {
+func Fill(url string, keys utils.Keys, store store.Store,config model.Network) *cobra.Command {
 	var (
-		url     string
 		account uint32
 		orderId uint
 	)
@@ -66,7 +65,7 @@ func Fill(keys utils.Keys, store store.Store, config model.Network) *cobra.Comma
 				cobra.CheckErr(fmt.Sprintf("Error while getting address string: %v", err))
 				return
 			}
-			toKey, err := keys.GetKey(fromChain, account, 0)
+			toKey, err := keys.GetKey(toChain, account, 0)
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while getting to key: %v", err))
 				return
@@ -77,7 +76,7 @@ func Fill(keys utils.Keys, store store.Store, config model.Network) *cobra.Comma
 				return
 			}
 
-			if err := client.FillOrder(orderId, fromAddress, toAddress); err != nil {
+			if err := client.FillOrder(orderId, toAddress, fromAddress); err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while getting address string: %v", err))
 				return
 			}
@@ -88,8 +87,6 @@ func Fill(keys utils.Keys, store store.Store, config model.Network) *cobra.Comma
 
 			fmt.Println("Order filled successfully")
 		}}
-	cmd.Flags().StringVar(&url, "url", "", "config file (default is ./config.json)")
-	cmd.MarkFlagRequired("url")
 	cmd.Flags().Uint32Var(&account, "account", 0, "config file (default: 0)")
 	cmd.Flags().UintVar(&orderId, "order-id", 0, "User should provide the order id")
 	cmd.MarkFlagRequired("order-id")

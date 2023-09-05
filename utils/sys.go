@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/catalogfi/wbtc-garden/model"
+	"github.com/catalogfi/cobi/wbtc-garden/model"
 	"github.com/fatih/color"
 	"github.com/tyler-smith/go-bip39"
 	"gorm.io/driver/sqlite"
@@ -51,6 +51,13 @@ func GetIWConfig(isIW bool) model.InstantWalletConfig {
 	}
 	return model.InstantWalletConfig{}
 }
+func DefaultStrategyPath() string {
+	return filepath.Join(HomeDir, ".cobi", "strategy.json")
+}
+
+func DefaultStorePath() string {
+	return filepath.Join(HomeDir, ".cobi", "data.db")
+}
 
 func LoadMnemonic(path string) ([]byte, error) {
 	data, err := os.ReadFile(path)
@@ -68,32 +75,11 @@ func NewMnemonic(path string) ([]byte, error) {
 	if _, err := rand.Read(entropy[:]); err != nil {
 		return nil, err
 	}
-
 	mnemonic, err := bip39.NewMnemonic(entropy)
 	if err != nil {
 		return nil, err
 	}
 	color.Green("Generating new mnemonic:\n[ %v ]", mnemonic)
-
-	// Create the `.cobi` folder if not exist
-	if _, err := os.Stat(filepath.Dir(path)); errors.Is(err, os.ErrNotExist) {
-		err := os.Mkdir(filepath.Dir(path), 0700)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// Create the mnemonic file
-	file, err := os.Create(path)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	_, err = file.WriteString(mnemonic)
-	if err != nil {
-		return nil, err
-	}
 	return entropy[:], nil
 }
 
@@ -105,4 +91,41 @@ func LoadConfigFromFile(file string) model.Network {
 	}
 	json.Unmarshal(configFile, &config)
 	return config
+}
+
+type Config struct {
+	Network    model.Network
+	Strategies json.RawMessage
+	Mnemonic   string
+	OrderBook  string
+	DB         string
+	Sentry     string
+}
+
+func LoadExtendedConfig(path string) (Config, error) {
+	config := Config{}
+	configFile, err := os.ReadFile(path)
+	if err == nil {
+		json.Unmarshal(configFile, &config)
+	}
+
+	if config.Mnemonic == "" {
+		entropy := make([]byte, 32)
+		if _, err := rand.Read(entropy[:]); err != nil {
+			return config, err
+		}
+		mnemonic, err := bip39.NewMnemonic(entropy)
+		if err != nil {
+			return config, err
+		}
+		config.Mnemonic = string(mnemonic)
+		data, err := json.MarshalIndent(config, "", "  ")
+		if err != nil {
+			return config, err
+		}
+		if err := os.WriteFile(path, data, 0755); err != nil {
+			return config, err
+		}
+	}
+	return config, nil
 }

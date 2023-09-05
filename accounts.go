@@ -6,16 +6,15 @@ import (
 	"os"
 
 	"github.com/catalogfi/cobi/utils"
-	"github.com/catalogfi/wbtc-garden/model"
-	"github.com/catalogfi/wbtc-garden/rest"
+	"github.com/catalogfi/cobi/wbtc-garden/model"
+	"github.com/catalogfi/cobi/wbtc-garden/rest"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/jedib0t/go-pretty/table"
 	"github.com/spf13/cobra"
 )
 
-func Accounts(keys utils.Keys, config model.Network) *cobra.Command {
+func Accounts(url string, keys utils.Keys, config model.Network) *cobra.Command {
 	var (
-		url     string
 		user    uint32
 		asset   string
 		page    int
@@ -103,9 +102,8 @@ func Accounts(keys utils.Keys, config model.Network) *cobra.Command {
 	cmd.Flags().BoolVarP(&useIw, "instant-wallet", "i", false, "user can specify to use catalog instant wallets")
 	cmd.Flags().StringVarP(&asset, "asset", "a", "", "user should provide the asset")
 	cmd.MarkFlagRequired("asset")
-	cmd.Flags().StringVar(&url, "url", "", "user should provide the orderbook url")
-	cmd.MarkFlagRequired("url")
-	cmd.Flags().IntVar(&perPage, "per-page", 10, "user can provide number of accounts to display per page")
-	cmd.Flags().IntVar(&page, "page", 1, "user can provide which page to display")
+	cmd.Flags().Uint32Var(&user, "account", 0, "user can provide the user id")
+	cmd.Flags().IntVar(&perPage, "per-page", 10, "User can provide number of accounts to display per page")
+	cmd.Flags().IntVar(&page, "page", 1, "User can provide which page to display")
 	return cmd
 }
