@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	glogger "gorm.io/gorm/logger"
 )
 
 func Start(url string, strategy []byte, keys utils.Keys, store store.Store, config model.Network, logger *zap.Logger, db string) *cobra.Command {
@@ -27,6 +28,7 @@ func Start(url string, strategy []byte, keys utils.Keys, store store.Store, conf
 				iwConfig.Dialector = postgres.Open(db)
 				iwConfig.Opts = &gorm.Config{
 					NowFunc: func() time.Time { return time.Now().UTC() },
+					Logger:  glogger.Default.LogMode(glogger.Silent),
 				}
 			}
 			start(url, keys, strategy, config, store, logger, iwConfig)

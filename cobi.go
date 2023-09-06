@@ -65,7 +65,7 @@ func Run(version string) error {
 		// Initialise db
 		str, err = store.NewStore(postgres.Open(envConfig.DB), &gorm.Config{
 			NowFunc: func() time.Time { return time.Now().UTC() },
-			Logger:  glogger.Default.LogMode(glogger.Error),
+			Logger:  glogger.Default.LogMode(glogger.Silent),
 		})
 		if err != nil {
 			return err

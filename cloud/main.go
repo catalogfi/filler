@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	glogger "gorm.io/gorm/logger"
 )
 
 func main() {
@@ -62,6 +63,7 @@ func main() {
 	// Initialise db
 	store, err := store.NewStore(postgres.Open(envConfig.DB), &gorm.Config{
 		NowFunc: func() time.Time { return time.Now().UTC() },
+		Logger:  glogger.Default.LogMode(glogger.Silent),
 	})
 	if err != nil {
 		panic(err)

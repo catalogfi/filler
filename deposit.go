@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	glogger "gorm.io/gorm/logger"
 )
 
 func Deposit(entropy []byte, config model.Network, db string) *cobra.Command {
@@ -34,6 +35,7 @@ func Deposit(entropy []byte, config model.Network, db string) *cobra.Command {
 			iwConfig.Dialector = postgres.Open(db)
 			iwConfig.Opts = &gorm.Config{
 				NowFunc: func() time.Time { return time.Now().UTC() },
+				Logger:  glogger.Default.LogMode(glogger.Silent),
 			}
 
 			client, err := blockchain.LoadClient(chain, config, iwConfig)
