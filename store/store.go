@@ -29,6 +29,15 @@ const (
 	FollowerFailedToRefund
 )
 
+type Event uint
+
+const (
+	UnknownEvent Event = iota
+	Initated
+	Redeemed
+	Refunded
+)
+
 type Order struct {
 	gorm.Model
 
@@ -38,6 +47,10 @@ type Order struct {
 	Secret     string
 	Status     Status
 	Error      string
+
+	InitiateTxHash string
+	RedeemTxHash   string
+	RefundTxHash   string
 }
 
 type Token struct {
@@ -65,6 +78,8 @@ type UserStore interface {
 	Status(secretHash string) Status
 	GetOrder(id uint) (Order, error)
 	Orders() ([]Order, error)
+	CheckRetryStatus(secretHash string) (bool, error)
+	PutTxHash(secretHash string, status Event, txHash string) error
 }
 
 type store struct {
@@ -144,6 +159,21 @@ func (s *userStore) CheckStatus(secretHash string) (bool, string) {
 	return true, ""
 }
 
+func (s *userStore) CheckRetryStatus(secretHash string) (bool, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var order Order
+	if tx := s.db.Where("account = ? AND secret_hash = ?", s.account, secretHash).First(&order); tx.Error != nil {
+		return false, fmt.Errorf("Order not found in local storage")
+	}
+	if order.Status >= FollowerFailedToInitiate {
+		return true, nil
+	}
+
+	return false, fmt.Errorf("Order still under Watch")
+
+}
 func (s *userStore) PutSecret(secretHash, secret string, orderId uint64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -230,4 +260,29 @@ func (s *userStore) Orders() ([]Order, error) {
 		return orders, tx.Error
 	}
 	return orders, nil
+}
+func (s *userStore) PutTxHash(secretHash string, event Event, txHash string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	var order Order
+	if tx := s.db.Where("account = ? AND secret_hash = ?", s.account, secretHash).First(&order); tx.Error != nil {
+		return tx.Error
+	}
+
+	switch event {
+	case Initated:
+		order.InitiateTxHash = txHash
+	case Redeemed:
+		order.RedeemTxHash = txHash
+	case Refunded:
+		order.RefundTxHash = txHash
+	default:
+		return fmt.Errorf("unknown event")
+	}
+	if tx := s.db.Save(&order); tx.Error != nil {
+		return tx.Error
+	}
+
+	return nil
 }

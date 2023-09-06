@@ -72,12 +72,11 @@ func main() {
 	cmd.AddCommand(cobi.Create(envConfig.OrderBook, keys, store, envConfig.Network))
 	cmd.AddCommand(cobi.Fill(envConfig.OrderBook, keys, store, envConfig.Network))
 	cmd.AddCommand(cobi.Start(envConfig.OrderBook, envConfig.Strategies, keys, store, envConfig.Network, logger, envConfig.DB))
-	cmd.AddCommand(cobi.Retry(store))
+	cmd.AddCommand(cobi.Retry(envConfig.OrderBook, keys, envConfig.Network, store, logger))
 	cmd.AddCommand(cobi.Accounts(envConfig.OrderBook, keys, envConfig.Network))
 	cmd.AddCommand(cobi.List(envConfig.OrderBook))
 	cmd.AddCommand(cobi.Deposit(entropy, envConfig.Network, envConfig.DB))
 	// cmd.AddCommand(cobi.Network(envConfig.Network, logger))
-	cmd.AddCommand(cobi.Update())
 
 	if err := cmd.Execute(); err != nil {
 		panic(err)

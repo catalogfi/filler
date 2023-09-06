@@ -174,6 +174,9 @@ func handleRedeem(atomicSwap model.AtomicSwap, secret, secretHash string, keyInt
 		}
 		return
 	}
+	if err := userStore.PutTxHash(secretHash, store.Redeemed , txHash); err != nil {
+		logger.Error("failed to update tx hash", zap.Error(err))
+	}
 	logger.Info("successfully redeemed swap", zap.String("tx hash", txHash))
 
 	status := store.InitiatorRedeemed
@@ -208,6 +211,10 @@ func handleInitiate(atomicSwap model.AtomicSwap, secretHash string, keyInterface
 		return
 	}
 	logger.Info("successfully initiated swap", zap.String("tx hash", txHash))
+	
+	if err := userStore.PutTxHash(secretHash, store.Initated , txHash); err != nil {
+		logger.Error("failed to update tx hash", zap.Error(err))
+	}
 
 	status := store.InitiatorInitiated
 	if !isInitiator {
@@ -244,6 +251,9 @@ func handleRefund(swap model.AtomicSwap, secretHash string, keyInterface interfa
 			}
 			logger.Error("failed to refund", zap.Error(err))
 			return
+		}
+		if err := userStore.PutTxHash(secretHash, store.Refunded , txHash); err != nil {
+			logger.Error("failed to update tx hash", zap.Error(err))
 		}
 		logger.Info("successfully refunded swap", zap.String("tx hash", txHash))
 
