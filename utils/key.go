@@ -101,7 +101,7 @@ func LoadKey(seed []byte, chain model.Chain, user, selector uint32) (*Key, error
 		index = 0
 	case model.BitcoinTestnet, model.BitcoinRegtest:
 		index = 1
-	case model.Ethereum, model.EthereumLocalnet, model.EthereumSepolia, model.EthereumOptimism:
+	case model.Ethereum, model.EthereumLocalnet, model.EthereumSepolia, model.EthereumOptimism, model.EthereumArbitrum, model.EthereumAvalanche, model.EthereumBNB, model.EthereumPolygon:
 		index = 60
 	default:
 		return nil, fmt.Errorf("invalid chain: %s", chain)
