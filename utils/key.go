@@ -221,7 +221,7 @@ func VirtualBalance(chain model.Chain, iwaddress string, address string, config 
 		default:
 			continue
 		}
-		if fillOrder.FollowerAtomicSwap.Asset == asset {
+		if fillOrder.FollowerAtomicSwap.Asset == asset && fillOrder.FollowerAtomicSwap.Status < model.Redeemed {
 			orderAmt, ok := new(big.Int).SetString(fillOrder.FollowerAtomicSwap.Amount, 10)
 			if !ok {
 				return nil, err
@@ -255,6 +255,7 @@ func VirtualBalance(chain model.Chain, iwaddress string, address string, config 
 		}
 	}
 
+	fmt.Println(balance, committedAmount, iwaddress, "debug")
 	return new(big.Int).Sub(balance, committedAmount), nil
 }
 
