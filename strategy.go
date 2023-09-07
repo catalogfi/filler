@@ -75,7 +75,7 @@ func RunAutoCreateStrategy(url string, keys utils.Keys, config model.Network, st
 			return
 		}
 
-		balance, err := utils.VirtualBalance(fromChain, iWfromAddress, config, fromAsset, signer.Hex(), client, iwConfig)
+		balance, err := utils.VirtualBalance(fromChain, iWfromAddress, fromAddress, config, fromAsset, signer.Hex(), client, iwConfig)
 		if err != nil {
 			logger.Error("failed to get virtual balance", zap.String("address", iWfromAddress), zap.Error(err))
 			return
@@ -187,7 +187,7 @@ func RunAutoFillStrategy(url string, keys utils.Keys, config model.Network, stor
 				return
 			}
 
-			balance, err := utils.VirtualBalance(fromChain, iWfromAddress, config, fromAsset, signer.Hex(), client, iwConfig)
+			balance, err := utils.VirtualBalance(fromChain, iWfromAddress, fromAddress, config, fromAsset, signer.Hex(), client, iwConfig)
 			if err != nil {
 				logger.Error("failed to get virtual balance", zap.String("address", fromAddress), zap.Error(err))
 				continue
@@ -205,7 +205,7 @@ func RunAutoFillStrategy(url string, keys utils.Keys, config model.Network, stor
 			}
 
 			if balance.Cmp(orderAmount) < 0 {
-				logger.Info("insufficient balance", zap.String("chain", string(fromChain)), zap.String("asset", string(fromAsset)), zap.String("address", fromAddress), zap.String("have", balance.String()), zap.String("need", orderAmount.String()))
+				logger.Info("insufficient balance", zap.String("chain", string(fromChain)), zap.String("asset", string(fromAsset)), zap.String("address", iWfromAddress), zap.String("have", balance.String()), zap.String("need", orderAmount.String()))
 				continue
 			}
 

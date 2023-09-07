@@ -200,8 +200,8 @@ func Balance(chain model.Chain, address string, config model.Network, asset mode
 	}
 }
 
-func VirtualBalance(chain model.Chain, address string, config model.Network, asset model.Asset, signer string, client rest.Client, iwConfig model.InstantWalletConfig) (*big.Int, error) {
-	balance, err := Balance(chain, address, config, asset, iwConfig)
+func VirtualBalance(chain model.Chain, iwaddress string, address string, config model.Network, asset model.Asset, signer string, client rest.Client, iwConfig model.InstantWalletConfig) (*big.Int, error) {
+	balance, err := Balance(chain, iwaddress, config, asset, iwConfig)
 	if err != nil {
 		return nil, err
 	}

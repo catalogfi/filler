@@ -31,6 +31,7 @@ func Accounts(url string, keys utils.Keys, config model.Network) *cobra.Command 
 				return
 			}
 			iwConfig := utils.GetIWConfig(useIw)
+			defaultIwConfig := utils.GetIWConfig(false)
 			t := table.NewWriter()
 			t.SetOutputMirror(os.Stdout)
 			t.AppendHeader(table.Row{"#", "Address", "Current Balance", "Usable Balance"})
@@ -42,12 +43,18 @@ func Accounts(url string, keys utils.Keys, config model.Network) *cobra.Command 
 					return
 				}
 
-				address, err := key.Address(ch, config, iwConfig)
+				iwAddress, err := key.Address(ch, config, iwConfig)
 				if err != nil {
 					cobra.CheckErr(fmt.Sprintf("Error getting instant wallet address: %v", err))
 					return
 				}
-				balance, err := utils.Balance(ch, address, config, a, iwConfig)
+
+				address, err := key.Address(ch, config, defaultIwConfig)
+				if err != nil {
+					cobra.CheckErr(fmt.Sprintf("Error getting wallet address: %v", err))
+					return
+				}
+				balance, err := utils.Balance(ch, iwAddress, config, a, iwConfig)
 				if err != nil {
 					cobra.CheckErr(fmt.Sprintf("Error fetching balance: %v", err))
 					return
@@ -79,7 +86,7 @@ func Accounts(url string, keys utils.Keys, config model.Network) *cobra.Command 
 					cobra.CheckErr(fmt.Sprintf("failed to calculate evm address: %v", err))
 					return
 				}
-				usableBalance, err := utils.VirtualBalance(ch, address, config, a, signer.Hex(), client, iwConfig)
+				usableBalance, err := utils.VirtualBalance(ch, iwAddress, address, config, a, signer.Hex(), client, iwConfig)
 				if err != nil {
 					cobra.CheckErr(fmt.Sprintf("failed to get usable balance: %v", err))
 					return
