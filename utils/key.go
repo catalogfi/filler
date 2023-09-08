@@ -254,8 +254,6 @@ func VirtualBalance(chain model.Chain, iwaddress string, address string, config 
 			committedAmount.Add(committedAmount, orderAmt)
 		}
 	}
-
-	fmt.Println(balance, committedAmount, iwaddress, "debug")
 	return new(big.Int).Sub(balance, committedAmount), nil
 }
 
