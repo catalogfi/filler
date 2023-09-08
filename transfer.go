@@ -1,6 +1,7 @@
 package cobi
 
 import (
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"time"
@@ -9,9 +10,11 @@ import (
 	"github.com/catalogfi/cobi/utils"
 	"github.com/catalogfi/cobi/wbtc-garden/blockchain"
 	"github.com/catalogfi/cobi/wbtc-garden/model"
+	"github.com/catalogfi/cobi/wbtc-garden/rest"
 	"github.com/catalogfi/cobi/wbtc-garden/swapper/bitcoin"
 	"github.com/catalogfi/cobi/wbtc-garden/swapper/ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"gorm.io/driver/postgres"
@@ -58,7 +61,13 @@ func Transfer(url string, keys utils.Keys, config model.Network, logger *zap.Log
 				return
 			}
 
-			address, err := key.Address(ch, config, iwConfig)
+			iwAddress, err := key.Address(ch, config, iwConfig)
+			if err != nil {
+				cobra.CheckErr(fmt.Sprintf("Error getting instant wallet address: %v", err))
+				return
+			}
+
+			address, err := key.Address(ch, config, utils.GetIWConfig(false))
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error getting instant wallet address: %v", err))
 				return
@@ -71,8 +80,42 @@ func Transfer(url string, keys utils.Keys, config model.Network, logger *zap.Log
 			}
 
 			amt := new(big.Int).SetUint64(uint64(amount))
-			if amt.Cmp(balance) > 0 && !force {
-				cobra.CheckErr(fmt.Sprintf("Amount cannot be graeter than balance : %s", balance.String()))
+			if amt.Cmp(balance) > 0 {
+				cobra.CheckErr(fmt.Sprintf("Amount cannot be greater than balance : %s", balance.String()))
+			}
+			signingKey, err := keys.GetKey(model.Ethereum, user, 0)
+			if err != nil {
+				cobra.CheckErr(fmt.Sprintf("Error getting signing key: %v", err))
+				return
+			}
+			ecdsaKey, err := signingKey.ECDSA()
+			if err != nil {
+				cobra.CheckErr(fmt.Sprintf("Error calculating ECDSA key: %v", err))
+				return
+			}
+
+			restClient := rest.NewClient(fmt.Sprintf("https://%s", url), hex.EncodeToString(crypto.FromECDSA(ecdsaKey)))
+			token, err := restClient.Login()
+			if err != nil {
+				cobra.CheckErr(fmt.Sprintf("failed to get auth token: %v", err))
+				return
+			}
+			if err := restClient.SetJwt(token); err != nil {
+				cobra.CheckErr(fmt.Sprintf("failed to set auth token: %v", err))
+				return
+			}
+			signer, err := key.EvmAddress()
+			if err != nil {
+				cobra.CheckErr(fmt.Sprintf("failed to calculate evm address: %v", err))
+				return
+			}
+			usableBalance, err := utils.VirtualBalance(ch, iwAddress, address, config, a, signer.Hex(), restClient, iwConfig)
+			if err != nil {
+				cobra.CheckErr(fmt.Sprintf("failed to get usable balance: %v", err))
+				return
+			}
+			if amt.Cmp(usableBalance) > 0 && !force {
+				cobra.CheckErr(fmt.Sprintf("Amount cannot be greater than usable balance : %s", usableBalance.String()))
 			}
 
 			client, err := blockchain.LoadClient(ch, config, iwConfig)

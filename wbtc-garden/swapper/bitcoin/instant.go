@@ -48,8 +48,11 @@ func (client *instantClient) GetStore() Store {
 }
 
 func (client *instantClient) GetInstantWalletAddress(from *btcec.PrivateKey) (string, error) {
-	masterKey, _ := bip32.NewMasterKey(from.Serialize())
-	var err error
+	masterKey, err := bip32.NewMasterKey(from.Serialize())
+	if err != nil {
+		return "", fmt.Errorf("failed to generate key: %v", err)
+	}
+
 	client.code, err = client.getCode(masterKey)
 	if err != nil {
 		return "", err
@@ -172,7 +175,10 @@ func (client *instantClient) GetConfirmations(txHash string) (uint64, uint64, er
 
 func (client *instantClient) Send(to btcutil.Address, amount uint64, from *btcec.PrivateKey) (string, error) {
 	// fmt.Println(to)
-	masterKey, _ := bip32.NewMasterKey(from.Serialize())
+	masterKey, err := bip32.NewMasterKey(from.Serialize())
+	if err != nil {
+		return "", fmt.Errorf("failed to generate key: %v,err :", err)
+	}
 	pubkey := masterKey.PublicKey()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
@@ -184,11 +190,11 @@ func (client *instantClient) Send(to btcutil.Address, amount uint64, from *btcec
 	newIwSecretHash := sha256.Sum256([]byte(hex.EncodeToString(newIwSecret)))
 	client.code, err = client.getCode(masterKey)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to get code:%v", err)
 	}
 	currentSecret, err := client.store.Secret(pubkey.String(), client.code)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to retrive secret from store:%v", err)
 	}
 	txhash, err := client.Transfer(ctx, []Recipient{recipient}, currentSecret, hex.EncodeToString(newIwSecretHash[:]), masterKey, from)
 	if err != nil {
@@ -212,9 +218,15 @@ func (client *instantClient) Send(to btcutil.Address, amount uint64, from *btcec
 // and sent to next instant wallet
 func (client *instantClient) Spend(script []byte, redeemScript wire.TxWitness, from *btcec.PrivateKey, waitBlocks uint) (string, error) {
 	tx := wire.NewMsgTx(BTC_VERSION)
-	masterKey, _ := bip32.NewMasterKey(from.Serialize())
+	masterKey, err := bip32.NewMasterKey(from.Serialize())
+	if err != nil {
+		return "", fmt.Errorf("failed to generate key: %v,err :", err)
+	}
 	pubkey := masterKey.PublicKey()
-	client.code, _ = client.getCode(masterKey)
+	client.code, err = client.getCode(masterKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to get code:%v", err)
+	}
 	scriptWitnessProgram := sha256.Sum256(script)
 	scriptAddr, err := btcutil.NewAddressWitnessScriptHash(scriptWitnessProgram[:], client.Net())
 	if err != nil {
@@ -236,7 +248,10 @@ func (client *instantClient) Spend(script []byte, redeemScript wire.TxWitness, f
 		inputs = append(inputs, wire.NewTxIn(wire.NewOutPoint(txid, utxo.Vout), nil, nil))
 	}
 
-	wallet, _ := client.getInstantWalletDetails(masterKey, client.code)
+	wallet, err := client.getInstantWalletDetails(masterKey, client.code)
+	if err != nil {
+		return "", fmt.Errorf("failed to get iw details:%v,code:%d", err, client.code)
+	}
 	walletAddr, err := btcutil.DecodeAddress(*wallet.WalletAddress, client.Net())
 	if err != nil {
 		return "", fmt.Errorf("failed to decode wallet address: %w", err)
@@ -302,7 +317,10 @@ func (client *instantClient) Spend(script []byte, redeemScript wire.TxWitness, f
 		if err != nil {
 			return "", err
 		}
-		wallet, _ := client.getInstantWalletDetails(masterKey, client.code)
+		wallet, err := client.getInstantWalletDetails(masterKey, client.code)
+		if err != nil {
+			return "", fmt.Errorf("failed to get iw details:%v,code:%d", err, client.code)
+		}
 
 		// verify system generated refund signature
 		if err := smartVerifyRefundSig(client.instantWalletKey(masterKey, client.code), wallet, client.Net()); err != nil {
@@ -356,10 +374,16 @@ func (client *instantClient) Spend(script []byte, redeemScript wire.TxWitness, f
 }
 
 func (client *instantClient) FundInstantWallet(from *btcec.PrivateKey, amount int64) (string, error) {
-	masterKey, _ := bip32.NewMasterKey(from.Serialize())
+	masterKey, err := bip32.NewMasterKey(from.Serialize())
+	if err != nil {
+		return "", fmt.Errorf("failed to generate key: %v", err)
+	}
 	pubkey := masterKey.PublicKey()
 	// return "", nil
-	code, _ := client.getCode(masterKey)
+	code, err := client.getCode(masterKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to get code:%v", err)
+	}
 	client.code = code
 	wallet, err := client.getInstantWalletDetails(masterKey, client.code)
 	if err != nil {
@@ -392,13 +416,19 @@ func (client *instantClient) FundInstantWallet(from *btcec.PrivateKey, amount in
 	} else {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 		defer cancel()
-		fromAddr, _ := btcutil.NewAddressWitnessPubKeyHash(btcutil.Hash160(from.PubKey().SerializeCompressed()), client.Net())
+		fromAddr, err := btcutil.NewAddressWitnessPubKeyHash(btcutil.Hash160(from.PubKey().SerializeCompressed()), client.Net())
+		if err != nil {
+			return "", fmt.Errorf("failed to generate witness script hash :%v", err)
+		}
 		utxos, total, err := client.GetUTXOs(fromAddr, uint64(amount))
 		if err != nil {
 			return "", err
 		}
 
-		masterScript, _ := txscript.PayToAddrScript(fromAddr)
+		masterScript, err := txscript.PayToAddrScript(fromAddr)
+		if err != nil {
+			return "", fmt.Errorf("failed to generate redeem script :%v", err)
+		}
 
 		var inputs []*wire.TxIn
 

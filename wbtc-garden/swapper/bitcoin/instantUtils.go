@@ -144,7 +144,10 @@ func (client *instantClient) GetRedeemTx(ctx context.Context, asTxIns []*wire.Tx
 		return nil, err
 	}
 
-	wallet, _ = client.getInstantWalletDetails(masterKey, client.code)
+	wallet, err = client.getInstantWalletDetails(masterKey, client.code)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get iw details:%v,code:%d", err, client.code)
+	}
 
 	redeemTx, sig, err := smartGenerateCombinedRedeemTxSig(client.instantWalletKey(masterKey, client.code), wallet, redeemTx, client.Net())
 	if err != nil {
@@ -212,7 +215,10 @@ func (client *instantClient) Transfer(ctx context.Context, recipients []Recipien
 		sendAmount += recipient.Amount
 	}
 	var refundAddr btcutil.Address
-	_, balance, _ := client.GetUTXOs(walletAddr, 0)
+	_, balance, err := client.GetUTXOs(walletAddr, 0)
+	if err != nil {
+		return "", fmt.Errorf("failed to get utxos:%v,walletAddress:%s", err, walletAddr)
+	}
 	// recipients * 2 for change and fee
 	fee := client.CalculateIWRedeemFee(recipients) * 2
 	if err != nil {
@@ -246,7 +252,10 @@ func (client *instantClient) Transfer(ctx context.Context, recipients []Recipien
 
 	wallet.RedeemTxDetails = resp.RedeemTxDetails
 
-	wallet, _ = client.getInstantWalletDetails(masterKey, client.code)
+	wallet, err = client.getInstantWalletDetails(masterKey, client.code)
+	if err != nil {
+		return "", fmt.Errorf("failed to get iw details:%v,code:%d", err, client.code)
+	}
 	// verify system generated redeem signature
 	if err := smartVerifyRedeemSig(client.instantWalletKey(masterKey, client.code), wallet, client.Net()); err != nil {
 		return "", err
@@ -868,7 +877,10 @@ func GetInstantWalletAddress(pubKeyA, pubKeyB, randomBytes []byte, network *chai
 	return instantWallet, instantWalletAddr.EncodeAddress(), nil
 }
 func (client *instantClient) Deposit(ctx context.Context, amount int64, revokeSecretHash string, from *btcec.PrivateKey) (string, error) {
-	masterKey, _ := bip32.NewMasterKey(from.Serialize())
+	masterKey, err := bip32.NewMasterKey(from.Serialize())
+	if err != nil {
+		return "", fmt.Errorf("failed to generate key: %v,err :", err)
+	}
 	code, err := client.getCode(masterKey)
 	if err != nil {
 		return "", fmt.Errorf("failed to get code: %v", err)
@@ -882,7 +894,10 @@ func (client *instantClient) Deposit(ctx context.Context, amount int64, revokeSe
 	if err != nil {
 		return "", err
 	}
-	fromAddr, _ := btcutil.NewAddressWitnessPubKeyHash(btcutil.Hash160(from.PubKey().SerializeCompressed()), client.Net())
+	fromAddr, err := btcutil.NewAddressWitnessPubKeyHash(btcutil.Hash160(from.PubKey().SerializeCompressed()), client.Net())
+	if err != nil {
+		return "", fmt.Errorf("failed to generate witness script hash :%v", err)
+	}
 	utxos, total, err := client.GetUTXOs(fromAddr, uint64(amount))
 	if err != nil {
 		return "", err
@@ -892,7 +907,10 @@ func (client *instantClient) Deposit(ctx context.Context, amount int64, revokeSe
 		return "", err
 	}
 
-	masterScript, _ := txscript.PayToAddrScript(fromAddr)
+	masterScript, err := txscript.PayToAddrScript(fromAddr)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate redeem script :%v", err)
+	}
 
 	tx, err := smartSetupTx(utxos, fromAddr, walletAddr, amount, int64(total), int64(fee))
 	if err != nil {

@@ -9,3 +9,4 @@ thinkfile
 *.db
 */temp
 .cobi
+.DS_Store
