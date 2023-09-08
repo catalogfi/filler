@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+
 	"math/big"
 
 	"github.com/catalogfi/cobi/wbtc-garden/swapper/ethereum/typings/AtomicSwap"
@@ -11,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"go.uber.org/zap"
@@ -29,6 +31,8 @@ type Client interface {
 	GetDecimals(tokenAddr common.Address) (uint8, error)
 	GetConfirmations(txHash string) (uint64, uint64, error)
 	ApproveERC20(privKey *ecdsa.PrivateKey, amount *big.Int, tokenAddr common.Address, toAddr common.Address) (string, error)
+	TransferERC20(privKey *ecdsa.PrivateKey, amount *big.Int, tokenAddr common.Address, toAddr common.Address) (string, error)
+	TransferEth(privKey *ecdsa.PrivateKey, amount *big.Int, toAddr common.Address) (string, error)
 	InitiateAtomicSwap(contract common.Address, initiator *ecdsa.PrivateKey, redeemerAddr, token common.Address, expiry *big.Int, amount *big.Int, secretHash []byte) (string, error)
 	RedeemAtomicSwap(contract common.Address, auth *bind.TransactOpts, token common.Address, orderID [32]byte, secret []byte) (string, error)
 	RefundAtomicSwap(contract common.Address, auth *bind.TransactOpts, token common.Address, orderID [32]byte) (string, error)
@@ -123,7 +127,55 @@ func (client *client) ApproveERC20(privKey *ecdsa.PrivateKey, amount *big.Int, t
 	if err != nil {
 		return "", err
 	}
-	return receipt.TxHash.Hex(), err
+	return receipt.TxHash.Hex(), nil
+}
+func (client *client) TransferERC20(privKey *ecdsa.PrivateKey, amount *big.Int, tokenAddr common.Address, toAddr common.Address) (string, error) {
+	instance, err := ERC20.NewERC20(tokenAddr, client.provider)
+	if err != nil {
+		return "", err
+	}
+	transactor, err := client.GetTransactOpts(privKey)
+	if err != nil {
+		return "", err
+	}
+	tx, err := instance.Transfer(transactor, toAddr, amount)
+	if err != nil {
+		return "", err
+	}
+	client.logger.Debug("Transfer erc20",
+		zap.String("amount", amount.String()),
+		zap.String("token address", tokenAddr.Hex()),
+		zap.String("to address", toAddr.Hex()),
+		zap.String("txHash", tx.Hash().Hex()))
+	receipt, err := bind.WaitMined(context.Background(), client.provider, tx)
+	if err != nil {
+		return "", err
+	}
+	return receipt.TxHash.Hex(), nil
+}
+func (client *client) TransferEth(privKey *ecdsa.PrivateKey, amount *big.Int, toAddr common.Address) (string, error) {
+	transactor, err := client.GetTransactOpts(privKey)
+	if err != nil {
+		return "", err
+	}
+	tx := types.NewTransaction(transactor.Nonce.Uint64(), toAddr, amount, transactor.GasLimit, transactor.GasPrice, nil)
+	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(client.chainID), privKey)
+	if err != nil {
+		return "", err
+	}
+	err = client.provider.SendTransaction(context.Background(), signedTx)
+	if err != nil {
+		return "", err
+	}
+	client.logger.Debug("Transfer eth",
+		zap.String("amount", amount.String()),
+		zap.String("to address", toAddr.Hex()),
+		zap.String("txHash", tx.Hash().Hex()))
+	receipt, err := bind.WaitMined(context.Background(), client.provider, tx)
+	if err != nil {
+		return "", err
+	}
+	return receipt.TxHash.Hex(), nil
 }
 
 func (client *client) InitiateAtomicSwap(contract common.Address, initiator *ecdsa.PrivateKey, redeemerAddr, token common.Address, expiry *big.Int, amount *big.Int, secretHash []byte) (string, error) {

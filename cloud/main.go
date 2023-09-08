@@ -76,6 +76,7 @@ func main() {
 	cmd.AddCommand(cobi.Accounts(envConfig.OrderBook, keys, envConfig.Network))
 	cmd.AddCommand(cobi.List(envConfig.OrderBook))
 	cmd.AddCommand(cobi.Deposit(entropy, envConfig.Network, envConfig.DB))
+	cmd.AddCommand(cobi.Transfer(envConfig.OrderBook, keys, envConfig.Network, logger, envConfig.DB))
 	// cmd.AddCommand(cobi.Network(envConfig.Network, logger))
 
 	if err := cmd.Execute(); err != nil {

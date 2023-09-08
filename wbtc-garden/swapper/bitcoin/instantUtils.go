@@ -486,7 +486,7 @@ func (client *instantClient) getCode(key *bip32.Key) (uint32, error) {
 	for {
 		instantKey, err := key.NewChildKey(code)
 		if err != nil {
-			panic(err)
+			return 0, err
 		}
 		instantWalletKey, _ := btcec.PrivKeyFromBytes(instantKey.Key)
 
@@ -497,7 +497,7 @@ func (client *instantClient) getCode(key *bip32.Key) (uint32, error) {
 			if strings.Contains(fmt.Sprint(err), "wallet not found") {
 				return code, nil
 			} else {
-				panic(err)
+				return 0, err
 			}
 		}
 		if value := string(iw.RedeemTxDetails); value == "null" {

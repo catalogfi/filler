@@ -40,7 +40,7 @@ func LoadClient(chain model.Chain, config model.Network, iwConfig ...model.Insta
 		if err != nil {
 			return nil, fmt.Errorf("failed to create indexer: %v", err)
 		}
-		client := bitcoin.NewClient(indexer, getParams(chain))
+		client := bitcoin.NewClient(indexer, GetParams(chain))
 		if model.ValidateIWCOnfig(iwConfig) {
 			store, err := bitcoin.NewStore(iwConfig[0].Dialector, iwConfig[0].Opts)
 			if err != nil {
@@ -218,7 +218,7 @@ func ParseAddress(client interface{}, address string) (interface{}, error) {
 	}
 }
 
-func getParams(chain model.Chain) *chaincfg.Params {
+func GetParams(chain model.Chain) *chaincfg.Params {
 	switch chain {
 	case model.Bitcoin:
 		return &chaincfg.MainNetParams
@@ -243,7 +243,7 @@ func CheckAddress(chain model.Chain, address string) error {
 			}
 		}
 	} else if chain.IsBTC() {
-		_, err := btcutil.DecodeAddress(address, getParams(chain))
+		_, err := btcutil.DecodeAddress(address, GetParams(chain))
 		if err != nil {
 			return fmt.Errorf("invalid bitcoin (%v) address: %v", chain, address)
 		}

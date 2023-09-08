@@ -53,7 +53,7 @@ func Deposit(entropy []byte, config model.Network, db string) *cobra.Command {
 				}
 
 				privKey := key.BtcKey()
-				txHash, err := client.FundInstanstWallet(privKey, int64(amount))
+				txHash, err := client.FundInstantWallet(privKey, int64(amount))
 				if err != nil {
 					cobra.CheckErr(fmt.Sprintf("failed to deposit to instant wallet: %v", err))
 					return
