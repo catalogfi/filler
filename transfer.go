@@ -47,10 +47,13 @@ func Transfer(url string, keys utils.Keys, config model.Network, logger *zap.Log
 			}
 			iwConfig := model.InstantWalletConfig{}
 
-			iwConfig.Dialector = postgres.Open(db)
-			iwConfig.Opts = &gorm.Config{
-				NowFunc: func() time.Time { return time.Now().UTC() },
-				Logger:  glogger.Default.LogMode(glogger.Silent),
+			if useIw {
+
+				iwConfig.Dialector = postgres.Open(db)
+				iwConfig.Opts = &gorm.Config{
+					NowFunc: func() time.Time { return time.Now().UTC() },
+					Logger:  glogger.Default.LogMode(glogger.Silent),
+				}
 			}
 
 			// defaultIwConfig := utils.GetIWConfig(false)
