@@ -142,7 +142,6 @@ func Transfer(url string, keys utils.Keys, config model.Network, logger *zap.Log
 				}
 			case bitcoin.InstantClient:
 				toAddress, _ := btcutil.DecodeAddress(toAddr, blockchain.GetParams(ch))
-				fmt.Println("iw for sure")
 				txhash, err = client.Send(toAddress, uint64(amount), key.BtcKey())
 				if err != nil {
 					cobra.CheckErr(err.Error())

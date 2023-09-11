@@ -201,7 +201,7 @@ func (mempool *mempool) SubmitTx(tx *wire.MsgTx) (string, error) {
 
 	resp, err := http.Post(fmt.Sprintf("%s/tx", mempool.url), "application/text", bytes.NewBufferString(hex.EncodeToString(buf.Bytes())))
 	if err != nil {
-		return "", fmt.Errorf("failed to send transaction: %w", err)
+		return "", fmt.Errorf("failed to send transaction: %w", err,resp)
 	}
 
 	data, err := io.ReadAll(resp.Body)

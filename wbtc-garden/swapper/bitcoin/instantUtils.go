@@ -79,14 +79,7 @@ func (client *instantClient) GetRedeemTx(ctx context.Context, asTxIns []*wire.Tx
 	if err != nil {
 		return nil, err
 	}
-	walletAddr, err := btcutil.DecodeAddress(*wallet.WalletAddress, client.Net())
-	if err != nil {
-		return nil, err
-	}
-	_, balance, err := client.GetUTXOs(walletAddr, 0)
-	if err != nil {
-		return nil, err
-	}
+	balance := *wallet.Amount
 	newInstantWallet, err := client.getInstantWalletDetails(masterKey, client.code+1)
 	if err != nil {
 		return nil, err
@@ -319,7 +312,7 @@ func (client *instantClient) Transfer(ctx context.Context, recipients []Recipien
 		return "", err
 	}
 
-	fmt.Println("sending redeem tx", zap.Any("tx hash", redeemTx.TxHash().String()))
+	// fmt.Println("sending redeem tx", zap.Any("tx hash", redeemTx.TxHash().String()))
 
 	if _, err = client.SubmitTx(redeemTx); err != nil {
 		fmt.Println("failed to manually submit redeem tx, server will retry broadcast soon", zap.Any("error", err))
@@ -330,28 +323,7 @@ func (client *instantClient) Transfer(ctx context.Context, recipients []Recipien
 }
 
 func (client *instantClient) SubmitTx(tx *wire.MsgTx) (string, error) {
-	var buf bytes.Buffer
-	if err := tx.Serialize(&buf); err != nil {
-		return "", fmt.Errorf("failed to serialize transaction: %w", err)
-	}
-
-	resp, err := http.Post(fmt.Sprintf("%s/tx", "https://mempool.space/testnet/api"), "application/text", bytes.NewBufferString(hex.EncodeToString(buf.Bytes())))
-	if err != nil {
-		return "", fmt.Errorf("failed to send transaction: %w", err)
-	}
-
-	// data1, err1 := io.ReadAll(resp.Body)
-	// fmt.Println(string(data1), err1)
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("failed to send transaction: %s", resp.Status)
-	}
-
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("failed to read transaction id: %w", err)
-	}
-	return string(data), nil
+	return client.indexerClient.SubmitTx(tx)
 }
 
 type BTCInstantWallet struct {

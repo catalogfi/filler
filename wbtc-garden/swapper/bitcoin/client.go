@@ -35,6 +35,7 @@ type Client interface {
 	GetUTXOs(address btcutil.Address, amount uint64) (UTXOs, uint64, error)
 	Send(to btcutil.Address, amount uint64, from *btcec.PrivateKey) (string, error)
 	GetTx(txid string) (Transaction, error)
+	SubmitTx(tx *wire.MsgTx) (string, error)
 	Spend(script []byte, scriptSig wire.TxWitness, spender *btcec.PrivateKey, waitBlocks uint) (string, error)
 	Net() *chaincfg.Params
 	CalculateTransferFee(nInputs, nOutputs int, txVersion int32) (uint64, error)
@@ -61,6 +62,10 @@ func (client *client) GetTipBlockHeight() (uint64, error) {
 
 func (client *client) GetTx(txid string) (Transaction, error) {
 	return client.indexer.GetTx(txid)
+}
+
+func (client *client) SubmitTx(tx *wire.MsgTx) (string, error) {
+	return client.indexer.SubmitTx(tx)
 }
 
 func (client *client) GetConfirmations(txHash string) (uint64, uint64, error) {
