@@ -39,12 +39,12 @@ func Execute(keys utils.Keys, account uint32, url string, store store.UserStore,
 		respChan := client.Listen()
 
 		for resp := range respChan {
-			switch resp.(type) {
+			switch response := resp.(type) {
 			case rest.WebsocketError:
 				break
 			case rest.UpdatedOrders:
 				// execute orders
-				orders := resp.(rest.UpdatedOrders).Orders
+				orders := response.Orders
 				count := len(orders)
 				childLogger.Info("recieved orders from the order book", zap.Int("count", count))
 				for _, order := range orders {
@@ -131,7 +131,7 @@ func execute(order model.Order, logger *zap.Logger, signer common.Address, keys 
 				logger.Info("detected initiator atomic swap", zap.String("txHash", order.InitiatorAtomicSwap.InitiateTxHash))
 			} else if order.FollowerAtomicSwap.Status == model.Redeemed && order.InitiatorAtomicSwap.Status == model.Initiated {
 				if status != store.FollowerRedeemed && status != store.FollowerFailedToRedeem {
-					handleRedeem(*order.InitiatorAtomicSwap, order.Secret, order.SecretHash, fromKeyInterface, config, userStore, logger.With(zap.String("handler", "follower redeem")), false, iwConfig)
+					handleRedeem(*order.InitiatorAtomicSwap, order.FollowerAtomicSwap.Secret, order.SecretHash, fromKeyInterface, config, userStore, logger.With(zap.String("handler", "follower redeem")), false, iwConfig)
 				}
 			} else if order.InitiatorAtomicSwap.Status == model.Initiated {
 				if status != store.FollowerInitiated && status != store.FollowerFailedToInitiate {
@@ -174,7 +174,7 @@ func handleRedeem(atomicSwap model.AtomicSwap, secret, secretHash string, keyInt
 		}
 		return
 	}
-	if err := userStore.PutTxHash(secretHash, store.Redeemed , txHash); err != nil {
+	if err := userStore.PutTxHash(secretHash, store.Redeemed, txHash); err != nil {
 		logger.Error("failed to update tx hash", zap.Error(err))
 	}
 	logger.Info("successfully redeemed swap", zap.String("tx hash", txHash))
@@ -211,8 +211,8 @@ func handleInitiate(atomicSwap model.AtomicSwap, secretHash string, keyInterface
 		return
 	}
 	logger.Info("successfully initiated swap", zap.String("tx hash", txHash))
-	
-	if err := userStore.PutTxHash(secretHash, store.Initated , txHash); err != nil {
+
+	if err := userStore.PutTxHash(secretHash, store.Initated, txHash); err != nil {
 		logger.Error("failed to update tx hash", zap.Error(err))
 	}
 
@@ -252,7 +252,7 @@ func handleRefund(swap model.AtomicSwap, secretHash string, keyInterface interfa
 			logger.Error("failed to refund", zap.Error(err))
 			return
 		}
-		if err := userStore.PutTxHash(secretHash, store.Refunded , txHash); err != nil {
+		if err := userStore.PutTxHash(secretHash, store.Refunded, txHash); err != nil {
 			logger.Error("failed to update tx hash", zap.Error(err))
 		}
 		logger.Info("successfully refunded swap", zap.String("tx hash", txHash))

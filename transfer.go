@@ -76,16 +76,6 @@ func Transfer(url string, keys utils.Keys, config model.Network, logger *zap.Log
 				return
 			}
 
-			balance, err := utils.Balance(ch, address, config, a, iwConfig)
-			if err != nil {
-				cobra.CheckErr(fmt.Sprintf("Error fetching balance: %v", err))
-				return
-			}
-
-			amt := new(big.Int).SetUint64(uint64(amount))
-			if amt.Cmp(balance) > 0 {
-				cobra.CheckErr(fmt.Sprintf("Amount cannot be greater than balance : %s", balance.String()))
-			}
 			signingKey, err := keys.GetKey(model.Ethereum, user, 0)
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error getting signing key: %v", err))
@@ -112,13 +102,26 @@ func Transfer(url string, keys utils.Keys, config model.Network, logger *zap.Log
 				cobra.CheckErr(fmt.Sprintf("failed to calculate evm address: %v", err))
 				return
 			}
-			usableBalance, err := utils.VirtualBalance(ch, iwAddress, address, config, a, signer.Hex(), restClient, iwConfig)
-			if err != nil {
-				cobra.CheckErr(fmt.Sprintf("failed to get usable balance: %v", err))
-				return
-			}
-			if amt.Cmp(usableBalance) > 0 && !force {
-				cobra.CheckErr(fmt.Sprintf("Amount cannot be greater than usable balance : %s", usableBalance.String()))
+			amt := new(big.Int).SetUint64(uint64(amount))
+			if !useIw {
+				balance, err := utils.Balance(ch, address, config, a, iwConfig)
+				if err != nil {
+					cobra.CheckErr(fmt.Sprintf("Error fetching balance: %v", err))
+					return
+				}
+
+				if amt.Cmp(balance) > 0 {
+					cobra.CheckErr(fmt.Sprintf("Amount cannot be greater than balance : %s", balance.String()))
+				}
+			} else {
+				usableBalance, err := utils.VirtualBalance(ch, iwAddress, address, config, a, signer.Hex(), restClient, iwConfig)
+				if err != nil {
+					cobra.CheckErr(fmt.Sprintf("failed to get usable balance: %v", err))
+					return
+				}
+				if amt.Cmp(usableBalance) > 0 && !force {
+					cobra.CheckErr(fmt.Sprintf("Amount cannot be greater than usable balance : %s", usableBalance.String()))
+				}
 			}
 
 			client, err := blockchain.LoadClient(ch, config, iwConfig)
