@@ -141,7 +141,11 @@ func Transfer(url string, keys utils.Keys, config model.Network, logger *zap.Log
 				if a == model.Primary {
 					client.TransferEth(privKey, amt, common.HexToAddress(toAddr))
 				} else {
-					client.TransferERC20(privKey, amt, common.HexToAddress(asset), common.HexToAddress(toAddr))
+					tokenAddress, err := client.GetTokenAddress(common.HexToAddress(string(a)))
+					if err != nil {
+						cobra.CheckErr(err.Error())
+					}
+					client.TransferERC20(privKey, amt, tokenAddress, common.HexToAddress(toAddr))
 				}
 			case bitcoin.InstantClient:
 				toAddress, _ := btcutil.DecodeAddress(toAddr, blockchain.GetParams(ch))

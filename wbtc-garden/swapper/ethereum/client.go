@@ -154,11 +154,17 @@ func (client *client) TransferERC20(privKey *ecdsa.PrivateKey, amount *big.Int, 
 	return receipt.TxHash.Hex(), nil
 }
 func (client *client) TransferEth(privKey *ecdsa.PrivateKey, amount *big.Int, toAddr common.Address) (string, error) {
-	transactor, err := client.GetTransactOpts(privKey)
+	fromAddress := crypto.PubkeyToAddress(privKey.PublicKey)
+	nonce, err := client.provider.PendingNonceAt(context.Background(), fromAddress)
 	if err != nil {
 		return "", err
 	}
-	tx := types.NewTransaction(transactor.Nonce.Uint64(), toAddr, amount, transactor.GasLimit, transactor.GasPrice, nil)
+	gasLimit := uint64(21000)
+	gasPrice, err := client.provider.SuggestGasPrice(context.Background())
+	if err != nil {
+		return "", err
+	}
+	tx := types.NewTransaction(nonce, toAddr, amount, gasLimit, gasPrice, nil)
 	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(client.chainID), privKey)
 	if err != nil {
 		return "", err
@@ -170,8 +176,8 @@ func (client *client) TransferEth(privKey *ecdsa.PrivateKey, amount *big.Int, to
 	client.logger.Debug("Transfer eth",
 		zap.String("amount", amount.String()),
 		zap.String("to address", toAddr.Hex()),
-		zap.String("txHash", tx.Hash().Hex()))
-	receipt, err := bind.WaitMined(context.Background(), client.provider, tx)
+		zap.String("txHash", signedTx.Hash().Hex()))
+	receipt, err := bind.WaitMined(context.Background(), client.provider, signedTx)
 	if err != nil {
 		return "", err
 	}
