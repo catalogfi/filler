@@ -87,7 +87,7 @@ func Run(version string) error {
 	cmd.AddCommand(List(envConfig.OrderBook))
 	// cmd.AddCommand(Network(envConfig.Network, logger))
 	// cmd.AddCommand(Update())
-	cmd.AddCommand(Deposit(entropy, envConfig.Network, envConfig.DB))
+	cmd.AddCommand(Deposit(keys, envConfig.Network, envConfig.DB, logger))
 	cmd.AddCommand(Transfer(envConfig.OrderBook, keys, envConfig.Network, logger, envConfig.DB))
 	if err := cmd.Execute(); err != nil {
 		return err

@@ -37,7 +37,7 @@ func Retry(url string, keys utils.Keys, config model.Network, store store.Store,
 			}
 			signer := crypto.PubkeyToAddress(privKey.PublicKey)
 
-			client := rest.NewClient(fmt.Sprintf("http://%s", url), hex.EncodeToString(crypto.FromECDSA(privKey)))
+			client := rest.NewClient(fmt.Sprintf("https://%s", url), hex.EncodeToString(crypto.FromECDSA(privKey)))
 			token, err := client.Login()
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while getting the signing key: %v", err))

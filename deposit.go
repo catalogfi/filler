@@ -2,6 +2,7 @@ package cobi
 
 import (
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/catalogfi/cobi/utils"
@@ -9,23 +10,25 @@ import (
 	"github.com/catalogfi/cobi/wbtc-garden/model"
 	"github.com/catalogfi/cobi/wbtc-garden/swapper/bitcoin"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	glogger "gorm.io/gorm/logger"
 )
 
-func Deposit(entropy []byte, config model.Network, db string) *cobra.Command {
+func Deposit(keys utils.Keys, config model.Network, db string, logger *zap.Logger) *cobra.Command {
 	var (
 		asset   string
 		account uint32
-		amount  uint32
+		amount  uint64
 	)
 	var cmd = &cobra.Command{
 		Use:   "deposit",
 		Short: "deposit funds from EOA to instant wallets",
 		Run: func(c *cobra.Command, args []string) {
 
-			chain, _, err := model.ParseChainAsset(asset)
+			defaultIwConfig := utils.GetIWConfig(false)
+			chain, a, err := model.ParseChainAsset(asset)
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while generating secret: %v", err))
 				return
@@ -46,9 +49,25 @@ func Deposit(entropy []byte, config model.Network, db string) *cobra.Command {
 			}
 			switch client := client.(type) {
 			case bitcoin.InstantClient:
-				key, err := utils.LoadKey(entropy, chain, account, 0)
+				key, err := keys.GetKey(chain, account, 0)
 				if err != nil {
 					cobra.CheckErr(fmt.Sprintf("Error while getting the signing key: %v", err))
+					return
+				}
+
+				address, err := key.Address(chain, config, defaultIwConfig)
+				if err != nil {
+					cobra.CheckErr(fmt.Sprintf("Error getting wallet address: %v", err))
+					return
+				}
+				balance, err := utils.Balance(chain, address, config, a, defaultIwConfig)
+				if err != nil {
+					cobra.CheckErr(fmt.Sprintf("Error fetching balance: %v", err))
+					return
+				}
+
+				if new(big.Int).SetUint64(amount).Cmp(balance) > 0 {
+					logger.Info("amount greater than balance", zap.Uint64("amount", amount), zap.Uint64("balance", balance.Uint64()))
 					return
 				}
 
@@ -59,12 +78,12 @@ func Deposit(entropy []byte, config model.Network, db string) *cobra.Command {
 					return
 
 				}
-				fmt.Println("Bitcoin deposit successful", txHash)
+				logger.Info("Bitcoin deposit successful", zap.String("txHash:", txHash))
 			}
 
 		}}
 	cmd.Flags().Uint32Var(&account, "account", 0, "config file (default: 0)")
-	cmd.Flags().Uint32Var(&amount, "amount", 0, "User should provide the amount to deposit to instant wallet")
+	cmd.Flags().Uint64Var(&amount, "amount", 0, "User should provide the amount to deposit to instant wallet")
 	cmd.MarkFlagRequired("amount")
 	cmd.Flags().StringVarP(&asset, "asset", "a", "", "user should provide the asset")
 	cmd.MarkFlagRequired("asset")
