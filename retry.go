@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/catalogfi/cobi/store"
+	storeType "github.com/catalogfi/cobi/store"
 	"github.com/catalogfi/cobi/utils"
 	"github.com/catalogfi/cobi/wbtc-garden/model"
 	"github.com/catalogfi/cobi/wbtc-garden/rest"
@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func Retry(url string, keys utils.Keys, config model.Network, store store.Store, logger *zap.Logger) *cobra.Command {
+func Retry(url string, keys utils.Keys, config model.Network, store storeType.Store, logger *zap.Logger) *cobra.Command {
 	var (
 		account uint32
 		orderId uint
@@ -50,12 +50,48 @@ func Retry(url string, keys utils.Keys, config model.Network, store store.Store,
 			order, err := client.GetOrder(orderId)
 
 			if err != nil {
+				cobra.CheckErr(fmt.Sprintf("Error while getting order from server: %v", err))
+				return
+			}
+
+			accountStore := store.UserStore(account)
+			localOrder, err := accountStore.GetOrder(orderId)
+			if err != nil {
+				cobra.CheckErr(fmt.Sprintf("Error while loading order from local state: %v", err))
+				return
+			}
+			status := localOrder.Status
+			var updatedStatus storeType.Status
+			switch status {
+			case storeType.InitiatorFailedToInitiate:
+				updatedStatus = storeType.InitiatorInitiated - 1
+			case storeType.FollowerFailedToInitiate:
+				updatedStatus = storeType.FollowerInitiated - 1
+			case storeType.InitiatorFailedToRedeem:
+				updatedStatus = storeType.InitiatorRedeemed - 1
+			case storeType.FollowerFailedToRedeem:
+				updatedStatus = storeType.FollowerRedeemed - 1
+			case storeType.InitiatorFailedToRefund:
+				if localOrder.InitiateTxHash == "" {
+					cobra.CheckErr(fmt.Errorf("could not find initiator's initiate tx hash for the order"))
+					return
+				}
+				updatedStatus = storeType.InitiatorInitiated
+			case storeType.FollowerFailedToRefund:
+				if localOrder.InitiateTxHash == "" {
+					cobra.CheckErr(fmt.Errorf("could not find follower's initiate tx hash for the order"))
+					return
+				}
+				updatedStatus = storeType.FollowerInitiated
+			}
+			err = accountStore.PutStatus(order.SecretHash, updatedStatus)
+			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while parsing order pair: %v", err))
 				return
 			}
 
 			grandChildLogger := childLogger.With(zap.Uint("order id", order.ID), zap.String("SecHash", order.SecretHash))
-			execute(order, grandChildLogger, signer, keys, account, config, store.UserStore(account), utils.GetIWConfig(false))
+			execute(order, grandChildLogger, signer, keys, account, config, accountStore, utils.GetIWConfig(false))
 		},
 		DisableAutoGenTag: true,
 	}

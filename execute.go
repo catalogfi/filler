@@ -119,7 +119,7 @@ func execute(order model.Order, logger *zap.Logger, signer common.Address, keys 
 					handleRedeem(*order.FollowerAtomicSwap, secret, order.SecretHash, toKeyInterface, config, userStore, logger.With(zap.String("handler", "initiator redeem")), true, iwConfig)
 				}
 			} else if order.InitiatorAtomicSwap.Status == model.Expired {
-				if status == store.InitiatorInitiated && status != store.InitiatorRefunded && status != store.InitiatorFailedToRefund {
+				if status == store.InitiatorInitiated {
 					// assuming that the function would just return nil if the swap has not expired yet
 					handleRefund(*order.InitiatorAtomicSwap, order.SecretHash, fromKeyInterface, config, userStore, logger.With(zap.String("handler", "initiator refund")), true, iwConfig)
 				}
@@ -139,7 +139,7 @@ func execute(order model.Order, logger *zap.Logger, signer common.Address, keys 
 				}
 			} else if order.FollowerAtomicSwap.Status == model.Expired {
 				// assuming that the function would just return nil if the swap has not expired yet
-				if status == store.FollowerInitiated && status != store.FollowerRefunded && status != store.FollowerFailedToRefund {
+				if status == store.FollowerInitiated {
 					handleRefund(*order.FollowerAtomicSwap, order.SecretHash, toKeyInterface, config, userStore, logger.With(zap.String("handler", "follower refund")), false, iwConfig)
 				}
 			}

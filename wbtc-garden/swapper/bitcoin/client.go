@@ -227,9 +227,9 @@ func (client *client) CalculateTransferFee(nInputs, nOutputs int, txVersion int3
 	case 1:
 		// inputs + 1 to account for input that might be used for fee
 		// but if fee is already accounted in the selected utxos it will just lead to a slighty speedy transaction
-		return uint64((nInputs+1)*148+nOutputs*34+10) * (uint64(feeRates.FastestFee)), nil
+		return uint64((nInputs+1)*150+nOutputs*40+20) * (uint64(feeRates.FastestFee)) * 2, nil
 	case 2:
-		return uint64(nInputs*68+nOutputs*31+10) * uint64(feeRates.FastestFee), nil
+		return uint64(nInputs*100+nOutputs*50+20) * uint64(feeRates.FastestFee) * 2, nil
 	}
 	return 0, fmt.Errorf("tx type not supported")
 
