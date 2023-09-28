@@ -58,8 +58,8 @@ func (w *watcher) Expired() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	diff := latest - height + 1
-	return diff > uint64(w.waitBlocks), nil
+	diff := int64(latest - height)
+	return diff > w.waitBlocks, nil
 }
 
 func (w *watcher) IsDetected() (bool, string, string, error) {
