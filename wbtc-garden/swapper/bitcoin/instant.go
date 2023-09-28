@@ -31,7 +31,7 @@ type InstantClient interface {
 	GetStore() Store
 	GetInstantWalletAddress(from *btcec.PrivateKey) (string, error)
 	FundInstantWallet(from *btcec.PrivateKey, amount int64) (string, error)
-	Deposit(ctx context.Context, amount int64, revokeSecretHash string, from *btcec.PrivateKey) (string, error)
+	Deposit(context.Context, int64, string, []byte, *btcec.PrivateKey) (string, error)
 }
 
 func randomBytes(n int) ([]byte, error) {
@@ -187,7 +187,6 @@ func (client *instantClient) Send(to btcutil.Address, amount uint64, from *btcec
 	if err != nil {
 		return "", err
 	}
-	newIwSecretHash := sha256.Sum256([]byte(hex.EncodeToString(newIwSecret)))
 	client.code, err = client.getCode(masterKey)
 	if err != nil {
 		return "", fmt.Errorf("failed to get code:%v", err)
@@ -196,13 +195,9 @@ func (client *instantClient) Send(to btcutil.Address, amount uint64, from *btcec
 	if err != nil {
 		return "", fmt.Errorf("failed to retrive secret from store:%v", err)
 	}
-	txhash, err := client.Transfer(ctx, []Recipient{recipient}, currentSecret, hex.EncodeToString(newIwSecretHash[:]), masterKey, from)
+	txhash, err := client.Transfer(ctx, []Recipient{recipient}, currentSecret, pubkey.String(), newIwSecret, masterKey, from)
 	if err != nil {
 		return "", fmt.Errorf("failed to transfer: %w", err)
-	}
-	err = client.store.PutSecret(pubkey.String(), hex.EncodeToString(newIwSecret), Created, client.code)
-	if err != nil {
-		return "", fmt.Errorf("failed to put secret: %w", err)
 	}
 	err = client.store.PutStatus(pubkey.String(), client.code, RefundTxGenerated)
 	if err != nil {
@@ -317,6 +312,10 @@ func (client *instantClient) Spend(script []byte, redeemScript wire.TxWitness, f
 		if err != nil {
 			return "", err
 		}
+		err = client.store.PutSecret(pubkey.String(), hex.EncodeToString(newSecret), RefundTxGenerated, client.code+1)
+		if err != nil {
+			return "", fmt.Errorf("failed to put secret: %w", err)
+		}
 		wallet, err := client.getInstantWalletDetails(masterKey, client.code)
 		if err != nil {
 			return "", fmt.Errorf("failed to get iw details:%v,code:%d", err, client.code)
@@ -341,18 +340,18 @@ func (client *instantClient) Spend(script []byte, redeemScript wire.TxWitness, f
 		}
 		currentSecret, err := client.store.Secret(pubkey.String(), client.code)
 		if err != nil {
-			return "", fmt.Errorf("failed to get current secret: %w", err)
+			return "", fmt.Errorf("failed to get current secret: %w,code: %d", err, client.code)
 		}
-		redeemTx, err := client.GetRedeemTx(ctx, inputs, balance, 0, FEE, currentSecret, hex.EncodeToString(newSecretHash[:]), masterKey, nil)
+		redeemTx, err := client.GetRedeemTx(ctx, inputs, balance, 0, FEE, currentSecret, pubkey.String(), newSecret, masterKey, nil, waitBlocks)
 		if err != nil {
 			// panic(err)
 			return "", err
 		}
 		for i := 0; i < len(inputs); i++ {
 			fetcher := txscript.NewCannedPrevOutputFetcher(script, int64(amounts[i]))
-			if waitBlocks > 0 {
-				redeemTx.TxIn[i+1].Sequence = uint32(waitBlocks) + 1
-			}
+			// if waitBlocks > 0 {
+			// 	redeemTx.TxIn[i+1].Sequence = uint32(waitBlocks) + 1
+			// }
 			sigHashes := txscript.NewTxSigHashes(redeemTx, fetcher)
 			sig, err := txscript.RawTxInWitnessSignature(redeemTx, sigHashes, i+1, int64(amounts[i]), script, txscript.SigHashAll, from)
 			if err != nil {
@@ -365,11 +364,11 @@ func (client *instantClient) Spend(script []byte, redeemScript wire.TxWitness, f
 		if err != nil {
 			return "", err
 		}
-		client.store.PutStatus(pubkey.String(), client.code-1, Redeemed)
+		client.store.PutStatus(pubkey.String(), client.code, Redeemed)
 		client.code++
 
 	}
-	client.store.PutSecret(pubkey.String(), hex.EncodeToString(newSecret), RefundTxGenerated, client.code)
+	// client.store.PutSecret(pubkey.String(), hex.EncodeToString(newSecret), RefundTxGenerated, client.code)
 	return txHash, nil
 }
 
@@ -393,7 +392,7 @@ func (client *instantClient) FundInstantWallet(from *btcec.PrivateKey, amount in
 	if err != nil {
 		return "", err
 	}
-	nextSecretHash := sha256.Sum256([]byte(hex.EncodeToString(newSecret)))
+	// nextSecretHash := sha256.Sum256([]byte(hex.EncodeToString(newSecret)))
 	walletAddr, err := btcutil.DecodeAddress(*wallet.WalletAddress, client.Net())
 	if err != nil {
 		return "", err
@@ -409,7 +408,7 @@ func (client *instantClient) FundInstantWallet(from *btcec.PrivateKey, amount in
 	var txHash string
 	if (code == 0 || wallet.FundingTxID == nil) && balance == 0 {
 
-		txHash, err = client.Deposit(context.Background(), amount, hex.EncodeToString(nextSecretHash[:]), from)
+		txHash, err = client.Deposit(context.Background(), amount, pubkey.String(), newSecret, from)
 		if err != nil {
 			return "", fmt.Errorf("error depositing to instant wallet: %w", err)
 		}
@@ -451,7 +450,7 @@ func (client *instantClient) FundInstantWallet(from *btcec.PrivateKey, amount in
 		if err != nil {
 			return "", fmt.Errorf("failed to create script for address: %w", err)
 		}
-		redeemTx, err := client.GetRedeemTx(ctx, inputs, uint64(amount), total-uint64(amount), FEE, currentSecret, hex.EncodeToString(nextSecretHash[:]), masterKey, masterScript)
+		redeemTx, err := client.GetRedeemTx(ctx, inputs, uint64(amount), total-uint64(amount), FEE, currentSecret, pubkey.String(), newSecret, masterKey, masterScript, 0)
 		if err != nil {
 			return "", err
 		}
@@ -474,10 +473,10 @@ func (client *instantClient) FundInstantWallet(from *btcec.PrivateKey, amount in
 		if err != nil {
 			return "", err
 		}
-		client.store.PutStatus(pubkey.String(), client.code-1, Redeemed)
+		client.store.PutStatus(pubkey.String(), client.code, Redeemed)
 		client.code++
 
 	}
-	client.store.PutSecret(pubkey.String(), hex.EncodeToString(newSecret), RefundTxGenerated, client.code)
+	// client.store.PutSecret(pubkey.String(), hex.EncodeToString(newSecret), RefundTxGenerated, client.code)
 	return txHash, nil
 }

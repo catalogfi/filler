@@ -74,7 +74,9 @@ func (r *Recipient) UnmarshalJSON(data []byte) error {
 	r.Amount = aux.Amount
 	return nil
 }
-func (client *instantClient) GetRedeemTx(ctx context.Context, asTxIns []*wire.TxIn, amount, change, fee uint64, revokerSecret, nextRevokerSecretHash string, masterKey *bip32.Key, fromScript []byte) (*wire.MsgTx, error) {
+func (client *instantClient) GetRedeemTx(ctx context.Context, asTxIns []*wire.TxIn, amount, change, fee uint64, revokerSecret, pubKey string, nextRevokerSecret []byte, masterKey *bip32.Key, fromScript []byte, waitBlock uint) (*wire.MsgTx, error) {
+	hash := sha256.Sum256([]byte(hex.EncodeToString(nextRevokerSecret)))
+	nextRevokerSecretHash := hex.EncodeToString(hash[:])
 	wallet, err := client.getInstantWalletDetails(masterKey, client.code)
 	if err != nil {
 		return nil, err
@@ -113,6 +115,9 @@ func (client *instantClient) GetRedeemTx(ctx context.Context, asTxIns []*wire.Tx
 	redeemTx := wire.NewMsgTx(2)
 	redeemTx.AddTxIn(wire.NewTxIn(wire.NewOutPoint(txID, *wallet.FundingTxIndex), nil, nil))
 	for _, asTxIn := range asTxIns {
+		if waitBlock > 0 {
+			asTxIn.Sequence = uint32(waitBlock) + 1
+		}
 		redeemTx.AddTxIn(asTxIn)
 	}
 	var outAmt int64
@@ -161,6 +166,10 @@ func (client *instantClient) GetRedeemTx(ctx context.Context, asTxIns []*wire.Tx
 	if err != nil {
 		return nil, err
 	}
+	err = client.store.PutSecret(pubKey, hex.EncodeToString(nextRevokerSecret), Created, client.code+1)
+	if err != nil {
+		return nil, fmt.Errorf("failed to put secret: %w", err)
+	}
 	newWallet, err := client.getInstantWalletDetails(masterKey, client.code+1)
 	if err != nil {
 		return nil, err
@@ -193,7 +202,10 @@ func (client *instantClient) GetRedeemTx(ctx context.Context, asTxIns []*wire.Tx
 
 }
 
-func (client *instantClient) Transfer(ctx context.Context, recipients []Recipient, revokerSecret, nextRevokerSecretHash string, masterKey *bip32.Key, from *secp256k1.PrivateKey) (string, error) {
+func (client *instantClient) Transfer(ctx context.Context, recipients []Recipient, revokerSecret, pubKey string, nextRevokerSecret []byte, masterKey *bip32.Key, from *secp256k1.PrivateKey) (string, error) {
+
+	hash := sha256.Sum256([]byte(hex.EncodeToString(nextRevokerSecret)))
+	nextRevokerSecretHash := hex.EncodeToString(hash[:])
 	wallet, err := client.getInstantWalletDetails(masterKey, client.code)
 	if err != nil {
 		return "", err
@@ -273,6 +285,10 @@ func (client *instantClient) Transfer(ctx context.Context, recipients []Recipien
 		})
 		if err != nil {
 			return "", err
+		}
+		err = client.store.PutSecret(pubKey, hex.EncodeToString(nextRevokerSecret), Created, client.code+1)
+		if err != nil {
+			return "", fmt.Errorf("failed to put secret: %w", err)
 		}
 		newWallet, err := client.getInstantWalletDetails(masterKey, client.code+1)
 		if err != nil {
@@ -848,7 +864,9 @@ func GetInstantWalletAddress(pubKeyA, pubKeyB, randomBytes []byte, network *chai
 	}
 	return instantWallet, instantWalletAddr.EncodeAddress(), nil
 }
-func (client *instantClient) Deposit(ctx context.Context, amount int64, revokeSecretHash string, from *btcec.PrivateKey) (string, error) {
+func (client *instantClient) Deposit(ctx context.Context, amount int64, pubKey string, nextRevokerSecret []byte, from *btcec.PrivateKey) (string, error) {
+	hash := sha256.Sum256([]byte(hex.EncodeToString(nextRevokerSecret)))
+	nextRevokerSecretHash := hex.EncodeToString(hash[:])
 	masterKey, err := bip32.NewMasterKey(from.Serialize())
 	if err != nil {
 		return "", fmt.Errorf("failed to generate key: %v,err :", err)
@@ -909,7 +927,7 @@ func (client *instantClient) Deposit(ctx context.Context, amount int64, revokeSe
 
 	_, err = client.createRefundSignature(&CreateRefundSignatureRequest{
 		WalletAddress:    *wallet.WalletAddress,
-		RevokeSecretHash: revokeSecretHash,
+		RevokeSecretHash: nextRevokerSecretHash,
 		FundingTxID:      tx.TxHash().String(),
 		FundingTxIndex:   &fundingTxIndex,
 		Amount:           amount,
@@ -917,6 +935,10 @@ func (client *instantClient) Deposit(ctx context.Context, amount int64, revokeSe
 	})
 	if err != nil {
 		return "", err
+	}
+	err = client.store.PutSecret(pubKey, hex.EncodeToString(nextRevokerSecret), RefundTxGenerated, client.code+1)
+	if err != nil {
+		return "", fmt.Errorf("failed to put secret: %w", err)
 	}
 	wallet, err = client.getInstantWalletDetails(masterKey, code)
 	if err != nil {
@@ -929,6 +951,6 @@ func (client *instantClient) Deposit(ctx context.Context, amount int64, revokeSe
 		return "", err
 	}
 
-	fmt.Println("sending funding tx", revokeSecretHash, zap.Any("tx hash", tx.TxHash().String()))
+	fmt.Println("sending funding tx", nextRevokerSecretHash, zap.Any("tx hash", tx.TxHash().String()))
 	return client.SubmitTx(tx)
 }

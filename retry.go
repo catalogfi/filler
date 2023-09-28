@@ -3,6 +3,7 @@ package cobi
 import (
 	"encoding/hex"
 	"fmt"
+	"time"
 
 	storeType "github.com/catalogfi/cobi/store"
 	"github.com/catalogfi/cobi/utils"
@@ -11,12 +12,16 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	glogger "gorm.io/gorm/logger"
 )
 
-func Retry(url string, keys utils.Keys, config model.Network, store storeType.Store, logger *zap.Logger) *cobra.Command {
+func Retry(url string, keys utils.Keys, config model.Network, store storeType.Store, logger *zap.Logger, db string) *cobra.Command {
 	var (
 		account uint32
 		orderId uint
+		useIw   bool
 	)
 
 	var cmd = &cobra.Command{
@@ -91,7 +96,15 @@ func Retry(url string, keys utils.Keys, config model.Network, store storeType.St
 			}
 
 			grandChildLogger := childLogger.With(zap.Uint("order id", order.ID), zap.String("SecHash", order.SecretHash))
-			execute(order, grandChildLogger, signer, keys, account, config, accountStore, utils.GetIWConfig(false))
+			iwConfig := utils.GetIWConfig(useIw)
+			if useIw {
+				iwConfig.Dialector = postgres.Open(db)
+				iwConfig.Opts = &gorm.Config{
+					NowFunc: func() time.Time { return time.Now().UTC() },
+					Logger:  glogger.Default.LogMode(glogger.Silent),
+				}
+			}
+			execute(order, grandChildLogger, signer, keys, account, config, accountStore, iwConfig)
 		},
 		DisableAutoGenTag: true,
 	}
@@ -100,5 +113,6 @@ func Retry(url string, keys utils.Keys, config model.Network, store storeType.St
 	cmd.MarkFlagRequired("account")
 	cmd.Flags().UintVar(&orderId, "order-id", 0, "order id")
 	cmd.MarkFlagRequired("order-id")
+	cmd.Flags().BoolVarP(&useIw, "instant-wallet", "i", false, "user can specify to use catalog instant wallets")
 	return cmd
 }

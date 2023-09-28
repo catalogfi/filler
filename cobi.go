@@ -82,7 +82,7 @@ func Run(version string) error {
 	cmd.AddCommand(Create(envConfig.OrderBook, keys, str, envConfig.Network))
 	cmd.AddCommand(Fill(envConfig.OrderBook, keys, str, envConfig.Network))
 	cmd.AddCommand(Start(envConfig.OrderBook, envConfig.Strategies, keys, str, envConfig.Network, logger, envConfig.DB))
-	cmd.AddCommand(Retry(envConfig.OrderBook, keys, envConfig.Network, str, logger))
+	cmd.AddCommand(Retry(envConfig.OrderBook, keys, envConfig.Network, str, logger, envConfig.DB))
 	cmd.AddCommand(Accounts(envConfig.OrderBook, keys, envConfig.Network))
 	cmd.AddCommand(List(envConfig.OrderBook))
 	// cmd.AddCommand(Network(envConfig.Network, logger))
