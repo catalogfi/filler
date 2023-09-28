@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/catalogfi/cobi/store"
@@ -226,7 +227,12 @@ func handleInitiate(atomicSwap model.AtomicSwap, secretHash string, keyInterface
 }
 
 func handleRefund(swap model.AtomicSwap, secretHash string, keyInterface interface{}, config model.Network, userStore store.UserStore, logger *zap.Logger, isInitiator bool, iwConfig model.InstantWalletConfig) {
-	initiatorSwap, err := blockchain.LoadInitiatorSwap(swap, keyInterface, secretHash, config, uint64(0), iwConfig)
+	timelock, err := strconv.ParseUint(swap.Timelock, 10, 64)
+	if err != nil {
+		logger.Error("failed to parse timelock", zap.Error(err))
+		return
+	}
+	initiatorSwap, err := blockchain.LoadInitiatorSwap(swap, keyInterface, secretHash, config, timelock, iwConfig)
 	if err != nil {
 		logger.Error("failed to load initiator swap", zap.Error(err))
 		return
@@ -264,5 +270,7 @@ func handleRefund(swap model.AtomicSwap, secretHash string, keyInterface interfa
 		if err := userStore.PutStatus(secretHash, status); err != nil {
 			logger.Error("failed to update status", zap.Error(err))
 		}
+	} else {
+		logger.Error("failed to refund status : swap not expired")
 	}
 }
