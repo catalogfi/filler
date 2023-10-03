@@ -98,7 +98,7 @@ func (client *instantClient) GetRedeemTx(ctx context.Context, asTxIns []*wire.Tx
 		return nil, err
 	}
 	if balance+amount < uint64(fee+redeemFee) {
-		return nil, fmt.Errorf("insufficient balance for fee")
+		return nil, fmt.Errorf("insufficient balance for fee ,%d < %d", balance+amount, fee+redeemFee)
 	}
 
 	payScript, err := txscript.PayToAddrScript(nextWalletAddr)
@@ -936,7 +936,8 @@ func (client *instantClient) Deposit(ctx context.Context, amount int64, pubKey s
 	if err != nil {
 		return "", err
 	}
-	err = client.store.PutSecret(pubKey, hex.EncodeToString(nextRevokerSecret), RefundTxGenerated, client.code+1)
+	// deposit is used on the current wallet when code == 0
+	err = client.store.PutSecret(pubKey, hex.EncodeToString(nextRevokerSecret), RefundTxGenerated, client.code)
 	if err != nil {
 		return "", fmt.Errorf("failed to put secret: %w", err)
 	}

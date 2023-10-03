@@ -445,7 +445,7 @@ func (client *instantClient) FundInstantWallet(from *btcec.PrivateKey, amount in
 		}
 		currentSecret, err := client.store.Secret(pubkey.String(), client.code)
 		if err != nil {
-			return "", fmt.Errorf("failed to get current secret: %w", err)
+			return "", fmt.Errorf("failed to get current secret: %w ,pubkey: %s,code :%d", err, pubkey.String(), client.code)
 		}
 		if err != nil {
 			return "", fmt.Errorf("failed to create script for address: %w", err)
