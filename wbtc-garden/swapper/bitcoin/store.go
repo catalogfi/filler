@@ -15,17 +15,17 @@ const (
 type IwState struct {
 	gorm.Model
 
-	Pubkey string   `gorm:"primaryKey; not null"`
-	Status IwStatus `gorm:"not null"`
-	Secret string   `gorm:"unique; not null"`
-	Code   uint32   `gorm:"primaryKey; not null"`
+	Pubkey        string   `gorm:"primaryKey; not null"`
+	Status        IwStatus `gorm:"not null"`
+	Secret        string   `gorm:"unique; not null"`
+	WalletAddress string   `gorm:"not null"`
 }
 
 type Store interface {
-	PutSecret(pubkey, secret string, status IwStatus, code uint32) error
-	Secret(pubkey string, code uint32) (string, error)
-	PutStatus(pubkey string, code uint32, status IwStatus) error
-	Status(pubkey string, code uint32) (IwStatus, error)
+	PutSecret(pubkey, secret string, status IwStatus, iwaddress string) error
+	GetSecret(pubkey string) (string, error)
+	PutStatus(pubkey string, status IwStatus) error
+	GetStatus(pubkey string) (IwStatus, error)
 }
 
 type store struct {
@@ -44,12 +44,12 @@ func NewStore(dialector gorm.Dialector, opts ...gorm.Option) (Store, error) {
 	return &store{db: db}, nil
 }
 
-func (s *store) PutSecret(pubkey, secret string, status IwStatus, code uint32) error {
+func (s *store) PutSecret(pubkey, secret string, status IwStatus, iwaddress string) error {
 	wallet := IwState{
-		Pubkey: pubkey,
-		Secret: secret,
-		Status: status,
-		Code:   uint32(code),
+		Pubkey:        pubkey,
+		Secret:        secret,
+		Status:        status,
+		WalletAddress: iwaddress,
 	}
 	if tx := s.db.Create(&wallet); tx.Error != nil {
 		return tx.Error
@@ -57,25 +57,25 @@ func (s *store) PutSecret(pubkey, secret string, status IwStatus, code uint32) e
 	return nil
 }
 
-func (s *store) Secret(pubkey string, code uint32) (string, error) {
+func (s *store) GetSecret(pubkey string) (string, error) {
 	var wallet IwState
-	if tx := s.db.Where("code = ? and pubkey = ?", code, pubkey).First(&wallet); tx.Error != nil {
+	if tx := s.db.Where("pubkey = ?", pubkey).First(&wallet); tx.Error != nil {
 		return "", tx.Error
 	}
 	return wallet.Secret, nil
 }
 
-func (s *store) PutStatus(pubkey string, code uint32, status IwStatus) error {
+func (s *store) PutStatus(pubkey string, status IwStatus) error {
 	var wallet IwState
-	if tx := s.db.Model(&wallet).Where("code = ? and pubkey = ?", code, pubkey).Update("status", status); tx.Error != nil {
+	if tx := s.db.Model(&wallet).Where("pubkey = ?", pubkey).Update("status", status); tx.Error != nil {
 		return tx.Error
 	}
 	return nil
 }
 
-func (s *store) Status(pubkey string, code uint32) (IwStatus, error) {
+func (s *store) GetStatus(pubkey string) (IwStatus, error) {
 	var wallet IwState
-	if tx := s.db.Where("code = ? and pubkey = ?", code, pubkey).First(&wallet); tx.Error != nil {
+	if tx := s.db.Where("pubkey = ?", pubkey).First(&wallet); tx.Error != nil {
 		return 0, tx.Error
 	}
 	return wallet.Status, nil
