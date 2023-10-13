@@ -11,23 +11,21 @@ import (
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/wire"
+	"github.com/catalogfi/blockchain/btc"
 	"github.com/catalogfi/guardian"
-	"github.com/catalogfi/multichain/btc"
 	"github.com/tyler-smith/go-bip32"
 )
 
 type instantClient struct {
-	url           string
 	indexerClient Client
 	store         Store
-	code          uint32
 	instantWallet guardian.BitcoinWallet
 }
 
 type InstantClient interface {
 	Client
 	GetStore() Store
-	GetInstantWalletAddress(from *btcec.PrivateKey) (string, error)
+	GetInstantWalletAddress() string
 	FundInstantWallet(from *btcec.PrivateKey, amount int64) (string, error)
 }
 
@@ -44,13 +42,13 @@ func (client *instantClient) GetStore() Store {
 	return client.store
 }
 
-func (client *instantClient) GetInstantWalletAddress(from *btcec.PrivateKey) (string, error) {
-	return "", nil
+func (client *instantClient) GetInstantWalletAddress() string {
+	return client.instantWallet.WalletAddress().String()
 }
 
-func InstantWalletWrapper(url string, store Store, client Client, iw guardian.BitcoinWallet) InstantClient {
+func InstantWalletWrapper(store Store, client Client, iw guardian.BitcoinWallet) InstantClient {
 
-	return &instantClient{url: url, indexerClient: client, store: store, instantWallet: iw}
+	return &instantClient{indexerClient: client, store: store, instantWallet: iw}
 }
 
 func (client *instantClient) GetFeeRates() (FeeRates, error) {
@@ -94,7 +92,7 @@ func (client *instantClient) GetConfirmations(txHash string) (uint64, uint64, er
 func (client *instantClient) Send(to btcutil.Address, amount uint64, from *btcec.PrivateKey) (string, error) {
 	masterKey, err := bip32.NewMasterKey(from.Serialize())
 	if err != nil {
-		return "", fmt.Errorf("failed to generate key: %v,err :", err)
+		return "", fmt.Errorf("failed to generate key ,error : %v", err)
 	}
 	pubkey := masterKey.PublicKey()
 	iw, err := client.instantWallet.GetInstantWallet()
@@ -103,7 +101,7 @@ func (client *instantClient) Send(to btcutil.Address, amount uint64, from *btcec
 	}
 	secret, err := client.store.GetSecret(iw.WalletAddress)
 	if err != nil {
-		return "", fmt.Errorf("Wallet not found in store,deposit to initiate the wallet, error :%v", err)
+		return "", fmt.Errorf("wallet not found in store, deposit to initiate the wallet, error :%v", err)
 	}
 	recipients := []btc.Recipient{
 		{
@@ -117,13 +115,14 @@ func (client *instantClient) Send(to btcutil.Address, amount uint64, from *btcec
 	}
 	newSecretHash := sha256.Sum256(newSecret)
 	newSecretHashString := hex.EncodeToString(newSecretHash[:])
-	err = client.store.PutSecret(pubkey.String(), string(newSecret), Redeemed, iw.WalletAddress)
-	if err != nil {
-		return "", err
-	}
-	txHash, err := client.instantWallet.Spend(context.Background(), recipients, secret, &newSecretHashString)
+
+	txHash, err := client.instantWallet.Spend(context.Background(), recipients, secret, &newSecretHashString, true)
 	if err != nil {
 		return "", fmt.Errorf("failed to send transaction , error : %v", err)
+	}
+	err = client.store.PutSecret(pubkey.String(), hex.EncodeToString(newSecret), Redeemed, iw.WalletAddress)
+	if err != nil {
+		return "", err
 	}
 
 	return txHash, nil
@@ -142,7 +141,7 @@ func (client *instantClient) Spend(script []byte, redeemScript wire.TxWitness, f
 func (client *instantClient) FundInstantWallet(from *btcec.PrivateKey, amount int64) (string, error) {
 	masterKey, err := bip32.NewMasterKey(from.Serialize())
 	if err != nil {
-		return "", fmt.Errorf("failed to generate key: %v,err :", err)
+		return "", fmt.Errorf("failed to generate key ,error : %v", err)
 	}
 	pubkey := masterKey.PublicKey()
 	newSecret, err := randomBytes(32)
@@ -151,18 +150,21 @@ func (client *instantClient) FundInstantWallet(from *btcec.PrivateKey, amount in
 	}
 	newSecretHash := sha256.Sum256(newSecret)
 	newSecretHashString := hex.EncodeToString(newSecretHash[:])
-	iw, err := client.instantWallet.GetInstantWallet()
-	if err != nil {
-		return "", err
-	}
-	err = client.store.PutSecret(pubkey.String(), string(newSecret), RefundTxGenerated, iw.WalletAddress)
-	if err != nil {
-		return "", err
-	}
+
 	txHash, err := client.instantWallet.Deposit(context.Background(), int64(amount), newSecretHashString)
 	if err != nil {
 		return "", fmt.Errorf("failed to deposit , error : %v", err)
 	}
+
+	iw, err := client.instantWallet.GetInstantWallet()
+	if err != nil {
+		return "", err
+	}
+	err = client.store.PutSecret(pubkey.String(), hex.EncodeToString(newSecret), RefundTxGenerated, iw.WalletAddress)
+	if err != nil {
+		return "", err
+	}
+
 	return txHash, nil
 
 }

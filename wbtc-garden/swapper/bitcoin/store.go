@@ -23,7 +23,8 @@ type IwState struct {
 
 type Store interface {
 	PutSecret(pubkey, secret string, status IwStatus, iwaddress string) error
-	GetSecret(pubkey string) (string, error)
+	GetSecret(walletAddr string) (string, error)
+	DeleteSecret(secret string) error
 	PutStatus(pubkey string, status IwStatus) error
 	GetStatus(pubkey string) (IwStatus, error)
 }
@@ -40,7 +41,6 @@ func NewStore(dialector gorm.Dialector, opts ...gorm.Option) (Store, error) {
 	if err := db.AutoMigrate(&IwState{}); err != nil {
 		return nil, err
 	}
-	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_iw_state_pubkey_code ON iw_states (pubkey, code)")
 	return &store{db: db}, nil
 }
 
@@ -56,10 +56,18 @@ func (s *store) PutSecret(pubkey, secret string, status IwStatus, iwaddress stri
 	}
 	return nil
 }
+func (s *store) DeleteSecret(secret string) error {
+	wallet := IwState{}
+	if tx := s.db.Unscoped().Where("secret = ?", secret).Delete(&wallet); tx.Error != nil {
+		return tx.Error
+	}
+	return nil
+}
 
-func (s *store) GetSecret(pubkey string) (string, error) {
+func (s *store) GetSecret(walletAddr string) (string, error) {
 	var wallet IwState
-	if tx := s.db.Where("pubkey = ?", pubkey).First(&wallet); tx.Error != nil {
+	// last stored secret will be the latest one to use
+	if tx := s.db.Where("wallet_address = ?", walletAddr).Last(&wallet); tx.Error != nil {
 		return "", tx.Error
 	}
 	return wallet.Secret, nil

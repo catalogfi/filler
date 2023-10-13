@@ -72,8 +72,7 @@ func (key *Key) InstantWalletAddress(chain model.Chain, config model.Network, iw
 		return "", fmt.Errorf("failed to load client: %v", err)
 	}
 	iwClient := client.(bitcoin.InstantClient)
-	pk := key.BtcKey()
-	return iwClient.GetInstantWalletAddress(pk)
+	return iwClient.GetInstantWalletAddress(), nil
 }
 
 func (key *Key) WitnessAddress(network *chaincfg.Params) (btcutil.Address, error) {
