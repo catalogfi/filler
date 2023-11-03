@@ -27,21 +27,22 @@ func Deposit(keys utils.Keys, config model.Network, db string, logger *zap.Logge
 		Short: "deposit funds from EOA to instant wallets",
 		Run: func(c *cobra.Command, args []string) {
 
-			defaultIwConfig := utils.GetIWConfig(false)
+			defaultIwStore, _ := bitcoin.NewStore(nil)
 			chain, a, err := model.ParseChainAsset(asset)
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while generating secret: %v", err))
 				return
 			}
-			iwConfig := model.InstantWalletConfig{}
-
-			iwConfig.Dialector = postgres.Open(db)
-			iwConfig.Opts = &gorm.Config{
+			iwStore, err := bitcoin.NewStore(postgres.Open(db), &gorm.Config{
 				NowFunc: func() time.Time { return time.Now().UTC() },
 				Logger:  glogger.Default.LogMode(glogger.Silent),
+			})
+			if err != nil {
+				cobra.CheckErr(fmt.Sprintf("Could not load iw store: %v", err))
+				return
 			}
 
-			client, err := blockchain.LoadClient(chain, config, iwConfig)
+			client, err := blockchain.LoadClient(chain, config, iwStore)
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("failed to load client: %v", err))
 				return
@@ -55,12 +56,12 @@ func Deposit(keys utils.Keys, config model.Network, db string, logger *zap.Logge
 					return
 				}
 
-				address, err := key.Address(chain, config, defaultIwConfig)
+				address, err := key.Address(chain, config, defaultIwStore)
 				if err != nil {
 					cobra.CheckErr(fmt.Sprintf("Error getting wallet address: %v", err))
 					return
 				}
-				balance, err := utils.Balance(chain, address, config, a, defaultIwConfig)
+				balance, err := utils.Balance(chain, address, config, a, defaultIwStore)
 				if err != nil {
 					cobra.CheckErr(fmt.Sprintf("Error fetching balance: %v", err))
 					return

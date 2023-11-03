@@ -74,10 +74,6 @@ func ParseChain(c string) (Chain, error) {
 	}
 }
 
-func ValidateIWCOnfig(iwConfig []InstantWalletConfig) bool {
-	return iwConfig != nil && len(iwConfig) != 0 && iwConfig[0].Dialector != nil
-}
-
 func (c Chain) IsEVM() bool {
 	return c == Ethereum || c == EthereumSepolia || c == EthereumLocalnet || c == EthereumOptimism || c == EthereumArbitrum || c == EthereumPolygon || c == EthereumAvalanche || c == EthereumBNB
 }

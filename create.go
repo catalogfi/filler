@@ -10,6 +10,7 @@ import (
 	"github.com/catalogfi/cobi/utils"
 	"github.com/catalogfi/cobi/wbtc-garden/model"
 	"github.com/catalogfi/cobi/wbtc-garden/rest"
+	"github.com/catalogfi/cobi/wbtc-garden/swapper/bitcoin"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/cobra"
 )
@@ -33,7 +34,7 @@ func Create(url string, keys utils.Keys, store store.Store, config model.Network
 			}
 			hash := sha256.Sum256(secret[:])
 			secretHash := hex.EncodeToString(hash[:])
-			iwConfig := utils.GetIWConfig(false)
+			defaultIwStore, _ := bitcoin.NewStore(nil)
 			userStore := store.UserStore(account)
 			key, err := keys.GetKey(model.Ethereum, account, 0)
 			if err != nil {
@@ -66,7 +67,7 @@ func Create(url string, keys utils.Keys, store store.Store, config model.Network
 				cobra.CheckErr(fmt.Sprintf("Error while getting from key: %v", err))
 				return
 			}
-			fromAddress, err := fromKey.Address(fromChain, config, iwConfig)
+			fromAddress, err := fromKey.Address(fromChain, config, defaultIwStore)
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while getting address string: %v", err))
 				return
@@ -76,7 +77,7 @@ func Create(url string, keys utils.Keys, store store.Store, config model.Network
 				cobra.CheckErr(fmt.Sprintf("Error while getting to key: %v", err))
 				return
 			}
-			toAddress, err := toKey.Address(toChain, config, iwConfig)
+			toAddress, err := toKey.Address(toChain, config, defaultIwStore)
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while getting address string: %v", err))
 				return

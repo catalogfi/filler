@@ -45,14 +45,17 @@ func Transfer(url string, keys utils.Keys, config model.Network, logger *zap.Log
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("Invalid address for chain: %s", ch))
 			}
-			iwConfig := model.InstantWalletConfig{}
 
+			defaultIwStore, _ := bitcoin.NewStore(nil)
+
+			iwStore, _ := bitcoin.NewStore(nil)
 			if useIw {
-
-				iwConfig.Dialector = postgres.Open(db)
-				iwConfig.Opts = &gorm.Config{
+				iwStore, err = bitcoin.NewStore(postgres.Open(db), &gorm.Config{
 					NowFunc: func() time.Time { return time.Now().UTC() },
 					Logger:  glogger.Default.LogMode(glogger.Silent),
+				})
+				if err != nil {
+					cobra.CheckErr(fmt.Sprintf("could not load iw store: %s", ch))
 				}
 			}
 
@@ -64,13 +67,13 @@ func Transfer(url string, keys utils.Keys, config model.Network, logger *zap.Log
 				return
 			}
 
-			iwAddress, err := key.Address(ch, config, iwConfig)
+			iwAddress, err := key.Address(ch, config, iwStore)
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error getting instant wallet address: %v", err))
 				return
 			}
 
-			address, err := key.Address(ch, config, utils.GetIWConfig(false))
+			address, err := key.Address(ch, config, defaultIwStore)
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error getting instant wallet address: %v", err))
 				return
@@ -104,7 +107,7 @@ func Transfer(url string, keys utils.Keys, config model.Network, logger *zap.Log
 			}
 			amt := new(big.Int).SetUint64(uint64(amount))
 			if !useIw {
-				balance, err := utils.Balance(ch, address, config, a, iwConfig)
+				balance, err := utils.Balance(ch, address, config, a, iwStore)
 				if err != nil {
 					cobra.CheckErr(fmt.Sprintf("Error fetching balance: %v", err))
 					return
@@ -114,7 +117,7 @@ func Transfer(url string, keys utils.Keys, config model.Network, logger *zap.Log
 					cobra.CheckErr(fmt.Sprintf("Amount cannot be greater than balance : %s", balance.String()))
 				}
 			} else {
-				usableBalance, err := utils.VirtualBalance(ch, iwAddress, address, config, a, signer.Hex(), restClient, iwConfig)
+				usableBalance, err := utils.VirtualBalance(ch, iwAddress, address, config, a, signer.Hex(), restClient, iwStore)
 				if err != nil {
 					cobra.CheckErr(fmt.Sprintf("failed to get usable balance: %v", err))
 					return
@@ -124,7 +127,7 @@ func Transfer(url string, keys utils.Keys, config model.Network, logger *zap.Log
 				}
 			}
 
-			client, err := blockchain.LoadClient(ch, config, iwConfig)
+			client, err := blockchain.LoadClient(ch, config, iwStore)
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("Failed to load client : %v", err))
 			}

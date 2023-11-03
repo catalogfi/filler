@@ -9,6 +9,7 @@ import (
 	"github.com/catalogfi/cobi/utils"
 	"github.com/catalogfi/cobi/wbtc-garden/model"
 	"github.com/catalogfi/cobi/wbtc-garden/rest"
+	"github.com/catalogfi/cobi/wbtc-garden/swapper/bitcoin"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -96,15 +97,18 @@ func Retry(url string, keys utils.Keys, config model.Network, store storeType.St
 			}
 
 			grandChildLogger := childLogger.With(zap.Uint("order id", order.ID), zap.String("SecHash", order.SecretHash))
-			iwConfig := utils.GetIWConfig(useIw)
+			iwStore, _ := bitcoin.NewStore(nil)
 			if useIw {
-				iwConfig.Dialector = postgres.Open(db)
-				iwConfig.Opts = &gorm.Config{
+				iwStore, err = bitcoin.NewStore(postgres.Open(db), &gorm.Config{
 					NowFunc: func() time.Time { return time.Now().UTC() },
 					Logger:  glogger.Default.LogMode(glogger.Silent),
+				})
+				if err != nil {
+					cobra.CheckErr(fmt.Sprintf("Could not load iw store: %v", err))
+					return
 				}
 			}
-			execute(order, grandChildLogger, signer, keys, account, config, accountStore, iwConfig)
+			execute(order, grandChildLogger, signer, keys, account, config, accountStore, iwStore)
 		},
 		DisableAutoGenTag: true,
 	}

@@ -8,6 +8,7 @@ import (
 	"github.com/catalogfi/cobi/utils"
 	"github.com/catalogfi/cobi/wbtc-garden/model"
 	"github.com/catalogfi/cobi/wbtc-garden/rest"
+	"github.com/catalogfi/cobi/wbtc-garden/swapper/bitcoin"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/cobra"
 )
@@ -21,7 +22,7 @@ func Fill(url string, keys utils.Keys, store store.Store, config model.Network) 
 		Use:   "fill",
 		Short: "Fill an order",
 		Run: func(c *cobra.Command, args []string) {
-			iwConfig := utils.GetIWConfig(false)
+			defaultIwStore, _ := bitcoin.NewStore(nil)
 			key, err := keys.GetKey(model.Ethereum, account, 0)
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while getting the signing key: %v", err))
@@ -60,7 +61,7 @@ func Fill(url string, keys utils.Keys, store store.Store, config model.Network) 
 				cobra.CheckErr(fmt.Sprintf("Error while getting from key: %v", err))
 				return
 			}
-			fromAddress, err := fromKey.Address(fromChain, config, iwConfig)
+			fromAddress, err := fromKey.Address(fromChain, config, defaultIwStore)
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while getting address string: %v", err))
 				return
@@ -70,7 +71,7 @@ func Fill(url string, keys utils.Keys, store store.Store, config model.Network) 
 				cobra.CheckErr(fmt.Sprintf("Error while getting to key: %v", err))
 				return
 			}
-			toAddress, err := toKey.Address(toChain, config, iwConfig)
+			toAddress, err := toKey.Address(toChain, config, defaultIwStore)
 			if err != nil {
 				cobra.CheckErr(fmt.Sprintf("Error while getting address string: %v", err))
 				return

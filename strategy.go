@@ -13,10 +13,11 @@ import (
 	"github.com/catalogfi/cobi/utils"
 	"github.com/catalogfi/cobi/wbtc-garden/model"
 	"github.com/catalogfi/cobi/wbtc-garden/rest"
+	"github.com/catalogfi/cobi/wbtc-garden/swapper/bitcoin"
 	"go.uber.org/zap"
 )
 
-func RunAutoCreateStrategy(url string, keys utils.Keys, config model.Network, store store.Store, logger *zap.Logger, s AutoCreateStrategy, iwConfig model.InstantWalletConfig) {
+func RunAutoCreateStrategy(url string, keys utils.Keys, config model.Network, store store.Store, logger *zap.Logger, s AutoCreateStrategy, iwStore bitcoin.Store) {
 	defer logger.Info("exiting auto create strategy")
 
 	signer, client, err := utils.LoadClient(url, keys, store, s.account, 0)
@@ -25,7 +26,7 @@ func RunAutoCreateStrategy(url string, keys utils.Keys, config model.Network, st
 		return
 	}
 
-	defaultIwConfig := utils.GetIWConfig(false)
+	defaultIwStore, _ := bitcoin.NewStore(nil)
 	for {
 		randTimeInterval, err := rand.Int(rand.Reader, big.NewInt(int64(s.MaxTimeInterval-s.MinTimeInterval)))
 		if err != nil {
@@ -53,13 +54,13 @@ func RunAutoCreateStrategy(url string, keys utils.Keys, config model.Network, st
 			logger.Error("failed while getting from key", zap.Error(err))
 			return
 		}
-		iWfromAddress, err := fromKey.Address(fromChain, config, iwConfig)
+		iWfromAddress, err := fromKey.Address(fromChain, config, iwStore)
 		if err != nil {
 			logger.Error("failed while getting address string", zap.Error(err))
 			return
 		}
 
-		fromAddress, err := fromKey.Address(fromChain, config, defaultIwConfig)
+		fromAddress, err := fromKey.Address(fromChain, config, defaultIwStore)
 		if err != nil {
 			logger.Error("failed while getting address string", zap.Error(err))
 			return
@@ -69,13 +70,13 @@ func RunAutoCreateStrategy(url string, keys utils.Keys, config model.Network, st
 			logger.Error("failed while getting to key", zap.Error(err))
 			return
 		}
-		toAddress, err := toKey.Address(toChain, config, defaultIwConfig)
+		toAddress, err := toKey.Address(toChain, config, defaultIwStore)
 		if err != nil {
 			logger.Error("failed while getting address string", zap.Error(err))
 			return
 		}
 
-		balance, err := utils.VirtualBalance(fromChain, iWfromAddress, fromAddress, config, fromAsset, signer.Hex(), client, iwConfig)
+		balance, err := utils.VirtualBalance(fromChain, iWfromAddress, fromAddress, config, fromAsset, signer.Hex(), client, iwStore)
 		if err != nil {
 			logger.Error("failed to get virtual balance", zap.String("address", iWfromAddress), zap.Error(err))
 			return
@@ -115,7 +116,7 @@ func RunAutoCreateStrategy(url string, keys utils.Keys, config model.Network, st
 	}
 }
 
-func RunAutoFillStrategy(url string, keys utils.Keys, config model.Network, store store.Store, logger *zap.Logger, s AutoFillStrategy, iwConfig model.InstantWalletConfig) {
+func RunAutoFillStrategy(url string, keys utils.Keys, config model.Network, store store.Store, logger *zap.Logger, s AutoFillStrategy, iwStore bitcoin.Store) {
 	defer logger.Info("exiting auto fill strategy")
 
 	// Load keys
@@ -124,7 +125,7 @@ func RunAutoFillStrategy(url string, keys utils.Keys, config model.Network, stor
 		logger.Error("can't load the client", zap.Error(err))
 		return
 	}
-	defaultIwConfig := utils.GetIWConfig(false)
+	defaultIwStore, _ := bitcoin.NewStore(nil)
 
 	for {
 		price, err := s.PriceStrategy().Price()
@@ -166,12 +167,12 @@ func RunAutoFillStrategy(url string, keys utils.Keys, config model.Network, stor
 				logger.Error("failed getting from key", zap.Error(err))
 				return
 			}
-			iWfromAddress, err := fromKey.Address(fromChain, config, iwConfig)
+			iWfromAddress, err := fromKey.Address(fromChain, config, iwStore)
 			if err != nil {
 				logger.Error("failed while getting address string", zap.Error(err))
 				return
 			}
-			fromAddress, err := fromKey.Address(fromChain, config, defaultIwConfig)
+			fromAddress, err := fromKey.Address(fromChain, config, defaultIwStore)
 			if err != nil {
 				logger.Error("failed getting from address string", zap.Error(err))
 				return
@@ -181,13 +182,13 @@ func RunAutoFillStrategy(url string, keys utils.Keys, config model.Network, stor
 				logger.Error("failed getting to key", zap.Error(err))
 				return
 			}
-			toAddress, err := toKey.Address(toChain, config, defaultIwConfig)
+			toAddress, err := toKey.Address(toChain, config, defaultIwStore)
 			if err != nil {
 				logger.Error("failed getting to address string", zap.Error(err))
 				return
 			}
 
-			balance, err := utils.VirtualBalance(fromChain, iWfromAddress, fromAddress, config, fromAsset, signer.Hex(), client, iwConfig)
+			balance, err := utils.VirtualBalance(fromChain, iWfromAddress, fromAddress, config, fromAsset, signer.Hex(), client, iwStore)
 			if err != nil {
 				logger.Error("failed to get virtual balance", zap.String("address", fromAddress), zap.Error(err))
 				continue
