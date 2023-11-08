@@ -43,12 +43,12 @@ func (key *Key) ECDSA() (*ecdsa.PrivateKey, error) {
 	return crypto.ToECDSA(key.inner.Key)
 }
 
-func (key *Key) Address(chain model.Chain, network model.Network, iwConfig model.InstantWalletConfig) (string, error) {
+func (key *Key) Address(chain model.Chain, network model.Network, store bitcoin.Store) (string, error) {
 	switch {
 	case chain.IsBTC():
 		params := getParams(chain)
-		if iwConfig.Dialector != nil {
-			return key.InstantWalletAddress(chain, network, iwConfig)
+		if store.DB() != nil {
+			return key.InstantWalletAddress(chain, network, store)
 		}
 		addr, err := key.WitnessAddress(params)
 		if err != nil {
@@ -66,8 +66,8 @@ func (key *Key) Address(chain model.Chain, network model.Network, iwConfig model
 	}
 }
 
-func (key *Key) InstantWalletAddress(chain model.Chain, config model.Network, iwConfig model.InstantWalletConfig) (string, error) {
-	client, err := blockchain.LoadClient(chain, config, iwConfig)
+func (key *Key) InstantWalletAddress(chain model.Chain, config model.Network, store bitcoin.Store) (string, error) {
+	client, err := blockchain.LoadClient(chain, config, store)
 	if err != nil {
 		return "", fmt.Errorf("failed to load client: %v", err)
 	}
@@ -156,8 +156,8 @@ func getParams(chain model.Chain) *chaincfg.Params {
 	}
 }
 
-func Balance(chain model.Chain, address string, config model.Network, asset model.Asset, iwConfig model.InstantWalletConfig) (*big.Int, error) {
-	client, err := blockchain.LoadClient(chain, config, iwConfig)
+func Balance(chain model.Chain, address string, config model.Network, asset model.Asset, store bitcoin.Store) (*big.Int, error) {
+	client, err := blockchain.LoadClient(chain, config, store)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load client: %v", err)
 	}
@@ -200,8 +200,8 @@ func Balance(chain model.Chain, address string, config model.Network, asset mode
 	}
 }
 
-func VirtualBalance(chain model.Chain, iwaddress string, address string, config model.Network, asset model.Asset, signer string, client rest.Client, iwConfig model.InstantWalletConfig) (*big.Int, error) {
-	balance, err := Balance(chain, iwaddress, config, asset, iwConfig)
+func VirtualBalance(chain model.Chain, iwaddress string, address string, config model.Network, asset model.Asset, signer string, client rest.Client, iwStore bitcoin.Store) (*big.Int, error) {
+	balance, err := Balance(chain, iwaddress, config, asset, iwStore)
 	if err != nil {
 		return nil, err
 	}

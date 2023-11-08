@@ -8,6 +8,7 @@ import (
 	"github.com/catalogfi/cobi/store"
 	"github.com/catalogfi/cobi/utils"
 	"github.com/catalogfi/cobi/wbtc-garden/model"
+	"github.com/catalogfi/cobi/wbtc-garden/swapper/bitcoin"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"gorm.io/driver/postgres"
@@ -23,15 +24,19 @@ func Start(url string, strategy []byte, keys utils.Keys, store store.Store, conf
 		Use:   "start",
 		Short: "Start the atomic swap executor",
 		Run: func(c *cobra.Command, args []string) {
-			iwConfig := model.InstantWalletConfig{}
+			iwStore, _ := bitcoin.NewStore(nil)
 			if useIw {
-				iwConfig.Dialector = postgres.Open(db)
-				iwConfig.Opts = &gorm.Config{
+				var err error
+				iwStore, err = bitcoin.NewStore(postgres.Open(db), &gorm.Config{
 					NowFunc: func() time.Time { return time.Now().UTC() },
 					Logger:  glogger.Default.LogMode(glogger.Silent),
+				})
+				if err != nil {
+					cobra.CheckErr(fmt.Sprintf("Could not load iw store: %v", err))
+					return
 				}
 			}
-			start(url, keys, strategy, config, store, logger, iwConfig)
+			start(url, keys, strategy, config, store, logger, iwStore)
 		},
 		DisableAutoGenTag: true,
 	}
@@ -39,7 +44,7 @@ func Start(url string, strategy []byte, keys utils.Keys, store store.Store, conf
 	return cmd
 }
 
-func start(url string, keys utils.Keys, strategy []byte, config model.Network, store store.Store, logger *zap.Logger, iwConfig model.InstantWalletConfig) {
+func start(url string, keys utils.Keys, strategy []byte, config model.Network, store store.Store, logger *zap.Logger, iwStore bitcoin.Store) {
 	wg := new(sync.WaitGroup)
 	activeAccounts := map[uint32]bool{}
 	strategies, err := UnmarshalStrategy(strategy)
@@ -52,7 +57,7 @@ func start(url string, keys utils.Keys, strategy []byte, config model.Network, s
 			wg.Add(1)
 			go func(account uint32, logger *zap.Logger) {
 				defer wg.Done()
-				Execute(keys, account, url, store.UserStore(account), config, logger, iwConfig)
+				Execute(keys, account, url, store.UserStore(account), config, logger, iwStore)
 			}(strategy.Account(), logger.With(zap.Uint32("executor", strategy.Account())))
 			activeAccounts[strategy.Account()] = true
 		}
@@ -76,9 +81,9 @@ func start(url string, keys utils.Keys, strategy []byte, config model.Network, s
 			defer wg.Done()
 			switch strategy := strategies[i].(type) {
 			case AutoFillStrategy:
-				RunAutoFillStrategy(url, keys, config, store, logger.With(zap.String("orderPair", strategy.OrderPair()), zap.String("priceStrategy", fmt.Sprintf("%T", strategy.PriceStrategy()))), strategy, iwConfig)
+				RunAutoFillStrategy(url, keys, config, store, logger.With(zap.String("orderPair", strategy.OrderPair()), zap.String("priceStrategy", fmt.Sprintf("%T", strategy.PriceStrategy()))), strategy, iwStore)
 			case AutoCreateStrategy:
-				RunAutoCreateStrategy(url, keys, config, store, logger.With(zap.String("orderPair", strategy.OrderPair()), zap.String("priceStrategy", fmt.Sprintf("%T", strategy.PriceStrategy()))), strategy, iwConfig)
+				RunAutoCreateStrategy(url, keys, config, store, logger.With(zap.String("orderPair", strategy.OrderPair()), zap.String("priceStrategy", fmt.Sprintf("%T", strategy.PriceStrategy()))), strategy, iwStore)
 			default:
 				logger.Error("unexpected strategy")
 			}

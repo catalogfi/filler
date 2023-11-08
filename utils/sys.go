@@ -42,15 +42,6 @@ func DefaultConfigPath() string {
 func DefaultInstantWalletDBDialector() gorm.Dialector {
 	return sqlite.Open(filepath.Join(HomeDir, ".cobi", "btciw.db"))
 }
-
-func GetIWConfig(isIW bool) model.InstantWalletConfig {
-	if isIW {
-		return model.InstantWalletConfig{
-			Dialector: DefaultInstantWalletDBDialector(),
-		}
-	}
-	return model.InstantWalletConfig{}
-}
 func DefaultStrategyPath() string {
 	return filepath.Join(HomeDir, ".cobi", "strategy.json")
 }

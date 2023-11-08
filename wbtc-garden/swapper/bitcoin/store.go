@@ -22,17 +22,21 @@ type IwState struct {
 }
 
 type Store interface {
+	DB() *gorm.DB
 	PutSecret(pubkey, secret string, status IwStatus, code uint32) error
 	Secret(pubkey string, code uint32) (string, error)
 	PutStatus(pubkey string, code uint32, status IwStatus) error
 	Status(pubkey string, code uint32) (IwStatus, error)
 }
 
-type store struct {
+type iwStore struct {
 	db *gorm.DB
 }
 
 func NewStore(dialector gorm.Dialector, opts ...gorm.Option) (Store, error) {
+	if dialector == nil {
+		return &iwStore{db: nil}, nil
+	}
 	db, err := gorm.Open(dialector, opts...)
 	if err != nil {
 		return nil, err
@@ -41,10 +45,14 @@ func NewStore(dialector gorm.Dialector, opts ...gorm.Option) (Store, error) {
 		return nil, err
 	}
 	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_iw_state_pubkey_code ON iw_states (pubkey, code)")
-	return &store{db: db}, nil
+	return &iwStore{db: db}, nil
 }
 
-func (s *store) PutSecret(pubkey, secret string, status IwStatus, code uint32) error {
+func (s *iwStore) DB() *gorm.DB {
+	return s.db
+}
+
+func (s *iwStore) PutSecret(pubkey, secret string, status IwStatus, code uint32) error {
 	wallet := IwState{
 		Pubkey: pubkey,
 		Secret: secret,
@@ -57,7 +65,7 @@ func (s *store) PutSecret(pubkey, secret string, status IwStatus, code uint32) e
 	return nil
 }
 
-func (s *store) Secret(pubkey string, code uint32) (string, error) {
+func (s *iwStore) Secret(pubkey string, code uint32) (string, error) {
 	var wallet IwState
 	if tx := s.db.Where("code = ? and pubkey = ?", code, pubkey).First(&wallet); tx.Error != nil {
 		return "", tx.Error
@@ -65,7 +73,7 @@ func (s *store) Secret(pubkey string, code uint32) (string, error) {
 	return wallet.Secret, nil
 }
 
-func (s *store) PutStatus(pubkey string, code uint32, status IwStatus) error {
+func (s *iwStore) PutStatus(pubkey string, code uint32, status IwStatus) error {
 	var wallet IwState
 	if tx := s.db.Model(&wallet).Where("code = ? and pubkey = ?", code, pubkey).Update("status", status); tx.Error != nil {
 		return tx.Error
@@ -73,7 +81,7 @@ func (s *store) PutStatus(pubkey string, code uint32, status IwStatus) error {
 	return nil
 }
 
-func (s *store) Status(pubkey string, code uint32) (IwStatus, error) {
+func (s *iwStore) Status(pubkey string, code uint32) (IwStatus, error) {
 	var wallet IwState
 	if tx := s.db.Where("code = ? and pubkey = ?", code, pubkey).First(&wallet); tx.Error != nil {
 		return 0, tx.Error

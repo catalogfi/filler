@@ -12,12 +12,13 @@ import (
 	"github.com/catalogfi/cobi/wbtc-garden/blockchain"
 	"github.com/catalogfi/cobi/wbtc-garden/model"
 	"github.com/catalogfi/cobi/wbtc-garden/rest"
+	"github.com/catalogfi/cobi/wbtc-garden/swapper/bitcoin"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"go.uber.org/zap"
 )
 
-func Execute(keys utils.Keys, account uint32, url string, store store.UserStore, config model.Network, logger *zap.Logger, iwConfig model.InstantWalletConfig) {
+func Execute(keys utils.Keys, account uint32, url string, store store.UserStore, config model.Network, logger *zap.Logger, iwStore bitcoin.Store) {
 	childLogger := logger.With(zap.Uint32("account", account))
 
 	// get the signer key
@@ -50,7 +51,7 @@ func Execute(keys utils.Keys, account uint32, url string, store store.UserStore,
 				childLogger.Info("recieved orders from the order book", zap.Int("count", count))
 				for _, order := range orders {
 					grandChildLogger := childLogger.With(zap.Uint("order id", order.ID), zap.String("pair", order.OrderPair))
-					execute(order, grandChildLogger, signer, keys, account, config, store, iwConfig)
+					execute(order, grandChildLogger, signer, keys, account, config, store, iwStore)
 				}
 				childLogger.Info("executed orders recieved from the order book", zap.Int("count", count))
 
@@ -59,7 +60,7 @@ func Execute(keys utils.Keys, account uint32, url string, store store.UserStore,
 	}
 }
 
-func execute(order model.Order, logger *zap.Logger, signer common.Address, keys utils.Keys, account uint32, config model.Network, userStore store.UserStore, iwConfig model.InstantWalletConfig) {
+func execute(order model.Order, logger *zap.Logger, signer common.Address, keys utils.Keys, account uint32, config model.Network, userStore store.UserStore, iwStore bitcoin.Store) {
 	logger.Info("processing order with id", zap.Uint("status", uint(order.Status)))
 	if isValid, err := userStore.CheckStatus(order.SecretHash); !isValid {
 		if err != "" {
@@ -109,7 +110,7 @@ func execute(order model.Order, logger *zap.Logger, signer common.Address, keys 
 			if order.FollowerAtomicSwap.Status == model.Detected {
 				logger.Info("detected follower atomic swap", zap.String("txHash", order.FollowerAtomicSwap.InitiateTxHash))
 			} else if status != store.InitiatorInitiated && status != store.InitiatorFailedToInitiate && order.FollowerAtomicSwap.Status == model.SwapStatus(model.Unknown) {
-				handleInitiate(*order.InitiatorAtomicSwap, order.SecretHash, fromKeyInterface, config, userStore, logger.With(zap.String("handler", "initiator initiate")), true, iwConfig)
+				handleInitiate(*order.InitiatorAtomicSwap, order.SecretHash, fromKeyInterface, config, userStore, logger.With(zap.String("handler", "initiator initiate")), true, iwStore)
 			} else if order.FollowerAtomicSwap.Status == model.Initiated {
 				if status != store.InitiatorRedeemed && status != store.InitiatorFailedToRedeem {
 					secret, err := userStore.Secret(order.SecretHash)
@@ -117,12 +118,12 @@ func execute(order model.Order, logger *zap.Logger, signer common.Address, keys 
 						logger.Error("failed to retrieve the secret from db", zap.Error(err))
 						return
 					}
-					handleRedeem(*order.FollowerAtomicSwap, secret, order.SecretHash, toKeyInterface, config, userStore, logger.With(zap.String("handler", "initiator redeem")), true, iwConfig)
+					handleRedeem(*order.FollowerAtomicSwap, secret, order.SecretHash, toKeyInterface, config, userStore, logger.With(zap.String("handler", "initiator redeem")), true, iwStore)
 				}
 			} else if order.InitiatorAtomicSwap.Status == model.Expired {
 				if status == store.InitiatorInitiated {
 					// assuming that the function would just return nil if the swap has not expired yet
-					handleRefund(*order.InitiatorAtomicSwap, order.SecretHash, fromKeyInterface, config, userStore, logger.With(zap.String("handler", "initiator refund")), true, iwConfig)
+					handleRefund(*order.InitiatorAtomicSwap, order.SecretHash, fromKeyInterface, config, userStore, logger.With(zap.String("handler", "initiator refund")), true, iwStore)
 				}
 			}
 		}
@@ -132,25 +133,25 @@ func execute(order model.Order, logger *zap.Logger, signer common.Address, keys 
 				logger.Info("detected initiator atomic swap", zap.String("txHash", order.InitiatorAtomicSwap.InitiateTxHash))
 			} else if order.FollowerAtomicSwap.Status == model.Redeemed && order.InitiatorAtomicSwap.Status == model.Initiated {
 				if status != store.FollowerRedeemed && status != store.FollowerFailedToRedeem {
-					handleRedeem(*order.InitiatorAtomicSwap, order.FollowerAtomicSwap.Secret, order.SecretHash, fromKeyInterface, config, userStore, logger.With(zap.String("handler", "follower redeem")), false, iwConfig)
+					handleRedeem(*order.InitiatorAtomicSwap, order.FollowerAtomicSwap.Secret, order.SecretHash, fromKeyInterface, config, userStore, logger.With(zap.String("handler", "follower redeem")), false, iwStore)
 				}
 			} else if order.InitiatorAtomicSwap.Status == model.Initiated {
 				if status != store.FollowerInitiated && status != store.FollowerFailedToInitiate {
-					handleInitiate(*order.FollowerAtomicSwap, order.SecretHash, toKeyInterface, config, userStore, logger.With(zap.String("handler", "follower initiate")), false, iwConfig)
+					handleInitiate(*order.FollowerAtomicSwap, order.SecretHash, toKeyInterface, config, userStore, logger.With(zap.String("handler", "follower initiate")), false, iwStore)
 				}
 			} else if order.FollowerAtomicSwap.Status == model.Expired {
 				// assuming that the function would just return nil if the swap has not expired yet
 				if status == store.FollowerInitiated {
-					handleRefund(*order.FollowerAtomicSwap, order.SecretHash, toKeyInterface, config, userStore, logger.With(zap.String("handler", "follower refund")), false, iwConfig)
+					handleRefund(*order.FollowerAtomicSwap, order.SecretHash, toKeyInterface, config, userStore, logger.With(zap.String("handler", "follower refund")), false, iwStore)
 				}
 			}
 		}
 	}
 }
 
-func handleRedeem(atomicSwap model.AtomicSwap, secret, secretHash string, keyInterface interface{}, config model.Network, userStore store.UserStore, logger *zap.Logger, isInitiator bool, iwConfig model.InstantWalletConfig) {
+func handleRedeem(atomicSwap model.AtomicSwap, secret, secretHash string, keyInterface interface{}, config model.Network, userStore store.UserStore, logger *zap.Logger, isInitiator bool, iwStore bitcoin.Store) {
 	logger.Info("redeeming an order")
-	redeemerSwap, err := blockchain.LoadRedeemerSwap(atomicSwap, keyInterface, secretHash, config, uint64(0), iwConfig)
+	redeemerSwap, err := blockchain.LoadRedeemerSwap(atomicSwap, keyInterface, secretHash, config, uint64(0), iwStore)
 	if err != nil {
 		logger.Error("failed to load redeemer swap", zap.Error(err))
 		return
@@ -189,9 +190,9 @@ func handleRedeem(atomicSwap model.AtomicSwap, secret, secretHash string, keyInt
 	}
 }
 
-func handleInitiate(atomicSwap model.AtomicSwap, secretHash string, keyInterface interface{}, config model.Network, userStore store.UserStore, logger *zap.Logger, isInitiator bool, iwConfig model.InstantWalletConfig) {
+func handleInitiate(atomicSwap model.AtomicSwap, secretHash string, keyInterface interface{}, config model.Network, userStore store.UserStore, logger *zap.Logger, isInitiator bool, iwStore bitcoin.Store) {
 	logger.Info("initiating an order")
-	initiatorSwap, err := blockchain.LoadInitiatorSwap(atomicSwap, keyInterface, secretHash, config, uint64(0), iwConfig)
+	initiatorSwap, err := blockchain.LoadInitiatorSwap(atomicSwap, keyInterface, secretHash, config, uint64(0), iwStore)
 	if err != nil {
 		logger.Error("failed to load initiator swap", zap.Error(err))
 		return
@@ -226,13 +227,13 @@ func handleInitiate(atomicSwap model.AtomicSwap, secretHash string, keyInterface
 	}
 }
 
-func handleRefund(swap model.AtomicSwap, secretHash string, keyInterface interface{}, config model.Network, userStore store.UserStore, logger *zap.Logger, isInitiator bool, iwConfig model.InstantWalletConfig) {
+func handleRefund(swap model.AtomicSwap, secretHash string, keyInterface interface{}, config model.Network, userStore store.UserStore, logger *zap.Logger, isInitiator bool, iwStore bitcoin.Store) {
 	timelock, err := strconv.ParseUint(swap.Timelock, 10, 64)
 	if err != nil {
 		logger.Error("failed to parse timelock", zap.Error(err))
 		return
 	}
-	initiatorSwap, err := blockchain.LoadInitiatorSwap(swap, keyInterface, secretHash, config, timelock, iwConfig)
+	initiatorSwap, err := blockchain.LoadInitiatorSwap(swap, keyInterface, secretHash, config, timelock, iwStore)
 	if err != nil {
 		logger.Error("failed to load initiator swap", zap.Error(err))
 		return
