@@ -1,20 +1,17 @@
 package cobi
 
 import (
-	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
 
-	"github.com/catalogfi/cobi/utils"
-	"github.com/catalogfi/cobi/wbtc-garden/model"
-	"github.com/catalogfi/cobi/wbtc-garden/rest"
-	"github.com/catalogfi/cobi/wbtc-garden/swapper/bitcoin"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/catalogfi/cobi/cobictl"
+	"github.com/catalogfi/cobi/handlers"
 	"github.com/jedib0t/go-pretty/table"
 	"github.com/spf13/cobra"
 )
 
-func Accounts(url string, keys utils.Keys, config model.Network) *cobra.Command {
+func Accounts(rpcClient cobictl.Client) *cobra.Command {
 	var (
 		user    uint32
 		asset   string
@@ -26,83 +23,36 @@ func Accounts(url string, keys utils.Keys, config model.Network) *cobra.Command 
 		Use:   "accounts",
 		Short: "List account addresses and balances",
 		Run: func(c *cobra.Command, args []string) {
-			ch, a, err := model.ParseChainAsset(asset)
+
+			AccountReq := handlers.RequestAccount{
+				IsInstantWallet: useIw,
+				Asset:           asset,
+				Page:            uint32(page),
+				PerPage:         uint32(perPage),
+				UserAccount:     user,
+			}
+
+			jsonData, err := json.Marshal(AccountReq)
 			if err != nil {
-				cobra.CheckErr(fmt.Sprintf("Error while generating secret: %v", err))
-				return
+				cobra.CheckErr(fmt.Errorf("failed to marshal payload: %w", err))
 			}
-			defaultIwStore, _ := bitcoin.NewStore(nil)
-			iwStore := defaultIwStore
-			if useIw {
-				iwStore, _ = bitcoin.NewStore(utils.DefaultInstantWalletDBDialector())
+
+			resp, err := rpcClient.SendPostRequest("getAccountInfo", jsonData)
+			if err != nil {
+				cobra.CheckErr(fmt.Errorf("failed to send request: %w", err))
 			}
+
+			var accounts []handlers.AccountInfo
+			if err := json.Unmarshal(resp, &accounts); err != nil {
+				cobra.CheckErr(fmt.Errorf("failed to unmarshal response: %w", err))
+			}
+
 			t := table.NewWriter()
 			t.SetOutputMirror(os.Stdout)
 			t.AppendHeader(table.Row{"#", "Address", "Current Balance", "Usable Balance"})
 			rows := make([]table.Row, 0)
-			for i := perPage*page - perPage; i < perPage*page; i++ {
-				key, err := keys.GetKey(ch, uint32(i), 0)
-				if err != nil {
-					cobra.CheckErr(fmt.Sprintf("Error parsing key: %v", err))
-					return
-				}
-
-				iwAddress, err := key.Address(ch, config, iwStore)
-				if err != nil {
-					cobra.CheckErr(fmt.Sprintf("Error getting instant wallet address: %v", err))
-					return
-				}
-
-				address, err := key.Address(ch, config, defaultIwStore)
-				if err != nil {
-					cobra.CheckErr(fmt.Sprintf("Error getting wallet address: %v", err))
-					return
-				}
-				balance, err := utils.Balance(ch, iwAddress, config, a, iwStore)
-				if err != nil {
-					cobra.CheckErr(fmt.Sprintf("Error fetching balance: %v", err))
-					return
-				}
-
-				signingKey, err := keys.GetKey(model.Ethereum, user, uint32(i))
-				if err != nil {
-					cobra.CheckErr(fmt.Sprintf("Error getting signing key: %v", err))
-					return
-				}
-				ecdsaKey, err := signingKey.ECDSA()
-				if err != nil {
-					cobra.CheckErr(fmt.Sprintf("Error calculating ECDSA key: %v", err))
-					return
-				}
-
-				client := rest.NewClient(fmt.Sprintf("https://%s", url), hex.EncodeToString(crypto.FromECDSA(ecdsaKey)))
-				token, err := client.Login()
-				if err != nil {
-					cobra.CheckErr(fmt.Sprintf("failed to get auth token: %v", err))
-					return
-				}
-				if err := client.SetJwt(token); err != nil {
-					cobra.CheckErr(fmt.Sprintf("failed to set auth token: %v", err))
-					return
-				}
-				signer, err := key.EvmAddress()
-				if err != nil {
-					cobra.CheckErr(fmt.Sprintf("failed to calculate evm address: %v", err))
-					return
-				}
-				usableBalance, err := utils.VirtualBalance(ch, iwAddress, address, config, a, signer.Hex(), client, iwStore)
-				if err != nil {
-					cobra.CheckErr(fmt.Sprintf("failed to get usable balance: %v", err))
-					return
-				}
-				if useIw {
-					address, err = key.Address(ch, config, iwStore)
-					if err != nil {
-						cobra.CheckErr(fmt.Sprintf("Error parsing address: %v", err))
-						return
-					}
-				}
-				row := table.Row{i, address, balance, usableBalance}
+			for _, account := range accounts {
+				row := table.Row{account.AccountNo, account.Address, account.Balance, account.UsableBalance}
 				rows = append(rows, row)
 			}
 			t.AppendRows(rows)

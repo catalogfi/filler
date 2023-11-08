@@ -58,7 +58,7 @@ func (a *createOrder) Query(cfg handlers.CoreConfig, params json.RawMessage) (js
 		return nil, err
 	}
 
-	return json.Marshal(fmt.Sprintf("ordercreatd %d", id))
+	return json.Marshal(id)
 }
 
 type fillOrder struct{}

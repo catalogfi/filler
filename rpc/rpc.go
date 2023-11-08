@@ -1,6 +1,9 @@
-package rpc
+package jsonrpc
 
 import (
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -17,11 +20,13 @@ type RPC interface {
 	AddCommand(cmd command.Command)
 	HandleJSONRPC(ctx *gin.Context)
 	Run()
+	authenticateUser(ctx *gin.Context)
 }
 
 type rpc struct {
 	commands   map[string]command.Command
 	coreConfig handlers.CoreConfig
+	authsha    [sha256.Size]byte
 }
 
 // Request defines a JSON-RPC 2.0 request object.
@@ -79,8 +84,16 @@ func NewError(code int, message string, data string) *Error {
 }
 
 func NewRpcServer(storage store.Store, envConfig utils.Config, keys *utils.Keys, logger *zap.Logger) RPC {
+	if envConfig.RpcUserName == "" && envConfig.RpcPassword == "" {
+		panic("RPC username and password must be specified")
+	}
+
+	login := envConfig.RpcUserName + ":" + envConfig.RpcPassword
+	auth := "Basic " + base64.StdEncoding.EncodeToString([]byte(login))
+
 	return &rpc{
 		commands: make(map[string]command.Command),
+		authsha:  sha256.Sum256([]byte(auth)),
 		coreConfig: handlers.CoreConfig{
 			Storage:   storage,
 			EnvConfig: envConfig,
@@ -118,13 +131,34 @@ func (r *rpc) HandleJSONRPC(ctx *gin.Context) {
 
 }
 
+func (r *rpc) authenticateUser(ctx *gin.Context) {
+	authhdr := ctx.GetHeader("Authorization")
+	fmt.Println("auth", authhdr)
+	if len(authhdr) <= 0 {
+		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"message": "Unauthorized Invalid credentials"})
+		return
+	}
+	authsha := sha256.Sum256([]byte(authhdr))
+	cmp := subtle.ConstantTimeCompare(authsha[:], r.authsha[:])
+	if cmp != 1 {
+		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"message": "Unauthorized Invalid credentials"})
+		return
+	}
+
+}
+
 func (r *rpc) Run() {
 	r.AddCommand(command.GetAccountInfo())
 	r.AddCommand(command.CreateNewOrder())
 	r.AddCommand(command.FillOrder())
 	r.AddCommand(command.DepositFunds())
 	r.AddCommand(command.TransferFunds())
+
 	s := gin.Default()
-	s.POST("/", r.HandleJSONRPC)
+
+	authRoutes := s.Group("/")
+	authRoutes.Use(r.authenticateUser)
+
+	authRoutes.POST("/", r.HandleJSONRPC)
 	s.Run(":8080")
 }

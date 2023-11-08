@@ -3,7 +3,7 @@ package main
 import (
 	"time"
 
-	"github.com/catalogfi/cobi/rpc"
+	jsonrpc "github.com/catalogfi/cobi/rpc"
 	"github.com/catalogfi/cobi/store"
 	"github.com/catalogfi/cobi/utils"
 	"github.com/tyler-smith/go-bip39"
@@ -48,6 +48,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	rpcServer := rpc.NewRpcServer(str, envConfig, &keys, logger)
+	rpcServer := jsonrpc.NewRpcServer(str, envConfig, &keys, logger)
 	rpcServer.Run()
 }

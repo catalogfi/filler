@@ -85,12 +85,16 @@ func LoadConfigFromFile(file string) model.Network {
 }
 
 type Config struct {
-	Network    model.Network
-	Strategies json.RawMessage
-	Mnemonic   string
-	OrderBook  string
-	DB         string
-	Sentry     string
+	Network     model.Network
+	Strategies  json.RawMessage
+	Mnemonic    string
+	OrderBook   string
+	DB          string
+	Sentry      string
+	RpcUserName string
+	RpcPassword string
+	NoTLS       bool
+	RPCServer   string
 }
 
 func LoadExtendedConfig(path string) (Config, error) {

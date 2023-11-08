@@ -69,14 +69,14 @@ func main() {
 		panic(err)
 	}
 
-	cmd.AddCommand(cobi.Create(envConfig.OrderBook, keys, store, envConfig.Network))
-	cmd.AddCommand(cobi.Fill(envConfig.OrderBook, keys, store, envConfig.Network))
+	// cmd.AddCommand(cobi.Create(envConfig.OrderBook, keys, store, envConfig.Network))
+	// cmd.AddCommand(cobi.Fill(envConfig.OrderBook, keys, store, envConfig.Network))
 	cmd.AddCommand(cobi.Start(envConfig.OrderBook, envConfig.Strategies, keys, store, envConfig.Network, logger, envConfig.DB))
-	cmd.AddCommand(cobi.Retry(envConfig.OrderBook, keys, envConfig.Network, store, logger,envConfig.DB))
-	cmd.AddCommand(cobi.Accounts(envConfig.OrderBook, keys, envConfig.Network))
+	cmd.AddCommand(cobi.Retry(envConfig.OrderBook, keys, envConfig.Network, store, logger, envConfig.DB))
+	// cmd.AddCommand(cobi.Accounts(envConfig.OrderBook, keys, envConfig.Network))
 	cmd.AddCommand(cobi.List(envConfig.OrderBook))
-	cmd.AddCommand(cobi.Deposit(keys, envConfig.Network, envConfig.DB, logger))
-	cmd.AddCommand(cobi.Transfer(envConfig.OrderBook, keys, envConfig.Network, logger, envConfig.DB))
+	// cmd.AddCommand(cobi.Deposit(keys, envConfig.Network, envConfig.DB, logger))
+	// cmd.AddCommand(cobi.Transfer(envConfig.OrderBook, keys, envConfig.Network, logger, envConfig.DB))
 	// cmd.AddCommand(cobi.Network(envConfig.Network, logger))
 
 	if err := cmd.Execute(); err != nil {
