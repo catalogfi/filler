@@ -14,7 +14,12 @@ import (
 )
 
 func Deposit(cfg CoreConfig, params RequestDeposit) (string, error) {
-	checkStrings(params.Asset)
+	if err := checkStrings(params.Asset); err != nil {
+		return "", fmt.Errorf("Asset is not valid: %v", err)
+	}
+	if err := checkUint64s((params.Amount)); err != nil {
+		return "", fmt.Errorf("Amount is not valid: %v", err)
+	}
 	defaultIwStore, _ := bitcoin.NewStore(nil)
 	chain, a, err := model.ParseChainAsset(params.Asset)
 	if err != nil {

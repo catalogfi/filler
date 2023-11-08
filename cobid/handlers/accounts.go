@@ -22,6 +22,9 @@ func GetAccounts(cfg CoreConfig, params RequestAccount) ([]AccountInfo, error) {
 	if err := checkStrings(params.Asset); err != nil {
 		return nil, fmt.Errorf("Asset is not valid: %v", err)
 	}
+	if err := checkUint32s(params.PerPage); err != nil {
+		return nil, fmt.Errorf("Error while parsing PerPage: %v", err)
+	}
 	ch, a, err := model.ParseChainAsset(params.Asset)
 	if err != nil {
 		return nil, fmt.Errorf("Error while parsing Chain and Asset: %v", err)

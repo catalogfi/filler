@@ -30,7 +30,7 @@ func FillOrder(cfg CoreConfig, params RequestFill) error {
 	}
 	userStore := cfg.Storage.UserStore(params.UserAccount)
 
-	order, err := client.GetOrder(params.OrderId)
+	order, err := client.GetOrder(uint(params.OrderId))
 	if err != nil {
 		return fmt.Errorf("Error while getting the  order pair: %v", err)
 	}
@@ -58,7 +58,7 @@ func FillOrder(cfg CoreConfig, params RequestFill) error {
 		return fmt.Errorf("Error while getting address string: %v", err)
 	}
 
-	if err := client.FillOrder(params.OrderId, fromAddress, toAddress); err != nil {
+	if err := client.FillOrder(uint(params.OrderId), fromAddress, toAddress); err != nil {
 		return fmt.Errorf("Error while filling the order: %v", err)
 	}
 	if err = userStore.PutSecretHash(order.SecretHash, uint64(params.OrderId)); err != nil {

@@ -19,7 +19,7 @@ func Fill(rpcClient Client) *cobra.Command {
 		Run: func(c *cobra.Command, args []string) {
 			FillOrder := handlers.RequestFill{
 				UserAccount: account,
-				OrderId:     orderId,
+				OrderId:     uint64(orderId),
 			}
 
 			jsonData, err := json.Marshal(FillOrder)

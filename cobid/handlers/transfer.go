@@ -20,7 +20,15 @@ import (
 )
 
 func Transfer(cfg CoreConfig, params RequestTransfer) (string, error) {
-	checkStrings(params.Asset, params.ToAddr)
+	err := checkStrings(params.Asset, params.ToAddr)
+	if err != nil {
+		return "", (fmt.Errorf("Error while parsing asset and address: %v", err))
+	}
+
+	if err := checkUint64s(params.Amount); err != nil {
+		return "", (fmt.Errorf("Error while parsing amount: %v", err))
+	}
+
 	ch, a, err := model.ParseChainAsset(params.Asset)
 	if err != nil {
 		return "", (fmt.Errorf("Error while parsing chain and asset: %v", err))

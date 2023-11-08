@@ -26,7 +26,7 @@ type RequestCreate struct {
 
 type RequestFill struct {
 	UserAccount uint32 `json:"userAccount" binding:"required"`
-	OrderId     uint   `json:"orderId" binding:"required"`
+	OrderId     uint64 `json:"orderId" binding:"required"`
 }
 
 type RequestDeposit struct {
@@ -54,6 +54,24 @@ type CoreConfig struct {
 func checkStrings(elements ...string) error {
 	for _, elem := range elements {
 		if strings.TrimSpace(elem) == "" {
+			return errors.New("Invalid Arguments Passed")
+		}
+	}
+	return nil
+}
+
+func checkUint32s(elements ...uint32) error {
+	for _, elem := range elements {
+		if elem == 0 {
+			return errors.New("Invalid Arguments Passed")
+		}
+	}
+	return nil
+}
+
+func checkUint64s(elements ...uint64) error {
+	for _, elem := range elements {
+		if elem == 0 {
 			return errors.New("Invalid Arguments Passed")
 		}
 	}

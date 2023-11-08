@@ -51,7 +51,7 @@ func (a *createOrder) Query(cfg handlers.CoreConfig, params json.RawMessage) (js
 	if err := json.Unmarshal(params, &req); err != nil {
 		return nil, err
 	}
-	fmt.Println("payload  : "+string(params), req)
+	fmt.Println("payload : "+string(params), req)
 
 	id, err := handlers.Create(cfg, req)
 	if err != nil {
