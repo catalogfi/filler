@@ -1,15 +1,14 @@
-package cobi
+package cobictl
 
 import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/catalogfi/cobi/cobictl"
-	"github.com/catalogfi/cobi/handlers"
+	"github.com/catalogfi/cobi/cobid/handlers"
 	"github.com/spf13/cobra"
 )
 
-func Deposit(rpcClient cobictl.Client) *cobra.Command {
+func Deposit(rpcClient Client) *cobra.Command {
 	var (
 		asset   string
 		account uint32

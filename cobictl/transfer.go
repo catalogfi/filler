@@ -1,15 +1,14 @@
-package cobi
+package cobictl
 
 import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/catalogfi/cobi/cobictl"
-	"github.com/catalogfi/cobi/handlers"
+	"github.com/catalogfi/cobi/cobid/handlers"
 	"github.com/spf13/cobra"
 )
 
-func Transfer(rpcClient cobictl.Client) *cobra.Command {
+func Transfer(rpcClient Client) *cobra.Command {
 	var (
 		user   uint32
 		amount uint32

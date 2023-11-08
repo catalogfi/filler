@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/catalogfi/cobi/command"
-	"github.com/catalogfi/cobi/handlers"
+	"github.com/catalogfi/cobi/cobid/command"
+	"github.com/catalogfi/cobi/cobid/handlers"
 	"github.com/catalogfi/cobi/store"
 	"github.com/catalogfi/cobi/utils"
 	"github.com/gin-gonic/gin"

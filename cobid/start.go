@@ -1,10 +1,11 @@
-package cobi
+package cobid
 
 import (
 	"fmt"
 	"sync"
 	"time"
 
+	"github.com/catalogfi/cobi"
 	"github.com/catalogfi/cobi/store"
 	"github.com/catalogfi/cobi/utils"
 	"github.com/catalogfi/cobi/wbtc-garden/model"
@@ -69,7 +70,7 @@ func start(url string, keys utils.Keys, strategy []byte, config model.Network, s
 				logger.Error("can't load the client", zap.Error(err))
 				return
 			}
-			if err := Recover(store.UserStore(strategy.Account()), client); err != nil {
+			if err := cobi.Recover(store.UserStore(strategy.Account()), client); err != nil {
 				logger.Error("can't recover swaps", zap.Error(err))
 				return
 			}

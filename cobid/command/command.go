@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/catalogfi/cobi/handlers"
+	"github.com/catalogfi/cobi/cobid/handlers"
 )
 
 type Command interface {

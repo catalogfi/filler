@@ -1,4 +1,4 @@
-package cobi
+package cobid
 
 import (
 	"encoding/hex"

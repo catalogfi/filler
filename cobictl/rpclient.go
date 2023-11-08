@@ -7,7 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	jsonrpc "github.com/catalogfi/cobi/rpc"
+	jsonrpc "github.com/catalogfi/cobi/cobid/rpc"
 )
 
 type client struct {

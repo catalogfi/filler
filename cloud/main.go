@@ -5,6 +5,7 @@ import (
 
 	"github.com/TheZeroSlave/zapsentry"
 	"github.com/catalogfi/cobi"
+	"github.com/catalogfi/cobi/cobid"
 	"github.com/catalogfi/cobi/store"
 	"github.com/catalogfi/cobi/utils"
 	"github.com/getsentry/sentry-go"
@@ -71,8 +72,8 @@ func main() {
 
 	// cmd.AddCommand(cobi.Create(envConfig.OrderBook, keys, store, envConfig.Network))
 	// cmd.AddCommand(cobi.Fill(envConfig.OrderBook, keys, store, envConfig.Network))
-	cmd.AddCommand(cobi.Start(envConfig.OrderBook, envConfig.Strategies, keys, store, envConfig.Network, logger, envConfig.DB))
-	cmd.AddCommand(cobi.Retry(envConfig.OrderBook, keys, envConfig.Network, store, logger, envConfig.DB))
+	cmd.AddCommand(cobid.Start(envConfig.OrderBook, envConfig.Strategies, keys, store, envConfig.Network, logger, envConfig.DB))
+	cmd.AddCommand(cobid.Retry(envConfig.OrderBook, keys, envConfig.Network, store, logger, envConfig.DB))
 	// cmd.AddCommand(cobi.Accounts(envConfig.OrderBook, keys, envConfig.Network))
 	cmd.AddCommand(cobi.List(envConfig.OrderBook))
 	// cmd.AddCommand(cobi.Deposit(keys, envConfig.Network, envConfig.DB, logger))

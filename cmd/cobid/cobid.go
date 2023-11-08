@@ -3,7 +3,7 @@ package main
 import (
 	"time"
 
-	jsonrpc "github.com/catalogfi/cobi/rpc"
+	jsonrpc "github.com/catalogfi/cobi/cobid/rpc"
 	"github.com/catalogfi/cobi/store"
 	"github.com/catalogfi/cobi/utils"
 	"github.com/tyler-smith/go-bip39"
@@ -13,6 +13,8 @@ import (
 )
 
 func main() {
+	// start executor
+	// start autofillers
 	envConfig, err := utils.LoadExtendedConfig(utils.DefaultConfigPath())
 	if err != nil {
 		panic(err)
