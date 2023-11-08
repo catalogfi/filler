@@ -44,6 +44,17 @@ type RequestTransfer struct {
 	Force       bool   `json:"force"`
 }
 
+type RequestListOrders struct {
+	Maker      string  `json:"maker"`
+	OrderPair  string  `json:"orderPair"`
+	SecretHash string  `json:"secretHash"`
+	OrderBy    string  `json:"orderBy"`
+	MinPrice   float64 `json:"minPrice"`
+	MaxPrice   float64 `json:"maxPrice"`
+	Page       uint32  `json:"page"`
+	PerPage    uint32  `json:"perPage"`
+}
+
 type CoreConfig struct {
 	Storage   store.Store
 	EnvConfig utils.Config

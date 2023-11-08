@@ -153,6 +153,7 @@ func (r *rpc) Run() {
 	r.AddCommand(command.FillOrder())
 	r.AddCommand(command.DepositFunds())
 	r.AddCommand(command.TransferFunds())
+	r.AddCommand(command.ListOrders())
 
 	s := gin.Default()
 

@@ -114,7 +114,7 @@ func (a *depositFunds) Query(cfg handlers.CoreConfig, params json.RawMessage) (j
 type transferFunds struct{}
 
 func TransferFunds() Command {
-	return &depositFunds{}
+	return &transferFunds{}
 }
 
 func (a *transferFunds) Name() string {
@@ -134,4 +134,29 @@ func (a *transferFunds) Query(cfg handlers.CoreConfig, params json.RawMessage) (
 	}
 
 	return json.Marshal(fmt.Sprintf("txHash : %s", txhash))
+}
+
+type listOrders struct{}
+
+func ListOrders() Command {
+	return &listOrders{}
+}
+
+func (a *listOrders) Name() string {
+	return "listOrders"
+}
+
+func (a *listOrders) Query(cfg handlers.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
+	var req handlers.RequestListOrders
+	if err := json.Unmarshal(params, &req); err != nil {
+		return nil, err
+	}
+	fmt.Println("payload  : "+string(params), req)
+
+	Orders, err := handlers.List(cfg, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal(Orders)
 }
