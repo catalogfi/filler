@@ -29,6 +29,21 @@ type RequestFill struct {
 	OrderId     uint   `json:"orderId" binding:"required"`
 }
 
+type RequestDeposit struct {
+	UserAccount uint32 `json:"userAccount" binding:"required"`
+	Asset       string `json:"asset" binding:"required"`
+	Amount      uint64 `json:"amount" binding:"required"`
+}
+
+type RequestTransfer struct {
+	UserAccount uint32 `json:"userAccount" binding:"required"`
+	Asset       string `json:"asset" binding:"required"`
+	Amount      uint64 `json:"amount" binding:"required"`
+	ToAddr      string `json:"toAddr" binding:"required"`
+	UseIw       bool   `json:"useIw"`
+	Force       bool   `json:"force"`
+}
+
 type CoreConfig struct {
 	Storage   store.Store
 	EnvConfig utils.Config
@@ -39,7 +54,7 @@ type CoreConfig struct {
 func checkStrings(elements ...string) error {
 	for _, elem := range elements {
 		if strings.TrimSpace(elem) == "" {
-			return errors.New("string is empty or contains only white spaces")
+			return errors.New("Invalid Arguments Passed")
 		}
 	}
 	return nil

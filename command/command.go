@@ -83,5 +83,55 @@ func (a *fillOrder) Query(cfg handlers.CoreConfig, params json.RawMessage) (json
 		return nil, err
 	}
 
-	return json.Marshal(fmt.Sprintf("Order filled sucessFull"))
+	return json.Marshal(("Order filled sucessFull"))
+}
+
+type depositFunds struct{}
+
+func DepositFunds() Command {
+	return &depositFunds{}
+}
+
+func (a *depositFunds) Name() string {
+	return "depositFunds"
+}
+
+func (a *depositFunds) Query(cfg handlers.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
+	var req handlers.RequestDeposit
+	if err := json.Unmarshal(params, &req); err != nil {
+		return nil, err
+	}
+	fmt.Println("payload  : "+string(params), req)
+
+	txhash, err := handlers.Deposit(cfg, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal(fmt.Sprintf("txHash : %s", txhash))
+}
+
+type transferFunds struct{}
+
+func TransferFunds() Command {
+	return &depositFunds{}
+}
+
+func (a *transferFunds) Name() string {
+	return "transferFunds"
+}
+
+func (a *transferFunds) Query(cfg handlers.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
+	var req handlers.RequestTransfer
+	if err := json.Unmarshal(params, &req); err != nil {
+		return nil, err
+	}
+	fmt.Println("payload  : "+string(params), req)
+
+	txhash, err := handlers.Transfer(cfg, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal(fmt.Sprintf("txHash : %s", txhash))
 }

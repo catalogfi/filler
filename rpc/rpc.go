@@ -122,6 +122,8 @@ func (r *rpc) Run() {
 	r.AddCommand(command.GetAccountInfo())
 	r.AddCommand(command.CreateNewOrder())
 	r.AddCommand(command.FillOrder())
+	r.AddCommand(command.DepositFunds())
+	r.AddCommand(command.TransferFunds())
 	s := gin.Default()
 	s.POST("/", r.HandleJSONRPC)
 	s.Run(":8080")
