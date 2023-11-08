@@ -9,25 +9,25 @@ import (
 	"github.com/catalogfi/cobi/wbtc-garden/blockchain"
 	"github.com/catalogfi/cobi/wbtc-garden/model"
 	"github.com/catalogfi/cobi/wbtc-garden/swapper/bitcoin"
-	"gorm.io/driver/sqlite"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
 func Deposit(cfg CoreConfig, params RequestDeposit) (string, error) {
 	checkStrings(params.Asset)
-	defaultIwConfig := utils.GetIWConfig(false)
+	defaultIwStore, _ := bitcoin.NewStore(nil)
 	chain, a, err := model.ParseChainAsset(params.Asset)
 	if err != nil {
 		return "", fmt.Errorf("Error while parsing chain asset: %v", err)
 	}
-	iwConfig := model.InstantWalletConfig{}
-
-	iwConfig.Dialector = sqlite.Open(cfg.EnvConfig.DB)
-	iwConfig.Opts = &gorm.Config{
+	iwStore, err := bitcoin.NewStore(postgres.Open(cfg.EnvConfig.DB), &gorm.Config{
 		NowFunc: func() time.Time { return time.Now().UTC() },
+	})
+	if err != nil {
+		return "", fmt.Errorf("Could not load iw store: %v", err)
 	}
 
-	client, err := blockchain.LoadClient(chain, cfg.EnvConfig.Network, iwConfig)
+	client, err := blockchain.LoadClient(chain, cfg.EnvConfig.Network, iwStore)
 	if err != nil {
 		return "", fmt.Errorf("failed to load client: %v", err)
 	}
@@ -38,11 +38,11 @@ func Deposit(cfg CoreConfig, params RequestDeposit) (string, error) {
 			return "", fmt.Errorf("Error while getting the signing key: %v", err)
 		}
 
-		address, err := key.Address(chain, cfg.EnvConfig.Network, defaultIwConfig)
+		address, err := key.Address(chain, cfg.EnvConfig.Network, defaultIwStore)
 		if err != nil {
 			return "", fmt.Errorf("Error getting wallet address: %v", err)
 		}
-		balance, err := utils.Balance(chain, address, cfg.EnvConfig.Network, a, defaultIwConfig)
+		balance, err := utils.Balance(chain, address, cfg.EnvConfig.Network, a, defaultIwStore)
 		if err != nil {
 			return "", fmt.Errorf("Error getting wallet balance: %v", err)
 		}

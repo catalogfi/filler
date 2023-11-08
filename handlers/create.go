@@ -6,9 +6,9 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/catalogfi/cobi/utils"
 	"github.com/catalogfi/cobi/wbtc-garden/model"
 	"github.com/catalogfi/cobi/wbtc-garden/rest"
+	"github.com/catalogfi/cobi/wbtc-garden/swapper/bitcoin"
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
@@ -26,7 +26,7 @@ func Create(cfg CoreConfig, params RequestCreate) (uint, error) {
 
 	hash := sha256.Sum256(secret[:])
 	secretHash := hex.EncodeToString(hash[:])
-	iwConfig := utils.GetIWConfig(false)
+	defaultIwStore, _ := bitcoin.NewStore(nil)
 	userStore := cfg.Storage.UserStore(params.UserAccount)
 	key, err := cfg.Keys.GetKey(model.Ethereum, params.UserAccount, 0)
 	if err != nil {
@@ -55,7 +55,7 @@ func Create(cfg CoreConfig, params RequestCreate) (uint, error) {
 	if err != nil {
 		return 0, fmt.Errorf("Error while getting from key: %v", err)
 	}
-	fromAddress, err := fromKey.Address(fromChain, cfg.EnvConfig.Network, iwConfig)
+	fromAddress, err := fromKey.Address(fromChain, cfg.EnvConfig.Network, defaultIwStore)
 	if err != nil {
 		return 0, fmt.Errorf("Error while getting address string: %v", err)
 	}
@@ -63,7 +63,7 @@ func Create(cfg CoreConfig, params RequestCreate) (uint, error) {
 	if err != nil {
 		return 0, fmt.Errorf("Error while getting to key: %v", err)
 	}
-	toAddress, err := toKey.Address(toChain, cfg.EnvConfig.Network, iwConfig)
+	toAddress, err := toKey.Address(toChain, cfg.EnvConfig.Network, defaultIwStore)
 	if err != nil {
 		return 0, fmt.Errorf("Error while getting address string: %v", err)
 	}

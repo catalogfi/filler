@@ -7,6 +7,7 @@ import (
 	"github.com/catalogfi/cobi/utils"
 	"github.com/catalogfi/cobi/wbtc-garden/model"
 	"github.com/catalogfi/cobi/wbtc-garden/rest"
+	"github.com/catalogfi/cobi/wbtc-garden/swapper/bitcoin"
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
@@ -26,8 +27,11 @@ func GetAccounts(cfg CoreConfig, params RequestAccount) ([]AccountInfo, error) {
 		return nil, fmt.Errorf("Error while parsing Chain and Asset: %v", err)
 	}
 
-	iwConfig := utils.GetIWConfig(params.IsInstantWallet)
-	defaultIwConfig := utils.GetIWConfig(false)
+	defaultIwStore, _ := bitcoin.NewStore(nil)
+	iwStore := defaultIwStore
+	if params.IsInstantWallet {
+		iwStore, _ = bitcoin.NewStore(utils.DefaultInstantWalletDBDialector())
+	}
 
 	config := cfg.EnvConfig.Network
 
@@ -39,23 +43,23 @@ func GetAccounts(cfg CoreConfig, params RequestAccount) ([]AccountInfo, error) {
 			return nil, fmt.Errorf("Error parsing key: %v", err)
 		}
 
-		iwAddress, err := key.Address(ch, config, iwConfig)
+		iwAddress, err := key.Address(ch, config, iwStore)
 		if err != nil {
-			return nil, fmt.Errorf("Error while getting the instant wallet address: %v", err)
+			return nil, fmt.Errorf("Error getting instant wallet address: %v", err)
 		}
 
-		address, err := key.Address(ch, config, defaultIwConfig)
+		address, err := key.Address(ch, config, defaultIwStore)
 		if err != nil {
-			return nil, fmt.Errorf("Error while getting the wallet address: %v", err)
+			return nil, fmt.Errorf("Error getting wallet address: %v", err)
 		}
-		balance, err := utils.Balance(ch, iwAddress, config, a, iwConfig)
+		balance, err := utils.Balance(ch, iwAddress, config, a, iwStore)
 		if err != nil {
-			return nil, fmt.Errorf("Error while getting the balance: %v", err)
+			return nil, fmt.Errorf("Error getting balance: %v", err)
 		}
 
 		signingKey, err := cfg.Keys.GetKey(model.Ethereum, params.UserAccount, uint32(i))
 		if err != nil {
-			return nil, fmt.Errorf("Error while getting the signing key: %v", err)
+			return nil, fmt.Errorf("Error getting signing key: %v", err)
 		}
 		ecdsaKey, err := signingKey.ECDSA()
 		if err != nil {
@@ -70,20 +74,18 @@ func GetAccounts(cfg CoreConfig, params RequestAccount) ([]AccountInfo, error) {
 		if err := client.SetJwt(token); err != nil {
 			return nil, fmt.Errorf("failed to set auth token: %v", err)
 		}
-
 		signer, err := key.EvmAddress()
 		if err != nil {
-			return nil, fmt.Errorf("failed to get signer address: %v", err)
+			return nil, fmt.Errorf("failed to calculate evm address: %v", err)
 		}
-
-		usableBalance, err := utils.VirtualBalance(ch, iwAddress, address, config, a, signer.Hex(), client, iwConfig)
+		usableBalance, err := utils.VirtualBalance(ch, iwAddress, address, config, a, signer.Hex(), client, iwStore)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get usable balance: %v", err)
 		}
 		if params.IsInstantWallet {
-			address, err = key.Address(ch, config, iwConfig)
+			address, err = key.Address(ch, config, iwStore)
 			if err != nil {
-				return nil, fmt.Errorf("Error while getting the Instant wallet address: %v", err)
+				return nil, fmt.Errorf("Error parsing address: %v", err)
 			}
 		}
 

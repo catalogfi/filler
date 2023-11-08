@@ -15,7 +15,7 @@ import (
 	"github.com/catalogfi/cobi/wbtc-garden/swapper/ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"gorm.io/driver/sqlite"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -30,13 +30,15 @@ func Transfer(cfg CoreConfig, params RequestTransfer) (string, error) {
 	if err != nil {
 		return "", (fmt.Errorf("Invalid address for chain: %s", ch))
 	}
-	iwConfig := model.InstantWalletConfig{}
+	defaultIwStore, _ := bitcoin.NewStore(nil)
 
+	iwStore, _ := bitcoin.NewStore(nil)
 	if params.UseIw {
-
-		iwConfig.Dialector = sqlite.Open(cfg.EnvConfig.DB)
-		iwConfig.Opts = &gorm.Config{
+		iwStore, err = bitcoin.NewStore(postgres.Open(cfg.EnvConfig.DB), &gorm.Config{
 			NowFunc: func() time.Time { return time.Now().UTC() },
+		})
+		if err != nil {
+			return "", (fmt.Errorf("could not load iw store: %s", ch))
 		}
 	}
 
@@ -47,12 +49,12 @@ func Transfer(cfg CoreConfig, params RequestTransfer) (string, error) {
 		return "", (fmt.Errorf("Error while getting the signing key: %v", err))
 	}
 
-	iwAddress, err := key.Address(ch, cfg.EnvConfig.Network, iwConfig)
+	iwAddress, err := key.Address(ch, cfg.EnvConfig.Network, iwStore)
 	if err != nil {
 		return "", (fmt.Errorf("Error while getting the instant wallet address: %v", err))
 	}
 
-	address, err := key.Address(ch, cfg.EnvConfig.Network, utils.GetIWConfig(false))
+	address, err := key.Address(ch, cfg.EnvConfig.Network, defaultIwStore)
 	if err != nil {
 		return "", (fmt.Errorf("Error while getting the address: %v", err))
 	}
@@ -80,7 +82,7 @@ func Transfer(cfg CoreConfig, params RequestTransfer) (string, error) {
 	}
 	amt := new(big.Int).SetUint64(uint64(params.Amount))
 	if !params.UseIw {
-		balance, err := utils.Balance(ch, address, cfg.EnvConfig.Network, a, iwConfig)
+		balance, err := utils.Balance(ch, address, cfg.EnvConfig.Network, a, iwStore)
 		if err != nil {
 			return "", (fmt.Errorf("Error while getting the balance: %v", err))
 		}
@@ -89,7 +91,7 @@ func Transfer(cfg CoreConfig, params RequestTransfer) (string, error) {
 			return "", (fmt.Errorf("Amount cannot be greater than balance : %s", balance.String()))
 		}
 	} else {
-		usableBalance, err := utils.VirtualBalance(ch, iwAddress, address, cfg.EnvConfig.Network, a, signer.Hex(), restClient, iwConfig)
+		usableBalance, err := utils.VirtualBalance(ch, iwAddress, address, cfg.EnvConfig.Network, a, signer.Hex(), restClient, iwStore)
 		if err != nil {
 			return "", (fmt.Errorf("failed to get usable balance: %v", err))
 		}
@@ -98,7 +100,7 @@ func Transfer(cfg CoreConfig, params RequestTransfer) (string, error) {
 		}
 	}
 
-	client, err := blockchain.LoadClient(ch, cfg.EnvConfig.Network, iwConfig)
+	client, err := blockchain.LoadClient(ch, cfg.EnvConfig.Network, iwStore)
 	if err != nil {
 		return "", (fmt.Errorf("failed to load client: %v", err))
 	}
