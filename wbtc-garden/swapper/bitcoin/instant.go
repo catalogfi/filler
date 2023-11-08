@@ -135,7 +135,41 @@ func (client *instantClient) Send(to btcutil.Address, amount uint64, from *btcec
 // or the balance in current instant wallet is combined iwth atomic swap
 // and sent to next instant wallet
 func (client *instantClient) Spend(script []byte, redeemScript wire.TxWitness, from *btcec.PrivateKey, waitBlocks uint) (string, error) {
-	return client.indexerClient.Spend(script, redeemScript, from, waitBlocks)
+	scriptWitnessProgram := sha256.Sum256(script)
+	scriptAddr, err := btcutil.NewAddressWitnessScriptHash(scriptWitnessProgram[:], client.Net())
+	if err != nil {
+		return "", fmt.Errorf("failed to create script address: %w", err)
+	}
+
+	newSecret, err := randomBytes(32)
+	if err != nil {
+		return "", err
+	}
+	newSecretHash := sha256.Sum256(newSecret)
+	newSecretHashString := hex.EncodeToString(newSecretHash[:])
+
+	txHash, err := client.instantWallet.RedeemAndDeposit(context.Background(), newSecretHashString, scriptAddr, script, redeemScript, waitBlocks)
+	if err != nil {
+		return "", err
+	}
+
+	iw, err := client.instantWallet.GetInstantWallet()
+	if err != nil {
+		return "", err
+	}
+	masterKey, err := bip32.NewMasterKey(from.Serialize())
+	if err != nil {
+		return "", fmt.Errorf("failed to generate key ,error : %v", err)
+	}
+	pubkey := masterKey.PublicKey()
+
+	err = client.store.PutSecret(pubkey.String(), hex.EncodeToString(newSecret), RefundTxGenerated, iw.WalletAddress)
+	if err != nil {
+		return "", err
+	}
+
+	return txHash, nil
+
 }
 
 func (client *instantClient) FundInstantWallet(from *btcec.PrivateKey, amount int64) (string, error) {
