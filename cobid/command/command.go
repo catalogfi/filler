@@ -2,6 +2,7 @@ package command
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/catalogfi/cobi/cobid/handlers"
@@ -159,4 +160,33 @@ func (a *listOrders) Query(cfg handlers.CoreConfig, params json.RawMessage) (jso
 	}
 
 	return json.Marshal(Orders)
+}
+
+type killService struct{}
+
+func KillService() Command {
+	return &killService{}
+}
+
+func (a *killService) Name() string {
+	return "killService"
+}
+
+func (a *killService) Query(cfg handlers.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
+	var req handlers.KillSerivce
+	if err := json.Unmarshal(params, &req); err != nil {
+		fmt.Println("\n\n FAILED HERE \n\n")
+		return nil, err
+	}
+	if req.ServiceType == "" {
+		return nil, errors.New("Invalid Arguments Passed")
+	}
+	fmt.Println("payload  : "+string(params), req)
+
+	err := handlers.Kill(req.ServiceType)
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal("Killed Sucessfull")
 }

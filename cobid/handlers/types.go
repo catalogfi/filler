@@ -55,6 +55,10 @@ type RequestListOrders struct {
 	PerPage    uint32  `json:"perPage"`
 }
 
+type KillSerivce struct {
+	ServiceType Service `json:"service" binding:"required"`
+}
+
 type CoreConfig struct {
 	Storage   store.Store
 	EnvConfig utils.Config
