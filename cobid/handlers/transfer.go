@@ -54,39 +54,6 @@ func Transfer(cfg CoreConfig, params RequestTransfer) (string, error) {
 		return "", err
 	}
 
-	var iwConfig bitcoin.InstantWalletConfig
-
-	if params.UseIw {
-		iwStore, err := bitcoin.NewStore(postgres.Open(cfg.EnvConfig.DB), &gorm.Config{
-			NowFunc: func() time.Time { return time.Now().UTC() },
-		})
-		if err != nil {
-			return "", (fmt.Errorf("could not load iw store: %s", ch))
-		}
-		privKey := key.BtcKey()
-		chainParams := blockchain.GetParams(ch)
-		rpcClient := jsonrpc.NewClient(new(http.Client), cfg.EnvConfig.Network[ch].IWRPC)
-		feeEstimator := btc.NewBlockstreamFeeEstimator(chainParams, cfg.EnvConfig.Network[ch].RPC["mempool"], 20*time.Second)
-		indexer := btc.NewElectrsIndexerClient(logger, cfg.EnvConfig.Network[ch].RPC["mempool"], 5*time.Second)
-
-		guardianWallet, err := guardian.NewBitcoinWallet(logger, privKey, chainParams, indexer, feeEstimator, rpcClient)
-
-		iwConfig = bitcoin.InstantWalletConfig{
-			Store:   iwStore,
-			IWallet: guardianWallet,
-		}
-	}
-
-	iwAddress, err := key.Address(ch, cfg.EnvConfig.Network,false, iwConfig)
-	if err != nil {
-		return "", (fmt.Errorf("Error while getting the instant wallet address: %v", err))
-	}
-
-	address, err := key.Address(ch, cfg.EnvConfig.Network,false)
-	if err != nil {
-		return "", (fmt.Errorf("Error while getting the address: %v", err))
-	}
-
 	signingKey, err := cfg.Keys.GetKey(model.Ethereum, params.UserAccount, 0)
 	if err != nil {
 		return "", (fmt.Errorf("Error while getting the signing key: %v", err))
@@ -108,16 +75,66 @@ func Transfer(cfg CoreConfig, params RequestTransfer) (string, error) {
 	if err != nil {
 		return "", (fmt.Errorf("failed to get signer address: %v", err))
 	}
+
+	var iwConfig bitcoin.InstantWalletConfig
+
+	var address string
+
+	var client interface{}
+
 	amt := new(big.Int).SetUint64(uint64(params.Amount))
-	if !params.UseIw {
-		usableBalance, err := utils.VirtualBalance(ch, iwAddress, cfg.EnvConfig.Network, a, signer.Hex(), restClient, iwConfig)
+
+	if params.UseIw {
+		var iwStore bitcoin.Store
+		if cfg.EnvConfig.DB != "" {
+			iwStore, err = bitcoin.NewStore(postgres.Open(cfg.EnvConfig.DB), &gorm.Config{
+				NowFunc: func() time.Time { return time.Now().UTC() },
+			})
+			if err != nil {
+				return "", (fmt.Errorf("could not load iw store: %s", ch))
+			}
+		} else {
+			iwStore, err = bitcoin.NewStore(utils.DefaultInstantWalletDBDialector(), &gorm.Config{
+				NowFunc: func() time.Time { return time.Now().UTC() },
+			})
+			if err != nil {
+				return "", (fmt.Errorf("could not load iw store: %s", ch))
+			}
+		}
+		privKey := key.BtcKey()
+		chainParams := blockchain.GetParams(ch)
+		rpcClient := jsonrpc.NewClient(new(http.Client), cfg.EnvConfig.Network[ch].IWRPC)
+		feeEstimator := btc.NewBlockstreamFeeEstimator(chainParams, cfg.EnvConfig.Network[ch].RPC["mempool"], 20*time.Second)
+		indexer := btc.NewElectrsIndexerClient(logger, cfg.EnvConfig.Network[ch].RPC["mempool"], 5*time.Second)
+
+		guardianWallet, err := guardian.NewBitcoinWallet(logger, privKey, chainParams, indexer, feeEstimator, rpcClient)
+		if err != nil {
+			return "", err
+		}
+		iwConfig = bitcoin.InstantWalletConfig{
+			Store:   iwStore,
+			IWallet: guardianWallet,
+		}
+		address, err = key.Address(ch, cfg.EnvConfig.Network, false, iwConfig)
+		if err != nil {
+			return "", (fmt.Errorf("Error while getting the instant wallet address: %v", err))
+		}
+		usableBalance, err := utils.VirtualBalance(ch, address, cfg.EnvConfig.Network, a, signer.Hex(), restClient, iwConfig)
 		if err != nil {
 			return "", (fmt.Errorf("failed to get usable balance: %v", err))
 		}
 		if amt.Cmp(usableBalance) > 0 && !params.Force {
 			return "", (fmt.Errorf("Amount cannot be greater than usable balance : %s", usableBalance.String()))
 		}
+		client, err = blockchain.LoadClient(ch, cfg.EnvConfig.Network, iwConfig)
+		if err != nil {
+			return "", (fmt.Errorf("failed to load client: %v", err))
+		}
 	} else {
+		address, err = key.Address(ch, cfg.EnvConfig.Network, false)
+		if err != nil {
+			return "", (fmt.Errorf("Error while getting the wallet address: %v", err))
+		}
 		usableBalance, err := utils.VirtualBalance(ch, address, cfg.EnvConfig.Network, a, signer.Hex(), restClient)
 		if err != nil {
 			return "", (fmt.Errorf("failed to get usable balance: %v", err))
@@ -125,16 +142,6 @@ func Transfer(cfg CoreConfig, params RequestTransfer) (string, error) {
 		if amt.Cmp(usableBalance) > 0 && !params.Force {
 			return "", (fmt.Errorf("Amount cannot be greater than usable balance : %s", usableBalance.String()))
 		}
-	}
-	var client interface{}
-
-	if params.UseIw {
-
-		client, err = blockchain.LoadClient(ch, cfg.EnvConfig.Network, iwConfig)
-		if err != nil {
-			return "", (fmt.Errorf("failed to load client: %v", err))
-		}
-	} else {
 		client, err = blockchain.LoadClient(ch, cfg.EnvConfig.Network)
 		if err != nil {
 			return "", (fmt.Errorf("failed to load client: %v", err))

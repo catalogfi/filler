@@ -15,7 +15,6 @@ import (
 	"github.com/catalogfi/guardian/jsonrpc"
 	"go.uber.org/zap"
 	"gorm.io/driver/postgres"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -45,7 +44,7 @@ func Deposit(cfg CoreConfig, params RequestDeposit) (string, error) {
 			return "", fmt.Errorf("Could not load iw store: %v", err)
 		}
 	} else {
-		iwStore, err = bitcoin.NewStore(sqlite.Open(utils.DefaultStorePath()), &gorm.Config{
+		iwStore, err = bitcoin.NewStore((utils.DefaultInstantWalletDBDialector()), &gorm.Config{
 			NowFunc: func() time.Time { return time.Now().UTC() },
 		})
 		if err != nil {
