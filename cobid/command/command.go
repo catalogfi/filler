@@ -2,6 +2,7 @@ package command
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/catalogfi/cobi/cobid/handlers"
@@ -114,7 +115,7 @@ func (a *depositFunds) Query(cfg handlers.CoreConfig, params json.RawMessage) (j
 type transferFunds struct{}
 
 func TransferFunds() Command {
-	return &depositFunds{}
+	return &transferFunds{}
 }
 
 func (a *transferFunds) Name() string {
@@ -134,4 +135,58 @@ func (a *transferFunds) Query(cfg handlers.CoreConfig, params json.RawMessage) (
 	}
 
 	return json.Marshal(fmt.Sprintf("txHash : %s", txhash))
+}
+
+type listOrders struct{}
+
+func ListOrders() Command {
+	return &listOrders{}
+}
+
+func (a *listOrders) Name() string {
+	return "listOrders"
+}
+
+func (a *listOrders) Query(cfg handlers.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
+	var req handlers.RequestListOrders
+	if err := json.Unmarshal(params, &req); err != nil {
+		return nil, err
+	}
+	fmt.Println("payload  : "+string(params), req)
+
+	Orders, err := handlers.List(cfg, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal(Orders)
+}
+
+type killService struct{}
+
+func KillService() Command {
+	return &killService{}
+}
+
+func (a *killService) Name() string {
+	return "killService"
+}
+
+func (a *killService) Query(cfg handlers.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
+	var req handlers.KillSerivce
+	if err := json.Unmarshal(params, &req); err != nil {
+		fmt.Println("\n\n FAILED HERE \n\n")
+		return nil, err
+	}
+	if req.ServiceType == "" {
+		return nil, errors.New("Invalid Arguments Passed")
+	}
+	fmt.Println("payload  : "+string(params), req)
+
+	err := handlers.Kill(req.ServiceType)
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal("Killed Sucessfull")
 }

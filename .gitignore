@@ -11,3 +11,5 @@ thinkfile
 .cobi
 .DS_Store
 spec.md
+*.pid
+!example.*.pid

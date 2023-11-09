@@ -1,19 +1,18 @@
-package cobi
+package cobictl
 
 import (
-	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
 
+	"github.com/catalogfi/cobi/cobid/handlers"
 	"github.com/catalogfi/cobi/wbtc-garden/model"
-	"github.com/catalogfi/cobi/wbtc-garden/rest"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/jedib0t/go-pretty/table"
 	"github.com/spf13/cobra"
 )
 
-func List(url string) *cobra.Command {
+func List(rpcClient Client) *cobra.Command {
 	var (
 		// url        string
 		maker      string
@@ -30,29 +29,34 @@ func List(url string) *cobra.Command {
 		Use:   "list",
 		Short: "List all open orders in the orderbook",
 		Run: func(c *cobra.Command, args []string) {
-			privKey, err := crypto.GenerateKey()
-			if err != nil {
-				cobra.CheckErr(err)
-				return
-			}
-			orders, err := rest.NewClient(fmt.Sprintf("https://%s", url), hex.EncodeToString(crypto.FromECDSA(privKey))).GetOrders(rest.GetOrdersFilter{
+			QueryAccount := handlers.RequestListOrders{
 				Maker:      maker,
 				OrderPair:  orderPair,
 				SecretHash: secretHash,
 				OrderBy:    orderBy,
 				MinPrice:   minPrice,
 				MaxPrice:   maxPrice,
-				Page:       page,
-				PerPage:    perPage,
-				Verbose:    true,
-				Status:     int(model.Created),
-			})
+				Page:       uint32(page),
+				PerPage:    uint32(perPage),
+			}
+
+			jsonData, err := json.Marshal(QueryAccount)
 			if err != nil {
-				cobra.CheckErr(err)
-				return
+				cobra.CheckErr(fmt.Errorf("failed to marshal payload: %w", err))
+			}
+
+			resp, err := rpcClient.SendPostRequest("listOrders", jsonData)
+			if err != nil {
+				cobra.CheckErr(fmt.Errorf("failed to send request: %w", err))
+			}
+
+			var orders []model.Order
+			if err := json.Unmarshal(resp, &orders); err != nil {
+				cobra.CheckErr(fmt.Errorf("failed to unmarshal response: %w", err))
 			}
 
 			t := table.NewWriter()
+			t.SetStyle(table.StyleRounded)
 			t.SetOutputMirror(os.Stdout)
 			t.AppendHeader(table.Row{"Order ID", "From Asset", "To Asset", "Price", "From Amount", "To Amount"})
 			rows := make([]table.Row, len(orders))

@@ -154,6 +154,8 @@ func (r *rpc) Run() {
 	r.AddCommand(command.FillOrder())
 	r.AddCommand(command.DepositFunds())
 	r.AddCommand(command.TransferFunds())
+	r.AddCommand(command.ListOrders())
+	r.AddCommand(command.KillService())
 
 	s := gin.Default()
 

@@ -31,7 +31,7 @@ func Transfer(cfg CoreConfig, params RequestTransfer) (string, error) {
 	}
 
 	if err := checkUint64s(params.Amount); err != nil {
-		return "", (fmt.Errorf("Error while parsing amount: %v", err))
+		return "", fmt.Errorf("Error while parsing amount: %v", err)
 	}
 
 	ch, a, err := model.ParseChainAsset(params.Asset)

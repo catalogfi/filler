@@ -15,6 +15,7 @@ import (
 	"github.com/catalogfi/guardian/jsonrpc"
 	"go.uber.org/zap"
 	"gorm.io/driver/postgres"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -33,9 +34,24 @@ func Deposit(cfg CoreConfig, params RequestDeposit) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("Error while parsing chain asset: %v", err)
 	}
-	iwStore, err := bitcoin.NewStore(postgres.Open(cfg.EnvConfig.DB), &gorm.Config{
-		NowFunc: func() time.Time { return time.Now().UTC() },
-	})
+
+	var iwStore bitcoin.Store
+	if cfg.EnvConfig.DB != "" {
+
+		iwStore, err = bitcoin.NewStore(postgres.Open(cfg.EnvConfig.DB), &gorm.Config{
+			NowFunc: func() time.Time { return time.Now().UTC() },
+		})
+		if err != nil {
+			return "", fmt.Errorf("Could not load iw store: %v", err)
+		}
+	} else {
+		iwStore, err = bitcoin.NewStore(sqlite.Open(utils.DefaultStorePath()), &gorm.Config{
+			NowFunc: func() time.Time { return time.Now().UTC() },
+		})
+		if err != nil {
+			return "", fmt.Errorf("Could not load iw store: %v", err)
+		}
+	}
 
 	key, err := cfg.Keys.GetKey(chain, params.UserAccount, 0)
 	if err != nil {
