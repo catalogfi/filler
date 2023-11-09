@@ -28,12 +28,7 @@ func Create(rpcClient Client) *cobra.Command {
 				ReceiveAmount: receiveAmount,
 			}
 
-			jsonData, err := json.Marshal(CreateOrder)
-			if err != nil {
-				cobra.CheckErr(fmt.Errorf("failed to marshal payload: %w", err))
-			}
-
-			resp, err := rpcClient.SendPostRequest("createNewOrder", jsonData)
+			resp, err := rpcClient.CreateOrder(CreateOrder)
 			if err != nil {
 				cobra.CheckErr(fmt.Errorf("failed to send request: %w", err))
 			}

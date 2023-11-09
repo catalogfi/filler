@@ -14,7 +14,7 @@ import (
 	"github.com/catalogfi/guardian"
 	"github.com/catalogfi/guardian/jsonrpc"
 	"go.uber.org/zap"
-	"gorm.io/driver/postgres"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -37,7 +37,7 @@ func Deposit(cfg CoreConfig, params RequestDeposit) (string, error) {
 	var iwStore bitcoin.Store
 	if cfg.EnvConfig.DB != "" {
 
-		iwStore, err = bitcoin.NewStore(postgres.Open(cfg.EnvConfig.DB), &gorm.Config{
+		iwStore, err = bitcoin.NewStore(sqlite.Open(cfg.EnvConfig.DB), &gorm.Config{
 			NowFunc: func() time.Time { return time.Now().UTC() },
 		})
 		if err != nil {

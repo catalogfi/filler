@@ -40,12 +40,7 @@ func List(rpcClient Client) *cobra.Command {
 				PerPage:    uint32(perPage),
 			}
 
-			jsonData, err := json.Marshal(QueryAccount)
-			if err != nil {
-				cobra.CheckErr(fmt.Errorf("failed to marshal payload: %w", err))
-			}
-
-			resp, err := rpcClient.SendPostRequest("listOrders", jsonData)
+			resp, err := rpcClient.ListOrders(QueryAccount)
 			if err != nil {
 				cobra.CheckErr(fmt.Errorf("failed to send request: %w", err))
 			}

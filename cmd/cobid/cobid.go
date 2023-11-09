@@ -8,7 +8,6 @@ import (
 	"github.com/catalogfi/cobi/utils"
 	"github.com/tyler-smith/go-bip39"
 	"go.uber.org/zap"
-	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -24,7 +23,7 @@ func main() {
 	var str store.Store
 	if envConfig.DB != "" {
 		// Initialise db
-		str, err = store.NewStore(postgres.Open(envConfig.DB), &gorm.Config{
+		str, err = store.NewStore(sqlite.Open(envConfig.DB), &gorm.Config{
 			NowFunc: func() time.Time { return time.Now().UTC() },
 		})
 		if err != nil {

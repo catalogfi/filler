@@ -57,7 +57,7 @@ func Run(version string) error {
 	cmd.AddCommand(cobictl.Accounts(rpcClient))
 	// cmd.AddCommand(Start(envConfig.OrderBook, envConfig.Strategies, keys, str, envConfig.Network, logger, envConfig.DB))
 	// cmd.AddCommand(Retry(envConfig.OrderBook, keys, envConfig.Network, str, logger, envConfig.DB))
-	// cmd.AddCommand(List(envConfig.OrderBook))
+	cmd.AddCommand(cobictl.List(rpcClient))
 	// cmd.AddCommand(Network(envConfig.Network, logger))
 	// cmd.AddCommand(Update())
 	cmd.AddCommand(cobictl.Deposit(rpcClient))

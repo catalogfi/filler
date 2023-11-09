@@ -1,7 +1,6 @@
 package cobictl
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/catalogfi/cobi/cobid/handlers"
@@ -22,12 +21,7 @@ func Fill(rpcClient Client) *cobra.Command {
 				OrderId:     uint64(orderId),
 			}
 
-			jsonData, err := json.Marshal(FillOrder)
-			if err != nil {
-				cobra.CheckErr(fmt.Errorf("failed to marshal payload: %w", err))
-			}
-
-			resp, err := rpcClient.SendPostRequest("fillOrder", jsonData)
+			resp, err := rpcClient.FillOrder(FillOrder)
 			if err != nil {
 				cobra.CheckErr(fmt.Errorf("failed to send request: %w", err))
 			}

@@ -1,7 +1,6 @@
 package cobictl
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -21,16 +20,11 @@ func KillService(rpcClient Client) *cobra.Command {
 				cobra.CheckErr(errors.New("invalid service type"))
 			}
 
-			FillOrder := handlers.KillSerivce{
+			KillService := handlers.KillSerivce{
 				ServiceType: service,
 			}
 
-			jsonData, err := json.Marshal(FillOrder)
-			if err != nil {
-				cobra.CheckErr(fmt.Errorf("failed to marshal payload: %w", err))
-			}
-
-			resp, err := rpcClient.SendPostRequest("killService", jsonData)
+			resp, err := rpcClient.KillService(KillService)
 			if err != nil {
 				cobra.CheckErr(fmt.Errorf("failed to send request: %w", err))
 			}

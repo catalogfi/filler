@@ -1,7 +1,6 @@
 package cobictl
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/catalogfi/cobi/cobid/handlers"
@@ -24,12 +23,7 @@ func Deposit(rpcClient Client) *cobra.Command {
 				Asset:       asset,
 			}
 
-			jsonData, err := json.Marshal(Deposit)
-			if err != nil {
-				cobra.CheckErr(fmt.Errorf("failed to marshal payload: %w", err))
-			}
-
-			resp, err := rpcClient.SendPostRequest("depositFunds", jsonData)
+			resp, err := rpcClient.Deposit(Deposit)
 			if err != nil {
 				cobra.CheckErr(fmt.Errorf("failed to send request: %w", err))
 			}

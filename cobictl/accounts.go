@@ -31,12 +31,7 @@ func Accounts(rpcClient Client) *cobra.Command {
 				UserAccount:     user,
 			}
 
-			jsonData, err := json.Marshal(AccountReq)
-			if err != nil {
-				cobra.CheckErr(fmt.Errorf("failed to marshal payload: %w", err))
-			}
-
-			resp, err := rpcClient.SendPostRequest("getAccountInfo", jsonData)
+			resp, err := rpcClient.GetAccounts(AccountReq)
 			if err != nil {
 				cobra.CheckErr(fmt.Errorf("failed to send request: %w", err))
 			}
