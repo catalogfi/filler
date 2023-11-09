@@ -13,3 +13,4 @@ thinkfile
 spec.md
 *.pid
 !example.*.pid
+!thunder-collection_json*.json
