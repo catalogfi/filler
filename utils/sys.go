@@ -42,15 +42,6 @@ func DefaultConfigPath() string {
 func DefaultInstantWalletDBDialector() gorm.Dialector {
 	return sqlite.Open(filepath.Join(HomeDir, ".cobi", "btciw.db"))
 }
-
-func GetIWConfig(isIW bool) model.InstantWalletConfig {
-	if isIW {
-		return model.InstantWalletConfig{
-			Dialector: DefaultInstantWalletDBDialector(),
-		}
-	}
-	return model.InstantWalletConfig{}
-}
 func DefaultStrategyPath() string {
 	return filepath.Join(HomeDir, ".cobi", "strategy.json")
 }
@@ -94,12 +85,16 @@ func LoadConfigFromFile(file string) model.Network {
 }
 
 type Config struct {
-	Network    model.Network
-	Strategies json.RawMessage
-	Mnemonic   string
-	OrderBook  string
-	DB         string
-	Sentry     string
+	Network     model.Network
+	Strategies  json.RawMessage
+	Mnemonic    string
+	OrderBook   string
+	DB          string
+	Sentry      string
+	RpcUserName string
+	RpcPassword string
+	NoTLS       bool
+	RPCServer   string
 }
 
 func LoadExtendedConfig(path string) (Config, error) {

@@ -22,6 +22,7 @@ type IwState struct {
 }
 
 type Store interface {
+	DB() *gorm.DB
 	PutSecret(pubkey, secret string, status IwStatus, iwaddress string) error
 	GetSecret(walletAddr string) (string, error)
 	DeleteSecret(secret string) error
@@ -43,7 +44,9 @@ func NewStore(dialector gorm.Dialector, opts ...gorm.Option) (Store, error) {
 	}
 	return &store{db: db}, nil
 }
-
+func (s *store) DB() *gorm.DB {
+	return s.db
+}
 func (s *store) PutSecret(pubkey, secret string, status IwStatus, iwaddress string) error {
 	wallet := IwState{
 		Pubkey:        pubkey,

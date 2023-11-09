@@ -1,20 +1,13 @@
 package cobi
 
 import (
-	"time"
-
 	"github.com/TheZeroSlave/zapsentry"
-	"github.com/catalogfi/cobi/store"
+	"github.com/catalogfi/cobi/cobictl"
 	"github.com/catalogfi/cobi/utils"
 	"github.com/getsentry/sentry-go"
 	"github.com/spf13/cobra"
-	"github.com/tyler-smith/go-bip39"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"gorm.io/driver/postgres"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
-	glogger "gorm.io/gorm/logger"
 )
 
 func Run(version string) error {
@@ -52,43 +45,23 @@ func Run(version string) error {
 		defer logger.Sync()
 	}
 
-	entropy, err := bip39.EntropyFromMnemonic(envConfig.Mnemonic)
-	if err != nil {
-		return err
+	protocol := "https"
+	if envConfig.NoTLS {
+		protocol = "http"
 	}
 
-	// Load keys
-	keys := utils.NewKeys(entropy)
+	rpcClient := cobictl.NewClient(envConfig.RpcUserName, envConfig.RpcPassword, protocol, envConfig.RPCServer)
 
-	var str store.Store
-	if envConfig.DB != "" {
-		// Initialise db
-		str, err = store.NewStore(postgres.Open(envConfig.DB), &gorm.Config{
-			NowFunc: func() time.Time { return time.Now().UTC() },
-			Logger:  glogger.Default.LogMode(glogger.Silent),
-		})
-		if err != nil {
-			return err
-		}
-	} else {
-		str, err = store.NewStore(sqlite.Open(utils.DefaultStorePath()), &gorm.Config{
-			NowFunc: func() time.Time { return time.Now().UTC() },
-		})
-		if err != nil {
-			return err
-		}
-	}
-
-	cmd.AddCommand(Create(envConfig.OrderBook, keys, str, envConfig.Network))
-	cmd.AddCommand(Fill(envConfig.OrderBook, keys, str, envConfig.Network))
-	cmd.AddCommand(Start(envConfig.OrderBook, envConfig.Strategies, keys, str, envConfig.Network, logger, envConfig.DB))
-	cmd.AddCommand(Retry(envConfig.OrderBook, keys, envConfig.Network, str, logger, envConfig.DB))
-	cmd.AddCommand(Accounts(envConfig.OrderBook, keys, envConfig.Network))
-	cmd.AddCommand(List(envConfig.OrderBook))
+	cmd.AddCommand(cobictl.Create(rpcClient))
+	cmd.AddCommand(cobictl.Fill(rpcClient))
+	cmd.AddCommand(cobictl.Accounts(rpcClient))
+	// cmd.AddCommand(Start(envConfig.OrderBook, envConfig.Strategies, keys, str, envConfig.Network, logger, envConfig.DB))
+	// cmd.AddCommand(Retry(envConfig.OrderBook, keys, envConfig.Network, str, logger, envConfig.DB))
+	// cmd.AddCommand(List(envConfig.OrderBook))
 	// cmd.AddCommand(Network(envConfig.Network, logger))
 	// cmd.AddCommand(Update())
-	cmd.AddCommand(Deposit(keys, envConfig.Network, envConfig.DB, logger))
-	cmd.AddCommand(Transfer(envConfig.OrderBook, keys, envConfig.Network, logger, envConfig.DB))
+	cmd.AddCommand(cobictl.Deposit(rpcClient))
+	cmd.AddCommand(cobictl.Transfer(rpcClient))
 	if err := cmd.Execute(); err != nil {
 		return err
 	}

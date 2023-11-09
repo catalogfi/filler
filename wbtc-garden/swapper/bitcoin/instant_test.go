@@ -55,7 +55,7 @@ var _ = Describe("atomic swap", func() {
 			btcStore, err := bitcoin.NewStore(postgres.Open(db))
 			Expect(err).Should(BeNil())
 
-			IWClient = bitcoin.InstantWalletWrapper(btcStore, client, guardianClient)
+			IWClient = bitcoin.InstantWalletWrapper(client, bitcoin.InstantWalletConfig{Store: btcStore, IWallet: guardianClient})
 			IWAddress = IWClient.GetInstantWalletAddress()
 			Expect(IWAddress).ShouldNot(BeEmpty())
 		})

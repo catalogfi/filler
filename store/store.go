@@ -101,6 +101,14 @@ func NewStore(dialector gorm.Dialector, opts ...gorm.Option) (Store, error) {
 	if err := db.AutoMigrate(&Order{}, &Token{}); err != nil {
 		return nil, err
 	}
+	sqlDb, err := db.DB()
+	if err != nil {
+		return nil, err
+	}
+	sqlDb.SetMaxIdleConns(5)
+	sqlDb.SetMaxOpenConns(5)
+	sqlDb.SetConnMaxIdleTime(10 * time.Minute)
+	sqlDb.SetConnMaxLifetime(10 * time.Minute)
 	return &store{mu: new(sync.RWMutex), db: db}, nil
 }
 

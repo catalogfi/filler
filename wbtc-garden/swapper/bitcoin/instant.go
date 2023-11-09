@@ -29,6 +29,11 @@ type InstantClient interface {
 	FundInstantWallet(from *btcec.PrivateKey, amount int64) (string, error)
 }
 
+type InstantWalletConfig struct {
+	Store   Store
+	IWallet guardian.BitcoinWallet
+}
+
 func randomBytes(n int) ([]byte, error) {
 	bytes := make([]byte, n)
 	if _, err := rand.Read(bytes); err != nil {
@@ -46,9 +51,9 @@ func (client *instantClient) GetInstantWalletAddress() string {
 	return client.instantWallet.WalletAddress().String()
 }
 
-func InstantWalletWrapper(store Store, client Client, iw guardian.BitcoinWallet) InstantClient {
+func InstantWalletWrapper(client Client, config InstantWalletConfig) InstantClient {
 
-	return &instantClient{indexerClient: client, store: store, instantWallet: iw}
+	return &instantClient{indexerClient: client, store: config.Store, instantWallet: config.IWallet}
 }
 
 func (client *instantClient) GetFeeRates() (FeeRates, error) {
@@ -129,11 +134,6 @@ func (client *instantClient) Send(to btcutil.Address, amount uint64, from *btcec
 
 }
 
-// Spends an atomic swap script using segwit witness
-// if the balance of present instant wallet is zero or doesnt exist
-// the btc is spent to next instant wallet
-// or the balance in current instant wallet is combined iwth atomic swap
-// and sent to next instant wallet
 func (client *instantClient) Spend(script []byte, redeemScript wire.TxWitness, from *btcec.PrivateKey, waitBlocks uint) (string, error) {
 	scriptWitnessProgram := sha256.Sum256(script)
 	scriptAddr, err := btcutil.NewAddressWitnessScriptHash(scriptWitnessProgram[:], client.Net())
@@ -148,7 +148,7 @@ func (client *instantClient) Spend(script []byte, redeemScript wire.TxWitness, f
 	newSecretHash := sha256.Sum256(newSecret)
 	newSecretHashString := hex.EncodeToString(newSecretHash[:])
 
-	txHash, err := client.instantWallet.RedeemAndDeposit(context.Background(), newSecretHashString, scriptAddr, script, redeemScript, waitBlocks)
+	txHash, err := client.instantWallet.SpendAndDeposit(context.Background(), newSecretHashString, scriptAddr, script, redeemScript, waitBlocks)
 	if err != nil {
 		return "", err
 	}

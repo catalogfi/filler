@@ -1,0 +1,138 @@
+package handlers
+
+import (
+	"encoding/hex"
+	"fmt"
+	"math/big"
+	"net/http"
+	"time"
+
+	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/catalogfi/blockchain/btc"
+	"github.com/catalogfi/cobi/utils"
+	"github.com/catalogfi/cobi/wbtc-garden/blockchain"
+	"github.com/catalogfi/cobi/wbtc-garden/model"
+	"github.com/catalogfi/cobi/wbtc-garden/rest"
+	"github.com/catalogfi/cobi/wbtc-garden/swapper/bitcoin"
+	"github.com/catalogfi/guardian"
+	"github.com/catalogfi/guardian/jsonrpc"
+	"github.com/ethereum/go-ethereum/crypto"
+	"go.uber.org/zap"
+)
+
+type AccountInfo struct {
+	AccountNo     string `json:"accountNo"`
+	Address       string `json:"address"`
+	Balance       string `json:"balance"`
+	UsableBalance string `json:"usableBalance"`
+}
+
+func GetAccounts(cfg CoreConfig, params RequestAccount) ([]AccountInfo, error) {
+	if err := checkStrings(params.Asset); err != nil {
+		return nil, fmt.Errorf("Asset is not valid: %v", err)
+	}
+	if err := checkUint32s(params.PerPage); err != nil {
+		return nil, fmt.Errorf("Error while parsing PerPage: %v", err)
+	}
+	ch, a, err := model.ParseChainAsset(params.Asset)
+	if err != nil {
+		return nil, fmt.Errorf("Error while parsing Chain and Asset: %v", err)
+	}
+	var iwStore bitcoin.Store
+	var guardianWallet guardian.BitcoinWallet
+	var ReturnPayload []AccountInfo
+	var logger *zap.Logger
+	var chainParams *chaincfg.Params
+	var rpcClient jsonrpc.Client
+	var feeEstimator btc.FeeEstimator
+	var indexer btc.IndexerClient
+
+	config := cfg.EnvConfig.Network
+
+	if params.IsInstantWallet {
+		logger, _ = zap.NewProduction()
+		iwStore, _ = bitcoin.NewStore(utils.DefaultInstantWalletDBDialector())
+		chainParams = blockchain.GetParams(ch)
+		rpcClient = jsonrpc.NewClient(new(http.Client), cfg.EnvConfig.Network[ch].IWRPC)
+		feeEstimator = btc.NewBlockstreamFeeEstimator(chainParams, cfg.EnvConfig.Network[ch].RPC["mempool"], 20*time.Second)
+		indexer = btc.NewElectrsIndexerClient(logger, cfg.EnvConfig.Network[ch].RPC["mempool"], 5*time.Second)
+
+	}
+
+	for i := params.PerPage*params.Page - params.PerPage; i < params.PerPage*params.Page; i++ {
+		key, err := cfg.Keys.GetKey(ch, uint32(i), 0)
+		if err != nil {
+			return nil, fmt.Errorf("Error parsing key: %v", err)
+		}
+
+		address, err := key.Address(ch, config, params.IsLegacy)
+		if err != nil {
+			return nil, fmt.Errorf("Error getting wallet address: %v", err)
+		}
+
+		signingKey, err := cfg.Keys.GetKey(model.Ethereum, params.UserAccount, uint32(i))
+		if err != nil {
+			return nil, fmt.Errorf("Error getting signing key: %v", err)
+		}
+		ecdsaKey, err := signingKey.ECDSA()
+		if err != nil {
+			return nil, fmt.Errorf("Error calculating ECDSA key: %v", err)
+		}
+
+		client := rest.NewClient(fmt.Sprintf("https://%s", cfg.EnvConfig.OrderBook), hex.EncodeToString(crypto.FromECDSA(ecdsaKey)))
+		token, err := client.Login()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get auth token: %v", err)
+		}
+		if err := client.SetJwt(token); err != nil {
+			return nil, fmt.Errorf("failed to set auth token: %v", err)
+		}
+		signer, err := key.EvmAddress()
+		if err != nil {
+			return nil, fmt.Errorf("failed to calculate evm address: %v", err)
+		}
+
+		var balance *big.Int
+		var usableBalance *big.Int
+		if params.IsInstantWallet {
+			guardianWallet, err = guardian.NewBitcoinWallet(logger, key.BtcKey(), chainParams, indexer, feeEstimator, rpcClient)
+			if err != nil {
+				return nil, err
+			}
+
+			iwConfig := bitcoin.InstantWalletConfig{
+				Store:   iwStore,
+				IWallet: guardianWallet,
+			}
+			address, err = key.Address(ch, config, params.IsLegacy, iwConfig)
+			if err != nil {
+				return nil, fmt.Errorf("Error getting instant wallet address: %v", err)
+			}
+			balance, err = utils.Balance(ch, address, config, a, iwConfig)
+			if err != nil {
+				return nil, fmt.Errorf("Error getting balance: %v", err)
+			}
+			usableBalance, err = utils.VirtualBalance(ch, address, config, a, signer.Hex(), client, iwConfig)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get usable balance: %v", err)
+			}
+		} else {
+			balance, err = utils.Balance(ch, address, config, a)
+			if err != nil {
+				return nil, fmt.Errorf("Error getting balance: %v", err)
+			}
+			usableBalance, err = utils.VirtualBalance(ch, address, config, a, signer.Hex(), client)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get usable balance: %v", err)
+			}
+		}
+
+		ReturnPayload = append(ReturnPayload, AccountInfo{
+			AccountNo:     fmt.Sprintf("%d", i),
+			Address:       address,
+			Balance:       balance.String(),
+			UsableBalance: usableBalance.String(),
+		})
+	}
+	return ReturnPayload, nil
+}

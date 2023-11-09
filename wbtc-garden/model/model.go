@@ -17,10 +17,7 @@ type NetworkConfig struct {
 	Expiry      int64
 	EventWindow int64
 }
-type InstantWalletConfig struct {
-	Dialector gorm.Dialector
-	Opts      gorm.Option
-}
+
 type Config struct {
 	Network    Network
 	MinTxLimit string
@@ -72,10 +69,6 @@ func ParseChain(c string) (Chain, error) {
 	default:
 		return Chain(""), fmt.Errorf("unknown chain %v", c)
 	}
-}
-
-func ValidateIWCOnfig(iwConfig []InstantWalletConfig) bool {
-	return iwConfig != nil && len(iwConfig) != 0 && iwConfig[0].Dialector != nil
 }
 
 func (c Chain) IsEVM() bool {
@@ -229,6 +222,7 @@ func ParseOrderPair(orderPair string) (Chain, Chain, Asset, Asset, error) {
 
 func ParseChainAsset(chainAsset string) (Chain, Asset, error) {
 	chainAndAsset := strings.Split(chainAsset, ":")
+	fmt.Println("chainAndAsset: ", chainAndAsset, len(chainAndAsset))
 	if len(chainAndAsset) > 2 {
 		return "", "", fmt.Errorf("failed to parse the chain and asset, should be of the format <chain>:<asset>. got: %v", chainAsset)
 	}

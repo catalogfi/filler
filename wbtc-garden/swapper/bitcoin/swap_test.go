@@ -299,11 +299,11 @@ var _ = Describe("atomic swap", func() {
 				btcStore, err := bitcoin.NewStore(sqlite.Open(db))
 				Expect(err).Should(BeNil())
 
-				IWClient1 := bitcoin.InstantWalletWrapper(btcStore, defaultClient, guardianClient1)
+				IWClient1 := bitcoin.InstantWalletWrapper(defaultClient, bitcoin.InstantWalletConfig{Store: btcStore, IWallet: guardianClient1})
 				IWAddress1 := IWClient1.GetInstantWalletAddress()
 				Expect(IWAddress1).ShouldNot(BeEmpty())
 
-				IWClient2 := bitcoin.InstantWalletWrapper(btcStore, defaultClient, guardianClient2)
+				IWClient2 := bitcoin.InstantWalletWrapper(defaultClient, bitcoin.InstantWalletConfig{Store: btcStore, IWallet: guardianClient2})
 				IWAddress2 := IWClient2.GetInstantWalletAddress()
 				Expect(IWAddress2).ShouldNot(BeEmpty())
 
@@ -440,11 +440,11 @@ var _ = Describe("atomic swap", func() {
 				btcStore, err := bitcoin.NewStore(sqlite.Open(db))
 				Expect(err).Should(BeNil())
 
-				IWClient1 := bitcoin.InstantWalletWrapper(btcStore, defaultClient, guardianClient1)
+				IWClient1 := bitcoin.InstantWalletWrapper(defaultClient, bitcoin.InstantWalletConfig{Store: btcStore, IWallet: guardianClient1})
 				IWAddress1 := IWClient1.GetInstantWalletAddress()
 				Expect(IWAddress1).ShouldNot(BeEmpty())
 
-				IWClient2 := bitcoin.InstantWalletWrapper(btcStore, defaultClient, guardianClient2)
+				IWClient2 := bitcoin.InstantWalletWrapper(defaultClient, bitcoin.InstantWalletConfig{Store: btcStore, IWallet: guardianClient2})
 				IWAddress2 := IWClient2.GetInstantWalletAddress()
 				Expect(IWAddress2).ShouldNot(BeEmpty())
 

@@ -8,8 +8,8 @@ require (
 	github.com/btcsuite/btcd/btcec/v2 v2.3.2
 	github.com/btcsuite/btcd/btcutil v1.1.3
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.2
-	github.com/catalogfi/guardian v0.0.0-20231013071853-e11679d6474d
-	github.com/catalogfi/multichain v0.0.2
+	github.com/catalogfi/blockchain v0.0.4
+	github.com/catalogfi/guardian v0.0.0-20231108104139-025131b2f4dd
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/ethereum/go-ethereum v1.12.2
 	github.com/fatih/color v1.15.0
@@ -41,7 +41,6 @@ require (
 	github.com/btcsuite/go-socks v0.0.0-20170105172521-4720035b7bfd // indirect
 	github.com/btcsuite/websocket v0.0.0-20150119174127-31079b680792 // indirect
 	github.com/bytedance/sonic v1.9.1 // indirect
-	github.com/catalogfi/blockchain v0.0.4 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
 	github.com/dchest/uniuri v0.0.0-20200228104902-7aecb25e1fe5 // indirect
 	github.com/deckarep/golang-set/v2 v2.3.0 // indirect

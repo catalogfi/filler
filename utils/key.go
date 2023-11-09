@@ -43,16 +43,25 @@ func (key *Key) ECDSA() (*ecdsa.PrivateKey, error) {
 	return crypto.ToECDSA(key.inner.Key)
 }
 
-func (key *Key) Address(chain model.Chain, network model.Network, iwConfig model.InstantWalletConfig) (string, error) {
+func (key *Key) Address(chain model.Chain, network model.Network, isLegacy bool, iwConfig ...bitcoin.InstantWalletConfig) (string, error) {
 	switch {
 	case chain.IsBTC():
 		params := getParams(chain)
-		if iwConfig.Dialector != nil {
-			return key.InstantWalletAddress(chain, network, iwConfig)
+		if len(iwConfig) > 0 {
+			return key.InstantWalletAddress(chain, network, iwConfig[0])
 		}
-		addr, err := key.WitnessAddress(params)
-		if err != nil {
-			return "", err
+		var addr btcutil.Address
+		var err error
+		if isLegacy {
+			addr, err = key.LegacyAddress(params)
+			if err != nil {
+				return "", err
+			}
+		} else {
+			addr, err = key.WitnessAddress(params)
+			if err != nil {
+				return "", err
+			}
 		}
 		return addr.EncodeAddress(), nil
 	case chain.IsEVM():
@@ -66,7 +75,7 @@ func (key *Key) Address(chain model.Chain, network model.Network, iwConfig model
 	}
 }
 
-func (key *Key) InstantWalletAddress(chain model.Chain, config model.Network, iwConfig model.InstantWalletConfig) (string, error) {
+func (key *Key) InstantWalletAddress(chain model.Chain, config model.Network, iwConfig bitcoin.InstantWalletConfig) (string, error) {
 	client, err := blockchain.LoadClient(chain, config, iwConfig)
 	if err != nil {
 		return "", fmt.Errorf("failed to load client: %v", err)
@@ -75,6 +84,10 @@ func (key *Key) InstantWalletAddress(chain model.Chain, config model.Network, iw
 	return iwClient.GetInstantWalletAddress(), nil
 }
 
+func (key *Key) LegacyAddress(network *chaincfg.Params) (btcutil.Address, error) {
+	keyBytesHash := btcutil.Hash160(key.BtcKey().PubKey().SerializeCompressed())
+	return btcutil.NewAddressPubKeyHash(keyBytesHash, network)
+}
 func (key *Key) WitnessAddress(network *chaincfg.Params) (btcutil.Address, error) {
 	keyBytesHash := btcutil.Hash160(key.BtcKey().PubKey().SerializeCompressed())
 	return btcutil.NewAddressWitnessPubKeyHash(keyBytesHash, network)
@@ -155,8 +168,8 @@ func getParams(chain model.Chain) *chaincfg.Params {
 	}
 }
 
-func Balance(chain model.Chain, address string, config model.Network, asset model.Asset, iwConfig model.InstantWalletConfig) (*big.Int, error) {
-	client, err := blockchain.LoadClient(chain, config, iwConfig)
+func Balance(chain model.Chain, address string, config model.Network, asset model.Asset, iwConfig ...bitcoin.InstantWalletConfig) (*big.Int, error) {
+	client, err := blockchain.LoadClient(chain, config, iwConfig...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load client: %v", err)
 	}
@@ -199,11 +212,21 @@ func Balance(chain model.Chain, address string, config model.Network, asset mode
 	}
 }
 
-func VirtualBalance(chain model.Chain, iwaddress string, address string, config model.Network, asset model.Asset, signer string, client rest.Client, iwConfig model.InstantWalletConfig) (*big.Int, error) {
-	balance, err := Balance(chain, iwaddress, config, asset, iwConfig)
-	if err != nil {
-		return nil, err
+func VirtualBalance(chain model.Chain, address string, config model.Network, asset model.Asset, signer string, client rest.Client, iwConfig ...bitcoin.InstantWalletConfig) (*big.Int, error) {
+	var balance *big.Int
+	var err error
+	if len(iwConfig) > 0 {
+		balance, err = Balance(chain, address, config, asset, iwConfig[0])
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		balance, err = Balance(chain, address, config, asset)
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	committedAmount := big.NewInt(0)
 
 	fillOrders, err := client.GetOrders(rest.GetOrdersFilter{
