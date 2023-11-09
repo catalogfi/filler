@@ -18,6 +18,7 @@ type client struct {
 }
 
 type Client interface {
+	
 	SendPostRequest(method string, jsonData []byte) (json.RawMessage, error)
 }
 

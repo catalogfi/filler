@@ -9,7 +9,7 @@ import (
 	"github.com/catalogfi/cobi/wbtc-garden/blockchain"
 	"github.com/catalogfi/cobi/wbtc-garden/model"
 	"github.com/catalogfi/cobi/wbtc-garden/swapper/bitcoin"
-	"gorm.io/driver/postgres"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -25,7 +25,7 @@ func Deposit(cfg CoreConfig, params RequestDeposit) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("Error while parsing chain asset: %v", err)
 	}
-	iwStore, err := bitcoin.NewStore(postgres.Open(cfg.EnvConfig.DB), &gorm.Config{
+	iwStore, err := bitcoin.NewStore(sqlite.Open(cfg.EnvConfig.DB), &gorm.Config{
 		NowFunc: func() time.Time { return time.Now().UTC() },
 	})
 	if err != nil {
