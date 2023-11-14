@@ -3,7 +3,7 @@ package cobictl
 import (
 	"fmt"
 
-	"github.com/catalogfi/cobi/cobid/handlers"
+	"github.com/catalogfi/cobi/cobid/types"
 	"github.com/spf13/cobra"
 )
 
@@ -16,7 +16,7 @@ func Fill(rpcClient Client) *cobra.Command {
 		Use:   "fill",
 		Short: "Fill an order",
 		Run: func(c *cobra.Command, args []string) {
-			FillOrder := handlers.RequestFill{
+			FillOrder := types.RequestFill{
 				UserAccount: account,
 				OrderId:     uint64(orderId),
 			}

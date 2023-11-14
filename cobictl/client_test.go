@@ -9,6 +9,7 @@ import (
 	"github.com/catalogfi/cobi/cobictl"
 	"github.com/catalogfi/cobi/cobid/handlers"
 	jsonrpc "github.com/catalogfi/cobi/cobid/rpc"
+	"github.com/catalogfi/cobi/cobid/types"
 	"github.com/catalogfi/cobi/store"
 	"github.com/catalogfi/cobi/utils"
 	"github.com/catalogfi/cobi/wbtc-garden/model"
@@ -40,7 +41,7 @@ var _ = BeforeSuite(func() {
 
 var _ = Describe("ClientTesting", func() {
 	It("Get Accounts without InstantWallet", func() {
-		AccountReq := handlers.RequestAccount{
+		AccountReq := types.RequestAccount{
 			IsInstantWallet: false,
 			Asset:           "bitcoin_testnet",
 			Page:            uint32(1),
@@ -51,7 +52,7 @@ var _ = Describe("ClientTesting", func() {
 		resp, err := c.GetAccounts(AccountReq)
 		Expect(err).To(BeNil())
 
-		var accounts []handlers.AccountInfo
+		var accounts []types.AccountInfo
 		if err := json.Unmarshal(resp, &accounts); err != nil {
 			Expect(err).To(BeNil())
 		}
@@ -63,7 +64,7 @@ var _ = Describe("ClientTesting", func() {
 
 	It("Get Accounts with InstantWallet", func() {
 		// Skip("not working")
-		AccountReq := handlers.RequestAccount{
+		AccountReq := types.RequestAccount{
 			IsInstantWallet: true,
 			Asset:           "bitcoin_testnet",
 			Page:            uint32(1),
@@ -74,7 +75,7 @@ var _ = Describe("ClientTesting", func() {
 		resp, err := c.GetAccounts(AccountReq)
 		Expect(err).To(BeNil())
 
-		var accounts []handlers.AccountInfo
+		var accounts []types.AccountInfo
 		if err := json.Unmarshal(resp, &accounts); err != nil {
 			Expect(err).To(BeNil())
 		}
@@ -85,7 +86,7 @@ var _ = Describe("ClientTesting", func() {
 	})
 
 	It("Create Order", func() {
-		CreateOrder := handlers.RequestCreate{
+		CreateOrder := types.RequestCreate{
 			UserAccount:   0,
 			OrderPair:     "bitcoin_testnet-ethereum_sepolia:0x130Ff59B75a415d0bcCc2e996acAf27ce70fD5eF",
 			SendAmount:    "1000",
@@ -105,7 +106,7 @@ var _ = Describe("ClientTesting", func() {
 	})
 
 	It("FillOder", func() {
-		FillOrder := handlers.RequestFill{
+		FillOrder := types.RequestFill{
 			UserAccount: 1,
 			OrderId:     CurrentOrder,
 		}
@@ -116,7 +117,7 @@ var _ = Describe("ClientTesting", func() {
 	})
 
 	It("Deposit to Instant Wallet", func() {
-		Deposit := handlers.RequestDeposit{
+		Deposit := types.RequestDeposit{
 			UserAccount: 1,
 			Amount:      10000,
 			Asset:       "bitcoin_testnet",
@@ -137,7 +138,7 @@ var _ = Describe("ClientTesting", func() {
 
 	It("Transfer Funds", func() {
 		Skip("")
-		Transfer := handlers.RequestTransfer{
+		Transfer := types.RequestTransfer{
 			UserAccount: 0,
 			Asset:       "bitcoin_testnet",
 			Amount:      1000,
@@ -152,7 +153,7 @@ var _ = Describe("ClientTesting", func() {
 
 	It("Get List Of Orders", func() {
 
-		resp, err := c.ListOrders(handlers.RequestListOrders{
+		resp, err := c.ListOrders(types.RequestListOrders{
 			Page:    1,
 			PerPage: 10,
 		})

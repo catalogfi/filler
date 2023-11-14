@@ -1,4 +1,4 @@
-package cobid
+package stategy
 
 import (
 	"encoding/json"

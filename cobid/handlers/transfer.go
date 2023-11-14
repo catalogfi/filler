@@ -9,6 +9,7 @@ import (
 
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/catalogfi/blockchain/btc"
+	"github.com/catalogfi/cobi/cobid/types"
 	"github.com/catalogfi/cobi/utils"
 	"github.com/catalogfi/cobi/wbtc-garden/blockchain"
 	"github.com/catalogfi/cobi/wbtc-garden/model"
@@ -24,13 +25,13 @@ import (
 	"gorm.io/gorm"
 )
 
-func Transfer(cfg CoreConfig, params RequestTransfer) (string, error) {
-	err := checkStrings(params.Asset, params.ToAddr)
+func Transfer(cfg types.CoreConfig, params types.RequestTransfer) (string, error) {
+	err := types.CheckStrings(params.Asset, params.ToAddr)
 	if err != nil {
 		return "", (fmt.Errorf("Error while parsing asset and address: %v", err))
 	}
 
-	if err := checkUint64s(params.Amount); err != nil {
+	if err := types.CheckUint64s(params.Amount); err != nil {
 		return "", fmt.Errorf("Error while parsing amount: %v", err)
 	}
 

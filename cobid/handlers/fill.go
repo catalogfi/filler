@@ -4,12 +4,13 @@ import (
 	"encoding/hex"
 	"fmt"
 
+	"github.com/catalogfi/cobi/cobid/types"
 	"github.com/catalogfi/cobi/wbtc-garden/model"
 	"github.com/catalogfi/cobi/wbtc-garden/rest"
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-func FillOrder(cfg CoreConfig, params RequestFill) error {
+func FillOrder(cfg types.CoreConfig, params types.RequestFill) error {
 	key, err := cfg.Keys.GetKey(model.Ethereum, params.UserAccount, 0)
 	if err != nil {
 		return fmt.Errorf("Error while getting the signing key: %v", err)

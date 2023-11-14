@@ -3,7 +3,7 @@ package cobictl
 import (
 	"fmt"
 
-	"github.com/catalogfi/cobi/cobid/handlers"
+	"github.com/catalogfi/cobi/cobid/types"
 	"github.com/spf13/cobra"
 )
 
@@ -20,7 +20,7 @@ func Transfer(rpcClient Client) *cobra.Command {
 		Use:   "transfer",
 		Short: "transfer funds",
 		Run: func(c *cobra.Command, args []string) {
-			Transfer := handlers.RequestTransfer{
+			Transfer := types.RequestTransfer{
 				UserAccount: user,
 				Asset:       asset,
 				Amount:      uint64(amount),

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/catalogfi/cobi/cobid/handlers"
+	"github.com/catalogfi/cobi/cobid/types"
 	"github.com/spf13/cobra"
 )
 
@@ -21,7 +21,7 @@ func Create(rpcClient Client) *cobra.Command {
 		Short: "Create a new order",
 		Run: func(c *cobra.Command, args []string) {
 
-			CreateOrder := handlers.RequestCreate{
+			CreateOrder := types.RequestCreate{
 				UserAccount:   account,
 				OrderPair:     orderPair,
 				SendAmount:    sendAmount,

@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/catalogfi/cobi/cobid/handlers"
+	"github.com/catalogfi/cobi/cobid/types"
 	"github.com/catalogfi/cobi/wbtc-garden/model"
 	"github.com/jedib0t/go-pretty/table"
 	"github.com/spf13/cobra"
@@ -29,7 +29,7 @@ func List(rpcClient Client) *cobra.Command {
 		Use:   "list",
 		Short: "List all open orders in the orderbook",
 		Run: func(c *cobra.Command, args []string) {
-			QueryAccount := handlers.RequestListOrders{
+			QueryAccount := types.RequestListOrders{
 				Maker:      maker,
 				OrderPair:  orderPair,
 				SecretHash: secretHash,

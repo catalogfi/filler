@@ -9,6 +9,7 @@ import (
 
 	"github.com/catalogfi/cobi/cobid/handlers"
 	jsonrpc "github.com/catalogfi/cobi/cobid/rpc"
+	"github.com/catalogfi/cobi/cobid/types"
 )
 
 type client struct {
@@ -19,12 +20,12 @@ type client struct {
 }
 
 type Client interface {
-	GetAccounts(data handlers.RequestAccount) (json.RawMessage, error)
-	CreateOrder(data handlers.RequestCreate) (json.RawMessage, error)
-	ListOrders(data handlers.RequestListOrders) (json.RawMessage, error)
-	FillOrder(data handlers.RequestFill) (json.RawMessage, error)
-	Transfer(data handlers.RequestTransfer) (json.RawMessage, error)
-	Deposit(data handlers.RequestDeposit) (json.RawMessage, error)
+	GetAccounts(data types.RequestAccount) (json.RawMessage, error)
+	CreateOrder(data types.RequestCreate) (json.RawMessage, error)
+	ListOrders(data types.RequestListOrders) (json.RawMessage, error)
+	FillOrder(data types.RequestFill) (json.RawMessage, error)
+	Transfer(data types.RequestTransfer) (json.RawMessage, error)
+	Deposit(data types.RequestDeposit) (json.RawMessage, error)
 	KillService(data handlers.KillSerivce) (json.RawMessage, error)
 }
 
@@ -104,7 +105,7 @@ func (c *client) SendPostRequest(method string, jsonData []byte) (json.RawMessag
 	return resp.Result, nil
 }
 
-func (c *client) GetAccounts(data handlers.RequestAccount) (json.RawMessage, error) {
+func (c *client) GetAccounts(data types.RequestAccount) (json.RawMessage, error) {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal payload: %w", err)
@@ -117,7 +118,7 @@ func (c *client) GetAccounts(data handlers.RequestAccount) (json.RawMessage, err
 	return resp, nil
 }
 
-func (c *client) CreateOrder(data handlers.RequestCreate) (json.RawMessage, error) {
+func (c *client) CreateOrder(data types.RequestCreate) (json.RawMessage, error) {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal payload: %w", err)
@@ -131,7 +132,7 @@ func (c *client) CreateOrder(data handlers.RequestCreate) (json.RawMessage, erro
 	return resp, nil
 }
 
-func (c *client) ListOrders(data handlers.RequestListOrders) (json.RawMessage, error) {
+func (c *client) ListOrders(data types.RequestListOrders) (json.RawMessage, error) {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal payload: %w", err)
@@ -145,7 +146,7 @@ func (c *client) ListOrders(data handlers.RequestListOrders) (json.RawMessage, e
 	return resp, nil
 }
 
-func (c *client) FillOrder(data handlers.RequestFill) (json.RawMessage, error) {
+func (c *client) FillOrder(data types.RequestFill) (json.RawMessage, error) {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal payload: %w", err)
@@ -160,7 +161,7 @@ func (c *client) FillOrder(data handlers.RequestFill) (json.RawMessage, error) {
 	return resp, nil
 }
 
-func (c *client) Transfer(data handlers.RequestTransfer) (json.RawMessage, error) {
+func (c *client) Transfer(data types.RequestTransfer) (json.RawMessage, error) {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal payload: %w", err)
@@ -174,7 +175,7 @@ func (c *client) Transfer(data handlers.RequestTransfer) (json.RawMessage, error
 	return resp, nil
 }
 
-func (c *client) Deposit(data handlers.RequestDeposit) (json.RawMessage, error) {
+func (c *client) Deposit(data types.RequestDeposit) (json.RawMessage, error) {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal payload: %w", err)

@@ -9,7 +9,7 @@ import (
 	"net/http"
 
 	"github.com/catalogfi/cobi/cobid/command"
-	"github.com/catalogfi/cobi/cobid/handlers"
+	"github.com/catalogfi/cobi/cobid/types"
 	"github.com/catalogfi/cobi/store"
 	"github.com/catalogfi/cobi/utils"
 	"github.com/gin-gonic/gin"
@@ -25,7 +25,7 @@ type RPC interface {
 
 type rpc struct {
 	commands   map[string]command.Command
-	coreConfig handlers.CoreConfig
+	coreConfig types.CoreConfig
 	authsha    [sha256.Size]byte
 }
 
@@ -95,7 +95,7 @@ func NewRpcServer(storage store.Store, envConfig utils.Config, keys *utils.Keys,
 	return &rpc{
 		commands: make(map[string]command.Command),
 		authsha:  sha256.Sum256([]byte(auth)),
-		coreConfig: handlers.CoreConfig{
+		coreConfig: types.CoreConfig{
 			Storage:   storage,
 			EnvConfig: envConfig,
 			Keys:      keys,
@@ -156,6 +156,7 @@ func (r *rpc) Run() {
 	r.AddCommand(command.TransferFunds())
 	r.AddCommand(command.ListOrders())
 	r.AddCommand(command.KillService())
+	r.AddCommand(command.ExecutorService())
 
 	s := gin.Default()
 

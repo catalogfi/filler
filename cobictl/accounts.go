@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/catalogfi/cobi/cobid/handlers"
+	"github.com/catalogfi/cobi/cobid/types"
 	"github.com/jedib0t/go-pretty/table"
 	"github.com/spf13/cobra"
 )
@@ -23,7 +23,7 @@ func Accounts(rpcClient Client) *cobra.Command {
 		Short: "List account addresses and balances",
 		Run: func(c *cobra.Command, args []string) {
 
-			AccountReq := handlers.RequestAccount{
+			AccountReq := types.RequestAccount{
 				IsInstantWallet: useIw,
 				Asset:           asset,
 				Page:            uint32(page),
@@ -36,7 +36,7 @@ func Accounts(rpcClient Client) *cobra.Command {
 				cobra.CheckErr(fmt.Errorf("failed to send request: %w", err))
 			}
 
-			var accounts []handlers.AccountInfo
+			var accounts []types.AccountInfo
 			if err := json.Unmarshal(resp, &accounts); err != nil {
 				cobra.CheckErr(fmt.Errorf("failed to unmarshal response: %w", err))
 			}

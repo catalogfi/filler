@@ -4,12 +4,13 @@ import (
 	"encoding/hex"
 	"fmt"
 
+	"github.com/catalogfi/cobi/cobid/types"
 	"github.com/catalogfi/cobi/wbtc-garden/model"
 	"github.com/catalogfi/cobi/wbtc-garden/rest"
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-func List(cfg CoreConfig, params RequestListOrders) ([]model.Order, error) {
+func List(cfg types.CoreConfig, params types.RequestListOrders) ([]model.Order, error) {
 
 	privKey, err := crypto.GenerateKey()
 	if err != nil {

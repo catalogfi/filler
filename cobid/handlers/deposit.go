@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/catalogfi/blockchain/btc"
+	"github.com/catalogfi/cobi/cobid/types"
 	"github.com/catalogfi/cobi/utils"
 	"github.com/catalogfi/cobi/wbtc-garden/blockchain"
 	"github.com/catalogfi/cobi/wbtc-garden/model"
@@ -18,15 +19,15 @@ import (
 	"gorm.io/gorm"
 )
 
-func Deposit(cfg CoreConfig, params RequestDeposit) (string, error) {
+func Deposit(cfg types.CoreConfig, params types.RequestDeposit) (string, error) {
 	logger, err := zap.NewProduction()
 	if err != nil {
 		return "", err
 	}
-	if err := checkStrings(params.Asset); err != nil {
+	if err := types.CheckStrings(params.Asset); err != nil {
 		return "", fmt.Errorf("Asset is not valid: %v", err)
 	}
-	if err := checkUint64s((params.Amount)); err != nil {
+	if err := types.CheckUint64s((params.Amount)); err != nil {
 		return "", fmt.Errorf("Amount is not valid: %v", err)
 	}
 	chain, a, err := model.ParseChainAsset(params.Asset)

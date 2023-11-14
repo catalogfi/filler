@@ -9,6 +9,7 @@ import (
 
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/catalogfi/blockchain/btc"
+	"github.com/catalogfi/cobi/cobid/types"
 	"github.com/catalogfi/cobi/utils"
 	"github.com/catalogfi/cobi/wbtc-garden/blockchain"
 	"github.com/catalogfi/cobi/wbtc-garden/model"
@@ -20,18 +21,11 @@ import (
 	"go.uber.org/zap"
 )
 
-type AccountInfo struct {
-	AccountNo     string `json:"accountNo"`
-	Address       string `json:"address"`
-	Balance       string `json:"balance"`
-	UsableBalance string `json:"usableBalance"`
-}
-
-func GetAccounts(cfg CoreConfig, params RequestAccount) ([]AccountInfo, error) {
-	if err := checkStrings(params.Asset); err != nil {
+func GetAccounts(cfg types.CoreConfig, params types.RequestAccount) ([]types.AccountInfo, error) {
+	if err := types.CheckStrings(params.Asset); err != nil {
 		return nil, fmt.Errorf("Asset is not valid: %v", err)
 	}
-	if err := checkUint32s(params.PerPage , params.Page); err != nil {
+	if err := types.CheckUint32s(params.PerPage, params.Page); err != nil {
 		return nil, fmt.Errorf("Error while parsing PerPage: %v", err)
 	}
 	ch, a, err := model.ParseChainAsset(params.Asset)
@@ -40,7 +34,7 @@ func GetAccounts(cfg CoreConfig, params RequestAccount) ([]AccountInfo, error) {
 	}
 	var iwStore bitcoin.Store
 	var guardianWallet guardian.BitcoinWallet
-	var ReturnPayload []AccountInfo
+	var ReturnPayload []types.AccountInfo
 	var logger *zap.Logger
 	var chainParams *chaincfg.Params
 	var rpcClient jsonrpc.Client
@@ -127,7 +121,8 @@ func GetAccounts(cfg CoreConfig, params RequestAccount) ([]AccountInfo, error) {
 			}
 		}
 
-		ReturnPayload = append(ReturnPayload, AccountInfo{
+		var ReturnPayload []types.AccountInfo
+		ReturnPayload = append(ReturnPayload, types.AccountInfo{
 			AccountNo:     fmt.Sprintf("%d", i),
 			Address:       address,
 			Balance:       balance.String(),

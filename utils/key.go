@@ -215,16 +215,9 @@ func Balance(chain model.Chain, address string, config model.Network, asset mode
 func VirtualBalance(chain model.Chain, address string, config model.Network, asset model.Asset, signer string, client rest.Client, iwConfig ...bitcoin.InstantWalletConfig) (*big.Int, error) {
 	var balance *big.Int
 	var err error
-	if len(iwConfig) > 0 {
-		balance, err = Balance(chain, address, config, asset, iwConfig[0])
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		balance, err = Balance(chain, address, config, asset)
-		if err != nil {
-			return nil, err
-		}
+	balance, err = Balance(chain, address, config, asset, iwConfig...)
+	if err != nil {
+		return nil, err
 	}
 
 	committedAmount := big.NewInt(0)

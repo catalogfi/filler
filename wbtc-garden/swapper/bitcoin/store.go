@@ -15,7 +15,7 @@ const (
 type IwState struct {
 	gorm.Model
 
-	Pubkey        string   `gorm:"primaryKey; not null"`
+	Pubkey        string   `gorm:"not null"`
 	Status        IwStatus `gorm:"not null"`
 	Secret        string   `gorm:"unique; not null"`
 	WalletAddress string   `gorm:"not null"`

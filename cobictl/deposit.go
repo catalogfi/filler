@@ -3,7 +3,7 @@ package cobictl
 import (
 	"fmt"
 
-	"github.com/catalogfi/cobi/cobid/handlers"
+	"github.com/catalogfi/cobi/cobid/types"
 	"github.com/spf13/cobra"
 )
 
@@ -17,7 +17,7 @@ func Deposit(rpcClient Client) *cobra.Command {
 		Use:   "deposit",
 		Short: "deposit funds from EOA to instant wallets",
 		Run: func(c *cobra.Command, args []string) {
-			Deposit := handlers.RequestDeposit{
+			Deposit := types.RequestDeposit{
 				UserAccount: account,
 				Amount:      amount,
 				Asset:       asset,

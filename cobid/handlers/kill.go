@@ -5,9 +5,10 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-)
+	"syscall"
 
-type Service string
+	"github.com/catalogfi/cobi/utils"
+)
 
 // Set implements pflag.Value.
 func (s *Service) Set(v string) error {
@@ -30,36 +31,35 @@ func (s *Service) Type() string {
 	return "service"
 }
 
-const (
-	Executor    Service = "executor"
-	Autofiller  Service = "autofiller"
-	AutoCreator Service = "autocreator"
-)
-
-func Kill(service Service) error {
-	pidFilePath := filepath.Join("cmd", "cobid", fmt.Sprintf("%s.pid", service))
+func Kill(service KillSerivce) error {
+	pidFilePath := filepath.Join(utils.DefaultCobiDirectory(), fmt.Sprintf("%s_account_%d.pid", service.ServiceType, service.Account))
 
 	// Open the file that contains the PID
 	data, err := os.ReadFile(pidFilePath)
 	if err != nil {
-		return fmt.Errorf("Error reading PID file: %v", err)
+		return fmt.Errorf("error reading PID file: %v", err)
 	}
 
 	// Convert the PID from bytes to string and then to integer
 	pidStr := string(data)
 	pid, err := strconv.Atoi(pidStr)
 	if err != nil {
-		return fmt.Errorf("Error converting PID to integer: %v", err)
+		return fmt.Errorf("error converting PID to integer: %v", err)
 	}
 
 	process, err := os.FindProcess(pid)
 	if err != nil {
-		return fmt.Errorf("Error finding process: %v", err)
+		return fmt.Errorf("error finding process: %v", err)
 	}
 
-	err = process.Kill()
+	err = process.Signal(syscall.SIGQUIT)
 	if err != nil {
-		return fmt.Errorf("Error killing process: %v", err)
+		return fmt.Errorf("error killing process: %v", err)
+	}
+
+	err = os.Remove(pidFilePath)
+	if err != nil {
+		return fmt.Errorf("error deleting procpid file for %s, err : %v", pidFilePath, err)
 	}
 
 	return nil

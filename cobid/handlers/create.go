@@ -6,14 +6,15 @@ import (
 	"encoding/hex"
 	"fmt"
 
+	"github.com/catalogfi/cobi/cobid/types"
 	"github.com/catalogfi/cobi/wbtc-garden/model"
 	"github.com/catalogfi/cobi/wbtc-garden/rest"
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-func Create(cfg CoreConfig, params RequestCreate) (uint, error) {
+func Create(cfg types.CoreConfig, params types.RequestCreate) (uint, error) {
 
-	err := checkStrings(params.OrderPair, params.SendAmount, params.ReceiveAmount)
+	err := types.CheckStrings(params.OrderPair, params.SendAmount, params.ReceiveAmount)
 	if err != nil {
 		return 0, fmt.Errorf("Error while parsing order pair: %v", err)
 	}
