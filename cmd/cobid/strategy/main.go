@@ -23,7 +23,8 @@ import (
 
 func main() {
 	if len(os.Args) != 3 {
-		panic("arguments not enough")
+		fmt.Fprint(os.Stdout, "arguments not enough")
+		return
 	}
 
 	serviceType := os.Args[1]
@@ -35,18 +36,21 @@ func main() {
 	case "autocreator":
 		isCreator = true
 	default:
-		panic("not a valid service")
+		fmt.Fprint(os.Stdout, "not a valid service")
+		return
 
 	}
 
 	isIW, err := strconv.ParseBool(os.Args[2])
 	if err != nil {
-		panic(err)
+		fmt.Fprint(os.Stdout, err)
+		return
 	}
 
 	envConfig, err := utils.LoadExtendedConfig(utils.DefaultConfigPath())
 	if err != nil {
-		panic(err)
+		fmt.Fprint(os.Stdout, err)
+		return
 	}
 
 	var str store.Store
@@ -56,20 +60,23 @@ func main() {
 			NowFunc: func() time.Time { return time.Now().UTC() },
 		})
 		if err != nil {
-			panic(err)
+			fmt.Fprint(os.Stdout, err)
+			return
 		}
 	} else {
 		str, err = store.NewStore(sqlite.Open(utils.DefaultStorePath()), &gorm.Config{
 			NowFunc: func() time.Time { return time.Now().UTC() },
 		})
 		if err != nil {
-			panic(err)
+			fmt.Fprint(os.Stdout, err)
+			return
 		}
 	}
 
 	entropy, err := bip39.EntropyFromMnemonic(envConfig.Mnemonic)
 	if err != nil {
-		panic(err)
+		fmt.Fprint(os.Stdout, err)
+		return
 	}
 
 	// Load keys
@@ -89,13 +96,15 @@ func main() {
 	pidFilePath := filepath.Join(utils.DefaultCobiDirectory(), fmt.Sprintf("%s.pid", serviceType))
 
 	if _, err := os.Stat(pidFilePath); err == nil {
-		panic("executor already running")
+		fmt.Fprintf(os.Stdout, "%s already running", serviceType)
+		return
 	}
 	pid := strconv.Itoa(os.Getpid())
 
 	err = os.WriteFile(pidFilePath, []byte(pid), 0644)
 	if err != nil {
-		panic("failed to write pid")
+		fmt.Fprintf(os.Stdout, "failed to write pid")
+		return
 	}
 
 	config := types.CoreConfig{
@@ -107,7 +116,7 @@ func main() {
 
 	strategies, err := strategy.UnmarshalStrategy(envConfig.Strategies)
 	if err != nil {
-		logger.Error("failed to unmarshal strategy", zap.Error(err))
+		fmt.Fprintf(os.Stdout, "failed to unmarshal strategy, err:%v", err)
 		return
 	}
 
@@ -120,8 +129,10 @@ func main() {
 			switch service := s.(type) {
 			case strategy.AutoCreateStrategy:
 				if _, err := os.Stat(filepath.Join(utils.DefaultCobiDirectory(), fmt.Sprintf("executor_account_%d.pid", service.Account()))); err != nil {
-					//send mssage to rpc
-					continue
+					fmt.Fprintf(os.Stdout, "executor not running, account:%d", service.Account())
+					strat.Done()
+					wg.Wait()
+					return
 				}
 				wg.Add(1)
 				go strat.RunAutoCreateStrategy(service, isIW)
@@ -132,8 +143,10 @@ func main() {
 			switch service := s.(type) {
 			case strategy.AutoFillStrategy:
 				if _, err := os.Stat(filepath.Join(utils.DefaultCobiDirectory(), fmt.Sprintf("executor_account_%d.pid", service.Account()))); err != nil {
-					//send mssage to rpc
-					continue
+					fmt.Fprintf(os.Stdout, "executor not running, account:%d", service.Account())
+					strat.Done()
+					wg.Wait()
+					return
 				}
 				wg.Add(1)
 				go strat.RunAutoFillStrategy(service, isIW)
@@ -148,6 +161,8 @@ func main() {
 		strat.Done()
 		wg.Wait()
 	}()
+
+	fmt.Fprintf(os.Stdout, "successful")
 
 	wg.Wait()
 

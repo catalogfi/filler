@@ -23,20 +23,24 @@ import (
 
 func main() {
 	if len(os.Args) != 3 {
-		panic("arguments not enough")
+		fmt.Fprint(os.Stdout, "arguments not enough")
+		return
 	}
 	userAccount, err := strconv.ParseUint(os.Args[1], 10, 32)
 	if err != nil {
-		panic(err)
+		fmt.Fprint(os.Stdout, err)
+		return
 	}
 
 	isIW, err := strconv.ParseBool(os.Args[2])
 	if err != nil {
-		panic(err)
+		fmt.Fprint(os.Stdout, err)
+		return
 	}
 	envConfig, err := utils.LoadExtendedConfig(utils.DefaultConfigPath())
 	if err != nil {
-		panic(err)
+		fmt.Fprint(os.Stdout, err)
+		return
 	}
 
 	var str store.Store
@@ -46,20 +50,23 @@ func main() {
 			NowFunc: func() time.Time { return time.Now().UTC() },
 		})
 		if err != nil {
-			panic(err)
+			fmt.Fprint(os.Stdout, err)
+			return
 		}
 	} else {
 		str, err = store.NewStore(sqlite.Open(utils.DefaultStorePath()), &gorm.Config{
 			NowFunc: func() time.Time { return time.Now().UTC() },
 		})
 		if err != nil {
-			panic(err)
+			fmt.Fprint(os.Stdout, err)
+			return
 		}
 	}
 
 	entropy, err := bip39.EntropyFromMnemonic(envConfig.Mnemonic)
 	if err != nil {
-		panic(err)
+		fmt.Fprint(os.Stdout, err)
+		return
 	}
 
 	// Load keys
@@ -79,12 +86,12 @@ func main() {
 	pidFilePath := filepath.Join(utils.DefaultCobiDirectory(), fmt.Sprintf("executor_account_%d.pid", userAccount))
 
 	if _, err := os.Stat(pidFilePath); err == nil {
-		panic("executor already running")
+		fmt.Fprint(os.Stdout, "executor already running")
 	}
 	pid := strconv.Itoa(os.Getpid())
 	err = os.WriteFile(pidFilePath, []byte(pid), 0644)
 	if err != nil {
-		panic("failed to write pid")
+		fmt.Fprint(os.Stdout, "failed to write pid")
 	}
 
 	wg := new(sync.WaitGroup)
@@ -95,6 +102,8 @@ func main() {
 		Keys:      &keys,
 		Storage:   str,
 	}, wg)
+
+	fmt.Fprint(os.Stdout, "successful")
 
 	wg.Add(1)
 	go func() {

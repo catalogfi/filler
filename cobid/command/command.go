@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os/exec"
 	"path/filepath"
 	"strconv"
@@ -207,18 +208,31 @@ func (a *startExecutor) Query(cfg types.CoreConfig, params json.RawMessage) (jso
 
 	cmd := exec.Command(filepath.Join(utils.DefaultCobiDirectory(), "executor"), strconv.Itoa(int(req.Account)), strconv.FormatBool(req.IsInstantWallet))
 
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return json.Marshal(fmt.Sprintf("Error creating stdout pipe, err:%v", err))
+	}
+
 	if err := cmd.Start(); err != nil {
-		return json.Marshal("error starting process" + err.Error())
+		return json.Marshal(fmt.Sprintf("error starting process, err:%v", err))
 	}
 
 	if cmd == nil || cmd.ProcessState != nil && cmd.ProcessState.Exited() || cmd.Process == nil {
 		return json.Marshal("error starting process")
 	}
 
-	//<sucesss>
-	//
+	buf := make([]byte, 1024)
+	n, err := stdoutPipe.Read(buf)
+	if err != nil && err != io.EOF {
+		return json.Marshal("Error reading from pipe")
+	}
 
-	return json.Marshal("started Sucessfull")
+	receivedData := string(buf[:n])
+	if receivedData != "successful" {
+		return json.Marshal(receivedData)
+	}
+
+	return json.Marshal("started successfully")
 }
 
 type startStrategy struct{}
@@ -245,15 +259,31 @@ func (a *startStrategy) Query(cfg types.CoreConfig, params json.RawMessage) (jso
 
 	cmd := exec.Command(filepath.Join(utils.DefaultCobiDirectory(), "strategy"), req.Service, strconv.FormatBool(req.IsInstantWallet))
 
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return json.Marshal(fmt.Sprintf("Error creating stdout pipe, err:%v", err))
+	}
+
 	if err := cmd.Start(); err != nil {
-		return json.Marshal("error starting process" + err.Error())
+		return json.Marshal(fmt.Sprintf("error starting process, err:%v", err.Error()))
 	}
 
 	if cmd == nil || cmd.ProcessState != nil && cmd.ProcessState.Exited() || cmd.Process == nil {
 		return json.Marshal("error starting process")
 	}
 
-	return json.Marshal("started sucessfull")
+	buf := make([]byte, 1024)
+	n, err := stdoutPipe.Read(buf)
+	if err != nil && err != io.EOF {
+		return json.Marshal("error reading from pipe")
+	}
+
+	receivedData := string(buf[:n])
+	if receivedData != "successful" {
+		return json.Marshal(receivedData)
+	}
+
+	return json.Marshal("started successfully")
 }
 
 type status struct{}
