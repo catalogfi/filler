@@ -228,7 +228,7 @@ func StrategyService() Command {
 }
 
 func (a *startStrategy) Name() string {
-	return "startExecutor"
+	return "startStrategy"
 }
 
 func (a *startStrategy) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {

@@ -8,25 +8,33 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func KillService(rpcClient Client) *cobra.Command {
+type StartPayload struct {
+	ServiceType     handlers.Service `json:"service" binding:"required"`
+	Account         uint             `json:"userAccount"`
+	IsInstantWallet bool             `json:"isInstantWallet"`
+}
+
+func StartService(rpcClient Client) *cobra.Command {
 	var (
-		service handlers.Service
-		account uint32
+		service         handlers.Service
+		account         uint32
+		isInstantWallet bool
 	)
 	var cmd = &cobra.Command{
-		Use:   "kill",
-		Short: "kills a running service in daemon",
+		Use:   "start",
+		Short: "starts a service in daemon",
 		Run: func(c *cobra.Command, args []string) {
 			if service != handlers.Executor && service != handlers.Autofiller && service != handlers.AutoCreator {
 				cobra.CheckErr(errors.New("invalid service type"))
 			}
 
-			KillService := handlers.KillSerivce{
-				ServiceType: service,
-				Account:     uint(account),
+			StartService := StartPayload{
+				ServiceType:     service,
+				Account:         uint(account),
+				IsInstantWallet: isInstantWallet,
 			}
 
-			resp, err := rpcClient.KillService(KillService)
+			resp, err := rpcClient.StartService(StartService)
 			if err != nil {
 				cobra.CheckErr(fmt.Errorf("failed to send request: %w", err))
 			}

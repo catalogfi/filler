@@ -27,6 +27,7 @@ type Client interface {
 	Transfer(data types.RequestTransfer) (json.RawMessage, error)
 	Deposit(data types.RequestDeposit) (json.RawMessage, error)
 	KillService(data handlers.KillSerivce) (json.RawMessage, error)
+	StartService(data StartPayload) (json.RawMessage, error)
 }
 
 func NewClient(userName string, password string, protocol string, rpcServer string) Client {
@@ -202,4 +203,30 @@ func (c *client) KillService(data handlers.KillSerivce) (json.RawMessage, error)
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
 	return resp, nil
+}
+
+func (c *client) StartService(data StartPayload) (json.RawMessage, error) {
+	if data.ServiceType == "" {
+		return nil, fmt.Errorf("service type is required")
+	}
+
+	var procedure string
+	if data.ServiceType == handlers.Executor {
+		procedure = "startExecutor"
+	} else {
+		procedure = "startStrategy"
+	}
+
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal payload: %w", err)
+	}
+
+	resp, err := c.SendPostRequest(procedure, jsonData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+
+	return resp, nil
+
 }

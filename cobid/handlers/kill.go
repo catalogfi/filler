@@ -32,8 +32,12 @@ func (s *Service) Type() string {
 }
 
 func Kill(service KillSerivce) error {
-	pidFilePath := filepath.Join(utils.DefaultCobiDirectory(), fmt.Sprintf("%s_account_%d.pid", service.ServiceType, service.Account))
-
+	var pidFilePath string
+	if service.ServiceType == Executor {
+		pidFilePath = filepath.Join(utils.DefaultCobiDirectory(), fmt.Sprintf("%s_account_%d.pid", service.ServiceType, service.Account))
+	} else {
+		pidFilePath = filepath.Join(utils.DefaultCobiDirectory(), fmt.Sprintf("%s.pid", service.ServiceType))
+	}
 	// Open the file that contains the PID
 	data, err := os.ReadFile(pidFilePath)
 	if err != nil {
