@@ -215,6 +215,9 @@ func (a *startExecutor) Query(cfg types.CoreConfig, params json.RawMessage) (jso
 		return json.Marshal("error starting process")
 	}
 
+	//<sucesss>
+	//
+
 	return json.Marshal("started Sucessfull")
 }
 
@@ -234,6 +237,10 @@ func (a *startStrategy) Query(cfg types.CoreConfig, params json.RawMessage) (jso
 		return nil, err
 	}
 
+	if req.Service != "autofiller" || req.Service != "autocreator" {
+		json.Marshal("invalid service")
+	}
+
 	cmd := exec.Command(filepath.Join(utils.DefaultCobiDirectory(), "strategy"), req.Service, strconv.FormatBool(req.IsInstantWallet))
 
 	if err := cmd.Start(); err != nil {
@@ -244,5 +251,5 @@ func (a *startStrategy) Query(cfg types.CoreConfig, params json.RawMessage) (jso
 		return json.Marshal("error starting process")
 	}
 
-	return json.Marshal("started Sucessfull")
+	return json.Marshal("started sucessfull")
 }

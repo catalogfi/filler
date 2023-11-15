@@ -5,12 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
-	"os/signal"
-	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
+	"sync"
 	"time"
 
 	"github.com/btcsuite/btcd/btcec/v2"
@@ -27,12 +24,15 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
-type executor struct{}
+type executor struct {
+	Config types.CoreConfig
+	Quit   chan struct{}
+	Wg     *sync.WaitGroup
+}
 
 // type CoreConfig struct {
 // 	Storage   store.Store
@@ -47,62 +47,53 @@ type RequestStartExecutor struct {
 }
 
 type AccountExecutor interface {
-	Start(cfg types.CoreConfig, params RequestStartExecutor)
+	Start(params RequestStartExecutor)
+	Done()
 }
 
-func NewExecutor() AccountExecutor {
-	return &executor{}
+func NewExecutor(config types.CoreConfig, wg *sync.WaitGroup) AccountExecutor {
+	quit := make(chan struct{})
+	return &executor{
+		Config: config,
+		Quit:   quit,
+		Wg:     wg,
+	}
 }
 
-func (e *executor) Start(cfg types.CoreConfig, params RequestStartExecutor) {
+func (e *executor) Done() {
+	e.Quit <- struct{}{}
+}
 
-	config := zap.NewProductionEncoderConfig()
-	config.EncodeTime = zapcore.ISO8601TimeEncoder
-	fileEncoder := zapcore.NewJSONEncoder(config)
-	logFile, _ := os.OpenFile(filepath.Join(utils.DefaultCobiDirectory(), fmt.Sprintf("executor_account_%d.log", params.Account)), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	writer := zapcore.AddSync(logFile)
-	defaultLogLevel := zapcore.DebugLevel
-	core := zapcore.NewTee(
-		zapcore.NewCore(fileEncoder, writer, defaultLogLevel),
-	)
-	logger := zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
+func (e *executor) Start(params RequestStartExecutor) {
 
-	pidFilePath := filepath.Join(utils.DefaultCobiDirectory(), fmt.Sprintf("executor_account_%d.pid", params.Account))
+	defer func() {
+		e.Config.Logger.Info("exiting executor")
+		e.Wg.Done()
+	}()
 
-	if _, err := os.Stat(pidFilePath); err == nil {
-		panic("executor already running")
-	}
-	pid := strconv.Itoa(os.Getpid())
-	err := os.WriteFile(pidFilePath, []byte(pid), 0644)
+	key, err := e.Config.Keys.GetKey(model.Ethereum, params.Account, 0)
 	if err != nil {
-		panic("failed to write pid")
-	}
-
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGQUIT)
-
-	key, err := cfg.Keys.GetKey(model.Ethereum, params.Account, 0)
-	if err != nil {
-		panic(fmt.Errorf("failed to get the signing key:", zap.Error(err)))
+		e.Config.Logger.Error("failed to get the signing key:", zap.Error(err))
+		return
 	}
 
 	var iwConfig []bitcoin.InstantWalletConfig
 
 	if params.IsInstantWallet {
 		var iwStore bitcoin.Store
-		if cfg.EnvConfig.DB != "" {
-			iwStore, err = bitcoin.NewStore(sqlite.Open(cfg.EnvConfig.DB), &gorm.Config{
+		if e.Config.EnvConfig.DB != "" {
+			iwStore, err = bitcoin.NewStore(sqlite.Open(e.Config.EnvConfig.DB), &gorm.Config{
 				NowFunc: func() time.Time { return time.Now().UTC() },
 			})
 			if err != nil {
-				logger.Error("Could not load iw store: %v", zap.Error(err))
+				e.Config.Logger.Error("Could not load iw store: %v", zap.Error(err))
 			}
 		} else {
 			iwStore, err = bitcoin.NewStore((utils.DefaultInstantWalletDBDialector()), &gorm.Config{
 				NowFunc: func() time.Time { return time.Now().UTC() },
 			})
 			if err != nil {
-				logger.Error("Could not load iw store: %v", zap.Error(err))
+				e.Config.Logger.Error("Could not load iw store: %v", zap.Error(err))
 			}
 		}
 		iwConfig = append(iwConfig, bitcoin.InstantWalletConfig{
@@ -113,17 +104,19 @@ func (e *executor) Start(cfg types.CoreConfig, params RequestStartExecutor) {
 
 	privKey, err := key.ECDSA()
 	if err != nil {
-		panic(fmt.Errorf("failed to get the signing key:", zap.Error(err)))
+		e.Config.Logger.Error("failed to get the signing key:", zap.Error(err))
+		return
 	}
 	signer := crypto.PubkeyToAddress(privKey.PublicKey)
 LOOP:
 	for {
 		// connect to the websocket and subscribe on the signer's address
-		client := rest.NewWSClient(fmt.Sprintf("wss://%s/", cfg.EnvConfig.OrderBook), logger)
+		client := rest.NewWSClient(fmt.Sprintf("wss://%s/", e.Config.EnvConfig.OrderBook), e.Config.Logger)
 		client.Subscribe(fmt.Sprintf("subscribe_%v", signer))
 		respChan := client.Listen()
 		for {
 
+			e.Config.Logger.Info("here")
 			select {
 			case resp := <-respChan:
 				switch response := resp.(type) {
@@ -133,32 +126,21 @@ LOOP:
 					// execute orders
 					orders := response.Orders
 					count := len(orders)
-					logger.Info("recieved orders from the order book", zap.Int("count", count))
+					e.Config.Logger.Info("recieved orders from the order book", zap.Int("count", count))
 					for _, order := range orders {
-						grandChildLogger := logger.With(zap.Uint("order id", order.ID), zap.String("pair", order.OrderPair))
-						e.execute(order, grandChildLogger, signer, *cfg.Keys, params.Account, cfg.EnvConfig.Network, cfg.Storage.UserStore(params.Account), iwConfig...)
+						grandChildLogger := e.Config.Logger.With(zap.Uint("order id", order.ID), zap.String("pair", order.OrderPair))
+						e.execute(order, grandChildLogger, signer, *e.Config.Keys, params.Account, e.Config.EnvConfig.Network, e.Config.Storage.UserStore(params.Account), iwConfig...)
 					}
-					logger.Info("executed orders recieved from the order book", zap.Int("count", count))
-
+					e.Config.Logger.Info("executed orders recieved from the order book", zap.Int("count", count))
 				}
-			case sig := <-sigs:
-				if sig == syscall.SIGQUIT {
-
-					if _, err := os.Stat(pidFilePath); err == nil {
-						err := os.Remove(pidFilePath)
-						if err != nil {
-							logger.Error("failed to delete executor pid file", zap.Uint32("account", params.Account), zap.Error(err))
-						}
-					} else {
-						logger.Error("executor pid file not found", zap.Uint32("account", params.Account), zap.Error(err))
-					}
-					logger.Info("stopped", zap.Uint32("account", params.Account))
-					break LOOP
-				}
+				continue
+			case <-e.Quit:
+				e.Config.Logger.Info("recieved quit channel signal")
+				break LOOP
 			}
+
 		}
 	}
-	logger.Info("terminated", zap.Uint32("account", params.Account))
 }
 
 func (e *executor) execute(order model.Order, logger *zap.Logger, signer common.Address, keys utils.Keys, account uint32, config model.Network, userStore store.UserStore, iwConfig ...bitcoin.InstantWalletConfig) {

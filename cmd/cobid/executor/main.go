@@ -1,8 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"os"
+	"os/signal"
+	"path/filepath"
 	"strconv"
+	"sync"
+	"syscall"
 	"time"
 
 	"github.com/catalogfi/cobi/cobid/executor"
@@ -11,6 +16,7 @@ import (
 	"github.com/catalogfi/cobi/utils"
 	"github.com/tyler-smith/go-bip39"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -59,20 +65,66 @@ func main() {
 	// Load keys
 	keys := utils.NewKeys(entropy)
 
-	logger, err := zap.NewProduction()
-	if err != nil {
-		panic(err)
+	config := zap.NewProductionEncoderConfig()
+	config.EncodeTime = zapcore.ISO8601TimeEncoder
+	fileEncoder := zapcore.NewJSONEncoder(config)
+	logFile, _ := os.OpenFile(filepath.Join(utils.DefaultCobiDirectory(), fmt.Sprintf("executor_account_%d.log", userAccount)), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	writer := zapcore.AddSync(logFile)
+	defaultLogLevel := zapcore.DebugLevel
+	core := zapcore.NewTee(
+		zapcore.NewCore(fileEncoder, writer, defaultLogLevel),
+	)
+	logger := zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
+
+	pidFilePath := filepath.Join(utils.DefaultCobiDirectory(), fmt.Sprintf("executor_account_%d.pid", userAccount))
+
+	if _, err := os.Stat(pidFilePath); err == nil {
+		panic("executor already running")
 	}
-	exec := executor.NewExecutor()
-	exec.Start(
-		types.CoreConfig{
-			Logger:    logger,
-			EnvConfig: envConfig,
-			Keys:      &keys,
-			Storage:   str,
-		},
-		executor.RequestStartExecutor{
-			Account:         uint32(userAccount),
-			IsInstantWallet: isIW,
-		})
+	pid := strconv.Itoa(os.Getpid())
+	err = os.WriteFile(pidFilePath, []byte(pid), 0644)
+	if err != nil {
+		panic("failed to write pid")
+	}
+
+	wg := new(sync.WaitGroup)
+
+	exec := executor.NewExecutor(types.CoreConfig{
+		Logger:    logger,
+		EnvConfig: envConfig,
+		Keys:      &keys,
+		Storage:   str,
+	}, wg)
+
+	wg.Add(1)
+	go func() {
+		exec.Start(
+
+			executor.RequestStartExecutor{
+				Account:         uint32(userAccount),
+				IsInstantWallet: isIW,
+			})
+	}()
+
+	go func() {
+		sigs := make(chan os.Signal, 1)
+		signal.Notify(sigs, syscall.SIGQUIT)
+		<-sigs
+		logger.Info("recieved quit signal")
+		exec.Done()
+		wg.Wait()
+	}()
+
+	wg.Wait()
+
+	if _, err := os.Stat(pidFilePath); err == nil {
+		err := os.Remove(pidFilePath)
+		if err != nil {
+			logger.Error("failed to delete executor pid file", zap.Uint32("account", uint32(userAccount)), zap.Error(err))
+		}
+	} else {
+		logger.Error("executor pid file not found", zap.Uint32("account", uint32(userAccount)), zap.Error(err))
+	}
+	logger.Info("stopped executor", zap.Uint32("account", uint32(userAccount)))
+
 }
