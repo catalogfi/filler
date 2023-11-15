@@ -64,6 +64,10 @@ type RequestStartExecutor struct {
 	Account         uint32 `json:"userAccount"`
 	IsInstantWallet bool   `json:"isInstantWallet"`
 }
+type RequestStatus struct {
+	Service string `json:"service"`
+	Account uint32 `json:"userAccount"`
+}
 
 type AccountInfo struct {
 	AccountNo     string `json:"accountNo"`

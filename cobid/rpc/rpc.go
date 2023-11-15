@@ -158,6 +158,7 @@ func (r *rpc) Run() {
 	r.AddCommand(command.KillService())
 	r.AddCommand(command.ExecutorService())
 	r.AddCommand(command.StrategyService())
+	r.AddCommand(command.Status())
 
 	s := gin.Default()
 

@@ -224,7 +224,7 @@ func (a *startExecutor) Query(cfg types.CoreConfig, params json.RawMessage) (jso
 type startStrategy struct{}
 
 func StrategyService() Command {
-	return &startExecutor{}
+	return &startStrategy{}
 }
 
 func (a *startStrategy) Name() string {
@@ -237,8 +237,10 @@ func (a *startStrategy) Query(cfg types.CoreConfig, params json.RawMessage) (jso
 		return nil, err
 	}
 
-	if req.Service != "autofiller" || req.Service != "autocreator" {
-		json.Marshal("invalid service")
+	var service *handlers.Service
+	err := service.Set(req.Service)
+	if err != nil {
+		return nil, err
 	}
 
 	cmd := exec.Command(filepath.Join(utils.DefaultCobiDirectory(), "strategy"), req.Service, strconv.FormatBool(req.IsInstantWallet))
@@ -252,4 +254,31 @@ func (a *startStrategy) Query(cfg types.CoreConfig, params json.RawMessage) (jso
 	}
 
 	return json.Marshal("started sucessfull")
+}
+
+type status struct{}
+
+func Status() Command {
+	return &status{}
+}
+
+func (a *status) Name() string {
+	return "status"
+}
+
+func (a *status) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
+	var req types.RequestStatus
+	if err := json.Unmarshal(params, &req); err != nil {
+		return nil, err
+	}
+
+	var service *handlers.Service
+	err := service.Set(req.Service)
+	if err != nil {
+		return nil, err
+	}
+
+	isActive := handlers.Status(*service, req.Account)
+	return json.Marshal(isActive)
+
 }
