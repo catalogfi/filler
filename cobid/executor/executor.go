@@ -15,6 +15,7 @@ import (
 
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/catalogfi/blockchain/btc"
+	"github.com/catalogfi/cobi/cobid/types"
 	"github.com/catalogfi/cobi/store"
 	"github.com/catalogfi/cobi/utils"
 	"github.com/catalogfi/cobi/wbtc-garden/blockchain"
@@ -32,12 +33,13 @@ import (
 )
 
 type executor struct{}
-type CoreConfig struct {
-	Storage   store.Store
-	EnvConfig utils.Config
-	Keys      *utils.Keys
-	Logger    *zap.Logger
-}
+
+// type CoreConfig struct {
+// 	Storage   store.Store
+// 	EnvConfig utils.Config
+// 	Keys      *utils.Keys
+// 	Logger    *zap.Logger
+// }
 
 type RequestStartExecutor struct {
 	Account         uint32 `json:"userAccount"`
@@ -45,14 +47,14 @@ type RequestStartExecutor struct {
 }
 
 type AccountExecutor interface {
-	Start(cfg CoreConfig, params RequestStartExecutor)
+	Start(cfg types.CoreConfig, params RequestStartExecutor)
 }
 
 func NewExecutor() AccountExecutor {
 	return &executor{}
 }
 
-func (e *executor) Start(cfg CoreConfig, params RequestStartExecutor) {
+func (e *executor) Start(cfg types.CoreConfig, params RequestStartExecutor) {
 
 	config := zap.NewProductionEncoderConfig()
 	config.EncodeTime = zapcore.ISO8601TimeEncoder
@@ -68,14 +70,12 @@ func (e *executor) Start(cfg CoreConfig, params RequestStartExecutor) {
 	pidFilePath := filepath.Join(utils.DefaultCobiDirectory(), fmt.Sprintf("executor_account_%d.pid", params.Account))
 
 	if _, err := os.Stat(pidFilePath); err == nil {
-		logger.Error("executor already running")
-		return
+		panic("executor already running")
 	}
 	pid := strconv.Itoa(os.Getpid())
 	err := os.WriteFile(pidFilePath, []byte(pid), 0644)
 	if err != nil {
-		logger.Error("failed to write pid")
-		return
+		panic("failed to write pid")
 	}
 
 	sigs := make(chan os.Signal, 1)
@@ -83,7 +83,7 @@ func (e *executor) Start(cfg CoreConfig, params RequestStartExecutor) {
 
 	key, err := cfg.Keys.GetKey(model.Ethereum, params.Account, 0)
 	if err != nil {
-		logger.Error("failed to get the signing key:", zap.Error(err))
+		panic(fmt.Errorf("failed to get the signing key:", zap.Error(err)))
 	}
 
 	var iwConfig []bitcoin.InstantWalletConfig
@@ -113,7 +113,7 @@ func (e *executor) Start(cfg CoreConfig, params RequestStartExecutor) {
 
 	privKey, err := key.ECDSA()
 	if err != nil {
-		logger.Error("failed to get the signing key:", zap.Error(err))
+		panic(fmt.Errorf("failed to get the signing key:", zap.Error(err)))
 	}
 	signer := crypto.PubkeyToAddress(privKey.PublicKey)
 LOOP:

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 
 	"github.com/catalogfi/cobi/cobid/handlers"
@@ -204,7 +205,36 @@ func (a *startExecutor) Query(cfg types.CoreConfig, params json.RawMessage) (jso
 		return nil, err
 	}
 
-	cmd := exec.Command(utils.DefaultCobiDirectory()+"/executor", strconv.Itoa(int(req.Account)), strconv.FormatBool(req.IsInstantWallet))
+	cmd := exec.Command(filepath.Join(utils.DefaultCobiDirectory(), "executor"), strconv.Itoa(int(req.Account)), strconv.FormatBool(req.IsInstantWallet))
+
+	if err := cmd.Start(); err != nil {
+		return json.Marshal("error starting process" + err.Error())
+	}
+
+	if cmd == nil || cmd.ProcessState != nil && cmd.ProcessState.Exited() || cmd.Process == nil {
+		return json.Marshal("error starting process")
+	}
+
+	return json.Marshal("started Sucessfull")
+}
+
+type startStrategy struct{}
+
+func StrategyService() Command {
+	return &startExecutor{}
+}
+
+func (a *startStrategy) Name() string {
+	return "startExecutor"
+}
+
+func (a *startStrategy) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
+	var req types.RequestStartStrategy
+	if err := json.Unmarshal(params, &req); err != nil {
+		return nil, err
+	}
+
+	cmd := exec.Command(filepath.Join(utils.DefaultCobiDirectory(), "strategy"), req.Service, strconv.FormatBool(req.IsInstantWallet))
 
 	if err := cmd.Start(); err != nil {
 		return json.Marshal("error starting process" + err.Error())

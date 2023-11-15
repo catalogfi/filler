@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/catalogfi/cobi/cobid/executor"
+	"github.com/catalogfi/cobi/cobid/types"
 	"github.com/catalogfi/cobi/store"
 	"github.com/catalogfi/cobi/utils"
 	"github.com/tyler-smith/go-bip39"
@@ -64,7 +65,7 @@ func main() {
 	}
 	exec := executor.NewExecutor()
 	exec.Start(
-		executor.CoreConfig{
+		types.CoreConfig{
 			Logger:    logger,
 			EnvConfig: envConfig,
 			Keys:      &keys,

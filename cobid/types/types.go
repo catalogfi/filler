@@ -56,6 +56,10 @@ type RequestListOrders struct {
 	PerPage    uint32  `json:"perPage"`
 }
 
+type RequestStartStrategy struct {
+	Service         string `json:"service"`
+	IsInstantWallet bool   `json:"isInstantWallet"`
+}
 type RequestStartExecutor struct {
 	Account         uint32 `json:"userAccount"`
 	IsInstantWallet bool   `json:"isInstantWallet"`
