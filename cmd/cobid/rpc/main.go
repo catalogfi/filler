@@ -13,8 +13,11 @@ import (
 )
 
 func main() {
-	// start executor
-	// start autofillers
+	
+	if err:= utils.SetupCobiDir();err!=nil{
+		panic(err)
+	}
+
 	envConfig, err := utils.LoadExtendedConfig(utils.DefaultConfigPath())
 	if err != nil {
 		panic(err)

@@ -206,7 +206,7 @@ func (a *startExecutor) Query(cfg types.CoreConfig, params json.RawMessage) (jso
 		return nil, err
 	}
 
-	cmd := exec.Command(filepath.Join(utils.DefaultCobiDirectory(), "executor"), strconv.Itoa(int(req.Account)), strconv.FormatBool(req.IsInstantWallet))
+	cmd := exec.Command(filepath.Join(utils.DefaultCobiBin(), "executor"), strconv.Itoa(int(req.Account)), strconv.FormatBool(req.IsInstantWallet))
 
 	stdoutPipe, err := cmd.StdoutPipe()
 	if err != nil {
@@ -257,7 +257,7 @@ func (a *startStrategy) Query(cfg types.CoreConfig, params json.RawMessage) (jso
 		return nil, err
 	}
 
-	cmd := exec.Command(filepath.Join(utils.DefaultCobiDirectory(), "strategy"), req.Service, strconv.FormatBool(req.IsInstantWallet))
+	cmd := exec.Command(filepath.Join(utils.DefaultCobiBin(), "strategy"), req.Service, strconv.FormatBool(req.IsInstantWallet))
 
 	stdoutPipe, err := cmd.StdoutPipe()
 	if err != nil {

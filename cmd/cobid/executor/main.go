@@ -75,7 +75,7 @@ func main() {
 	config := zap.NewProductionEncoderConfig()
 	config.EncodeTime = zapcore.ISO8601TimeEncoder
 	fileEncoder := zapcore.NewJSONEncoder(config)
-	logFile, _ := os.OpenFile(filepath.Join(utils.DefaultCobiDirectory(), fmt.Sprintf("executor_account_%d.log", userAccount)), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	logFile, _ := os.OpenFile(filepath.Join(utils.DefaultCobiLogs(), fmt.Sprintf("executor_account_%d.log", userAccount)), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	writer := zapcore.AddSync(logFile)
 	defaultLogLevel := zapcore.DebugLevel
 	core := zapcore.NewTee(
@@ -83,7 +83,7 @@ func main() {
 	)
 	logger := zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
 
-	pidFilePath := filepath.Join(utils.DefaultCobiDirectory(), fmt.Sprintf("executor_account_%d.pid", userAccount))
+	pidFilePath := filepath.Join(utils.DefaultCobiPids(), fmt.Sprintf("executor_account_%d.pid", userAccount))
 
 	if _, err := os.Stat(pidFilePath); err == nil {
 		fmt.Fprint(os.Stdout, "executor already running")

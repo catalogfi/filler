@@ -116,7 +116,6 @@ LOOP:
 		respChan := client.Listen()
 		for {
 
-			e.Config.Logger.Info("here")
 			select {
 			case resp := <-respChan:
 				switch response := resp.(type) {

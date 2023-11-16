@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -30,6 +31,15 @@ func init() {
 func DefaultCobiDirectory() string {
 	return filepath.Join(HomeDir, ".cobi")
 }
+func DefaultCobiBin() string {
+	return filepath.Join(HomeDir, ".cobi", "bin")
+}
+func DefaultCobiLogs() string {
+	return filepath.Join(HomeDir, ".cobi", "logs")
+}
+func DefaultCobiPids() string {
+	return filepath.Join(HomeDir, ".cobi", "daemon_pids")
+}
 
 func DefaultMnemonicPath() string {
 	return filepath.Join(HomeDir, ".cobi", "MNEMONIC")
@@ -48,6 +58,31 @@ func DefaultStrategyPath() string {
 
 func DefaultStorePath() string {
 	return filepath.Join(HomeDir, ".cobi", "data.db")
+}
+
+func folderExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+func SetupCobiDir() error {
+	folders := []string{
+		DefaultCobiDirectory(),
+		DefaultCobiBin(),
+		DefaultCobiLogs(),
+		DefaultCobiPids(),
+	}
+
+	// Create folders if they don't exist
+	for _, folder := range folders {
+		if !folderExists(folder) {
+			err := os.MkdirAll(folder, os.ModePerm)
+			if err != nil {
+				return fmt.Errorf("error creating folder %s: %v\n", folder, err)
+			}
+		}
+	}
+	return nil
 }
 
 func LoadMnemonic(path string) ([]byte, error) {
