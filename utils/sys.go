@@ -149,6 +149,18 @@ func LoadExtendedConfig(path string) (Config, error) {
 			return config, err
 		}
 		config.Mnemonic = string(mnemonic)
+
+		if config.RpcPassword == "" {
+			config.RpcPassword = string("root")
+		}
+		if config.RpcUserName == "" {
+			config.RpcUserName = string("admin")
+		}
+		config.NoTLS = true
+		if config.RPCServer == "" {
+			config.RPCServer = string("localhost:8080")
+		}
+
 		data, err := json.MarshalIndent(config, "", "  ")
 		if err != nil {
 			return config, err

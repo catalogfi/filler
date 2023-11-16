@@ -13,8 +13,8 @@ import (
 )
 
 func main() {
-	
-	if err:= utils.SetupCobiDir();err!=nil{
+
+	if err := utils.SetupCobiDir(); err != nil {
 		panic(err)
 	}
 

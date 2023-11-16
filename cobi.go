@@ -63,6 +63,7 @@ func Run(version string) error {
 	cmd.AddCommand(cobictl.Deposit(rpcClient))
 	cmd.AddCommand(cobictl.Transfer(rpcClient))
 	cmd.AddCommand(cobictl.KillService(rpcClient))
+	cmd.AddCommand(cobictl.SetConfig(rpcClient))
 	if err := cmd.Execute(); err != nil {
 		return err
 	}

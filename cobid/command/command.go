@@ -335,7 +335,7 @@ func (a *setConfig) Query(cfg types.CoreConfig, params json.RawMessage) (json.Ra
 		return nil, err
 	}
 
-	err = os.WriteFile("config.json", bytes, 0644)
+	err = os.WriteFile(utils.DefaultConfigPath(), bytes, 0644)
 	if err != nil {
 		return nil, err
 	}
