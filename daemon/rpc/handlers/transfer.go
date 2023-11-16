@@ -10,14 +10,14 @@ import (
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/catalogfi/blockchain/btc"
 	"github.com/catalogfi/cobi/daemon/types"
+	"github.com/catalogfi/cobi/pkg/blockchain"
+	"github.com/catalogfi/cobi/pkg/swapper/bitcoin"
+	"github.com/catalogfi/cobi/pkg/swapper/ethereum"
 	"github.com/catalogfi/cobi/utils"
-	"github.com/catalogfi/cobi/wbtc-garden/blockchain"
-	"github.com/catalogfi/cobi/wbtc-garden/model"
-	"github.com/catalogfi/cobi/wbtc-garden/rest"
-	"github.com/catalogfi/cobi/wbtc-garden/swapper/bitcoin"
-	"github.com/catalogfi/cobi/wbtc-garden/swapper/ethereum"
 	"github.com/catalogfi/guardian"
 	"github.com/catalogfi/guardian/jsonrpc"
+	"github.com/catalogfi/wbtc-garden/model"
+	"github.com/catalogfi/wbtc-garden/rest"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"go.uber.org/zap"
@@ -28,16 +28,16 @@ import (
 func Transfer(cfg types.CoreConfig, params types.RequestTransfer) (string, error) {
 	err := types.CheckStrings(params.Asset, params.ToAddr)
 	if err != nil {
-		return "", (fmt.Errorf("Error while parsing asset and address: %v", err))
+		return "", (fmt.Errorf("error while parsing asset and address: %v", err))
 	}
 
 	if err := types.CheckUint64s(params.Amount); err != nil {
-		return "", fmt.Errorf("Error while parsing amount: %v", err)
+		return "", fmt.Errorf("error while parsing amount: %v", err)
 	}
 
 	ch, a, err := model.ParseChainAsset(params.Asset)
 	if err != nil {
-		return "", (fmt.Errorf("Error while parsing chain and asset: %v", err))
+		return "", (fmt.Errorf("error while parsing chain and asset: %v", err))
 	}
 
 	err = blockchain.CheckAddress(ch, params.ToAddr)
@@ -47,7 +47,7 @@ func Transfer(cfg types.CoreConfig, params types.RequestTransfer) (string, error
 
 	key, err := cfg.Keys.GetKey(ch, uint32(params.UserAccount), 0)
 	if err != nil {
-		return "", (fmt.Errorf("Error while getting the signing key: %v", err))
+		return "", (fmt.Errorf("error while getting the signing key: %v", err))
 	}
 
 	logger, err := zap.NewProduction()
@@ -57,11 +57,11 @@ func Transfer(cfg types.CoreConfig, params types.RequestTransfer) (string, error
 
 	signingKey, err := cfg.Keys.GetKey(model.Ethereum, params.UserAccount, 0)
 	if err != nil {
-		return "", (fmt.Errorf("Error while getting the signing key: %v", err))
+		return "", (fmt.Errorf("error while getting the signing key: %v", err))
 	}
 	ecdsaKey, err := signingKey.ECDSA()
 	if err != nil {
-		return "", (fmt.Errorf("Error calculating ECDSA key: %v", err))
+		return "", (fmt.Errorf("error calculating ECDSA key: %v", err))
 	}
 
 	restClient := rest.NewClient(fmt.Sprintf("https://%s", cfg.EnvConfig.OrderBook), hex.EncodeToString(crypto.FromECDSA(ecdsaKey)))
@@ -118,7 +118,7 @@ func Transfer(cfg types.CoreConfig, params types.RequestTransfer) (string, error
 		}
 		address, err = key.Address(ch, cfg.EnvConfig.Network, false, iwConfig)
 		if err != nil {
-			return "", (fmt.Errorf("Error while getting the instant wallet address: %v", err))
+			return "", (fmt.Errorf("error while getting the instant wallet address: %v", err))
 		}
 		usableBalance, err := utils.VirtualBalance(ch, address, cfg.EnvConfig.Network, a, signer.Hex(), restClient, iwConfig)
 		if err != nil {
@@ -134,7 +134,7 @@ func Transfer(cfg types.CoreConfig, params types.RequestTransfer) (string, error
 	} else {
 		address, err = key.Address(ch, cfg.EnvConfig.Network, false)
 		if err != nil {
-			return "", (fmt.Errorf("Error while getting the wallet address: %v", err))
+			return "", (fmt.Errorf("error while getting the wallet address: %v", err))
 		}
 		usableBalance, err := utils.VirtualBalance(ch, address, cfg.EnvConfig.Network, a, signer.Hex(), restClient)
 		if err != nil {
@@ -155,7 +155,7 @@ func Transfer(cfg types.CoreConfig, params types.RequestTransfer) (string, error
 	case ethereum.Client:
 		privKey, err := key.ECDSA()
 		if err != nil {
-			return "", (fmt.Errorf("Error calculating ECDSA key: %v", err))
+			return "", (fmt.Errorf("error calculating ECDSA key: %v", err))
 		}
 
 		if a == model.Primary {

@@ -53,6 +53,8 @@ github.com/catalogfi/blockchain v0.0.4 h1:YNN9kkOVkOwmqLwy7ewqKwLuySljTrkoMslGRf
 github.com/catalogfi/blockchain v0.0.4/go.mod h1:e67lvEd6gEKh4yGAliq7J9CbAw4IA2yV1u0kgbBCgSE=
 github.com/catalogfi/guardian v0.0.0-20231108104139-025131b2f4dd h1:/vLm1sat/W0DqzrIBGJcEtJBl7wSS4yKECCvAuccTQ0=
 github.com/catalogfi/guardian v0.0.0-20231108104139-025131b2f4dd/go.mod h1:acLQ/akUdeln9+mvUSEbWLiM0OjC+K05+1drTpi85fA=
+github.com/catalogfi/wbtc-garden v0.0.0-20231018063504-74db33fd7fcf h1:bJJFL8Xe4m94ccVYRpGq8INaxwuGGrAIspSTOAmLVPs=
+github.com/catalogfi/wbtc-garden v0.0.0-20231018063504-74db33fd7fcf/go.mod h1:Kf6ZSVkbPoatqxuCteQ6+GG2kZ4IY/WGotcPHGM5h3U=
 github.com/cespare/cp v0.1.0 h1:SE+dxFebS7Iik5LK0tsi1k9ZCxEaFX4AjQmoyA+1dJk=
 github.com/cespare/xxhash/v2 v2.2.0 h1:DC2CZ1Ep5Y4k3ZQ899DldepgrayRUGE6BBZ/cd9Cj44=
 github.com/chenzhuoyu/base64x v0.0.0-20211019084208-fb5309c8db06/go.mod h1:DH46F32mSOjUmXrMHnKwZdA8wcEefY7UVqBKYGjpdQY=
@@ -217,6 +219,8 @@ github.com/kylelemons/godebug v1.1.0 h1:RPNrshWIDI6G2gRW9EHilWtl7Z6Sb1BR0xunSBf0
 github.com/leodido/go-urn v1.2.1/go.mod h1:zt4jvISO2HfUBqxjfIshjdMTYS56ZS/qv49ictyFfxY=
 github.com/leodido/go-urn v1.2.4 h1:XlAE/cm/ms7TE/VMVoduSpNBoyc2dOxHs5MZSwAN63Q=
 github.com/leodido/go-urn v1.2.4/go.mod h1:7ZrI8mTSeBSHl/UaRyKQW1qZeMgak41ANeCNaVckg+4=
+github.com/lib/pq v1.10.9 h1:YXG7RB+JIjhP29X+OtkiDnYaXQwpS4JEWq7dtCCRUEw=
+github.com/lib/pq v1.10.9/go.mod h1:AlVN5x4E4T544tWzH6hKfbfQvm3HdbOxrmggDNAPY9o=
 github.com/mattn/go-colorable v0.1.13 h1:fFA4WZxdEF4tXPZVKMLwD8oUnCTTo08duU7wxecdEvA=
 github.com/mattn/go-colorable v0.1.13/go.mod h1:7S9/ev0klgBDR4GtXTXX8a3vIGJpMovkB8vQcUbaXHg=
 github.com/mattn/go-isatty v0.0.14/go.mod h1:7GGIvUiUoEMVVmxf/4nioHXj79iQHKdU27kJ6hsGG94=

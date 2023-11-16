@@ -12,7 +12,7 @@ import (
 	"github.com/catalogfi/cobi/rpcclient"
 	"github.com/catalogfi/cobi/store"
 	"github.com/catalogfi/cobi/utils"
-	"github.com/catalogfi/cobi/wbtc-garden/model"
+	"github.com/catalogfi/wbtc-garden/model"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/tyler-smith/go-bip39"

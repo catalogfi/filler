@@ -6,7 +6,7 @@ package handlers
 // 	"os"
 
 // 	"github.com/catalogfi/cobi/utils"
-// 	"github.com/catalogfi/cobi/wbtc-garden/model"
+// 	"github.com/catalogfi/wbtc-garden/model"
 // 	"github.com/jedib0t/go-pretty/table"
 // 	"github.com/spf13/cobra"
 // 	"go.uber.org/zap"

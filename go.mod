@@ -41,6 +41,7 @@ require (
 	github.com/btcsuite/go-socks v0.0.0-20170105172521-4720035b7bfd // indirect
 	github.com/btcsuite/websocket v0.0.0-20150119174127-31079b680792 // indirect
 	github.com/bytedance/sonic v1.9.1 // indirect
+	github.com/catalogfi/wbtc-garden v0.0.0-20231018063504-74db33fd7fcf // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
 	github.com/dchest/uniuri v0.0.0-20200228104902-7aecb25e1fe5 // indirect
 	github.com/deckarep/golang-set/v2 v2.3.0 // indirect
@@ -74,6 +75,7 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.4 // indirect
 	github.com/leodido/go-urn v1.2.4 // indirect
+	github.com/lib/pq v1.10.9 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/mattn/go-runewidth v0.0.13 // indirect

@@ -7,9 +7,9 @@ package handlers
 
 // 	storeType "github.com/catalogfi/cobi/store"
 // 	"github.com/catalogfi/cobi/utils"
-// 	"github.com/catalogfi/cobi/wbtc-garden/model"
-// 	"github.com/catalogfi/cobi/wbtc-garden/rest"
-// 	"github.com/catalogfi/cobi/wbtc-garden/swapper/bitcoin"
+// 	"github.com/catalogfi/wbtc-garden/model"
+// 	"github.com/catalogfi/wbtc-garden/rest"
+// 	"github.com/catalogfi/cobi/pkg/swapper/bitcoin"
 // 	"github.com/ethereum/go-ethereum/crypto"
 // 	"github.com/spf13/cobra"
 // 	"go.uber.org/zap"
@@ -46,24 +46,24 @@ package handlers
 // 			client := rest.NewClient(fmt.Sprintf("https://%s", url), hex.EncodeToString(crypto.FromECDSA(privKey)))
 // 			token, err := client.Login()
 // 			if err != nil {
-// 				cobra.CheckErr(fmt.Sprintf("Error while getting the signing key: %v", err))
+// 				cobra.CheckErr(fmt.Sprintf("error while getting the signing key: %v", err))
 // 				return
 // 			}
 // 			if err := client.SetJwt(token); err != nil {
-// 				cobra.CheckErr(fmt.Sprintf("Error to parse signing key: %v", err))
+// 				cobra.CheckErr(fmt.Sprintf("error to parse signing key: %v", err))
 // 				return
 // 			}
 // 			order, err := client.GetOrder(orderId)
 
 // 			if err != nil {
-// 				cobra.CheckErr(fmt.Sprintf("Error while getting order from server: %v", err))
+// 				cobra.CheckErr(fmt.Sprintf("error while getting order from server: %v", err))
 // 				return
 // 			}
 
 // 			accountStore := store.UserStore(account)
 // 			localOrder, err := accountStore.GetOrder(orderId)
 // 			if err != nil {
-// 				cobra.CheckErr(fmt.Sprintf("Error while loading order from local state: %v", err))
+// 				cobra.CheckErr(fmt.Sprintf("error while loading order from local state: %v", err))
 // 				return
 // 			}
 // 			status := localOrder.Status
@@ -92,7 +92,7 @@ package handlers
 // 			}
 // 			err = accountStore.PutStatus(order.SecretHash, updatedStatus)
 // 			if err != nil {
-// 				cobra.CheckErr(fmt.Sprintf("Error while parsing order pair: %v", err))
+// 				cobra.CheckErr(fmt.Sprintf("error while parsing order pair: %v", err))
 // 				return
 // 			}
 

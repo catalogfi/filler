@@ -10,13 +10,13 @@ import (
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/catalogfi/blockchain/btc"
 	"github.com/catalogfi/cobi/daemon/types"
+	"github.com/catalogfi/cobi/pkg/blockchain"
+	"github.com/catalogfi/cobi/pkg/swapper/bitcoin"
 	"github.com/catalogfi/cobi/utils"
-	"github.com/catalogfi/cobi/wbtc-garden/blockchain"
-	"github.com/catalogfi/cobi/wbtc-garden/model"
-	"github.com/catalogfi/cobi/wbtc-garden/rest"
-	"github.com/catalogfi/cobi/wbtc-garden/swapper/bitcoin"
 	"github.com/catalogfi/guardian"
 	"github.com/catalogfi/guardian/jsonrpc"
+	"github.com/catalogfi/wbtc-garden/model"
+	"github.com/catalogfi/wbtc-garden/rest"
 	"github.com/ethereum/go-ethereum/crypto"
 	"go.uber.org/zap"
 )
@@ -26,11 +26,11 @@ func GetAccounts(cfg types.CoreConfig, params types.RequestAccount) ([]types.Acc
 		return nil, fmt.Errorf("Asset is not valid: %v", err)
 	}
 	if err := types.CheckUint32s(params.PerPage, params.Page); err != nil {
-		return nil, fmt.Errorf("Error while parsing PerPage: %v", err)
+		return nil, fmt.Errorf("error while parsing PerPage: %v", err)
 	}
 	ch, a, err := model.ParseChainAsset(params.Asset)
 	if err != nil {
-		return nil, fmt.Errorf("Error while parsing Chain and Asset: %v", err)
+		return nil, fmt.Errorf("error while parsing Chain and Asset: %v", err)
 	}
 	var iwStore bitcoin.Store
 	var guardianWallet guardian.BitcoinWallet
@@ -56,21 +56,21 @@ func GetAccounts(cfg types.CoreConfig, params types.RequestAccount) ([]types.Acc
 	for i := params.PerPage*params.Page - params.PerPage; i < params.PerPage*params.Page; i++ {
 		key, err := cfg.Keys.GetKey(ch, uint32(i), 0)
 		if err != nil {
-			return nil, fmt.Errorf("Error parsing key: %v", err)
+			return nil, fmt.Errorf("error parsing key: %v", err)
 		}
 
 		address, err := key.Address(ch, config, params.IsLegacy)
 		if err != nil {
-			return nil, fmt.Errorf("Error getting wallet address: %v", err)
+			return nil, fmt.Errorf("error getting wallet address: %v", err)
 		}
 
 		signingKey, err := cfg.Keys.GetKey(model.Ethereum, params.UserAccount, uint32(i))
 		if err != nil {
-			return nil, fmt.Errorf("Error getting signing key: %v", err)
+			return nil, fmt.Errorf("error getting signing key: %v", err)
 		}
 		ecdsaKey, err := signingKey.ECDSA()
 		if err != nil {
-			return nil, fmt.Errorf("Error calculating ECDSA key: %v", err)
+			return nil, fmt.Errorf("error calculating ECDSA key: %v", err)
 		}
 
 		client := rest.NewClient(fmt.Sprintf("https://%s", cfg.EnvConfig.OrderBook), hex.EncodeToString(crypto.FromECDSA(ecdsaKey)))
@@ -100,11 +100,11 @@ func GetAccounts(cfg types.CoreConfig, params types.RequestAccount) ([]types.Acc
 			}
 			address, err = key.Address(ch, config, params.IsLegacy, iwConfig)
 			if err != nil {
-				return nil, fmt.Errorf("Error getting instant wallet address: %v", err)
+				return nil, fmt.Errorf("error getting instant wallet address: %v", err)
 			}
 			balance, err = utils.Balance(ch, address, config, a, iwConfig)
 			if err != nil {
-				return nil, fmt.Errorf("Error getting balance: %v", err)
+				return nil, fmt.Errorf("error getting balance: %v", err)
 			}
 			usableBalance, err = utils.VirtualBalance(ch, address, config, a, signer.Hex(), client, iwConfig)
 			if err != nil {
@@ -113,7 +113,7 @@ func GetAccounts(cfg types.CoreConfig, params types.RequestAccount) ([]types.Acc
 		} else {
 			balance, err = utils.Balance(ch, address, config, a)
 			if err != nil {
-				return nil, fmt.Errorf("Error getting balance: %v", err)
+				return nil, fmt.Errorf("error getting balance: %v", err)
 			}
 			usableBalance, err = utils.VirtualBalance(ch, address, config, a, signer.Hex(), client)
 			if err != nil {

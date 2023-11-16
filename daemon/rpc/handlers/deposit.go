@@ -8,12 +8,12 @@ import (
 
 	"github.com/catalogfi/blockchain/btc"
 	"github.com/catalogfi/cobi/daemon/types"
+	"github.com/catalogfi/cobi/pkg/blockchain"
+	"github.com/catalogfi/cobi/pkg/swapper/bitcoin"
 	"github.com/catalogfi/cobi/utils"
-	"github.com/catalogfi/cobi/wbtc-garden/blockchain"
-	"github.com/catalogfi/cobi/wbtc-garden/model"
-	"github.com/catalogfi/cobi/wbtc-garden/swapper/bitcoin"
 	"github.com/catalogfi/guardian"
 	"github.com/catalogfi/guardian/jsonrpc"
+	"github.com/catalogfi/wbtc-garden/model"
 	"go.uber.org/zap"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -32,7 +32,7 @@ func Deposit(cfg types.CoreConfig, params types.RequestDeposit) (string, error) 
 	}
 	chain, a, err := model.ParseChainAsset(params.Asset)
 	if err != nil {
-		return "", fmt.Errorf("Error while parsing chain asset: %v", err)
+		return "", fmt.Errorf("error while parsing chain asset: %v", err)
 	}
 
 	var iwStore bitcoin.Store
@@ -55,7 +55,7 @@ func Deposit(cfg types.CoreConfig, params types.RequestDeposit) (string, error) 
 
 	key, err := cfg.Keys.GetKey(chain, params.UserAccount, 0)
 	if err != nil {
-		return "", fmt.Errorf("Error while getting the signing key: %v", err)
+		return "", fmt.Errorf("error while getting the signing key: %v", err)
 	}
 
 	privKey := key.BtcKey()
@@ -83,11 +83,11 @@ func Deposit(cfg types.CoreConfig, params types.RequestDeposit) (string, error) 
 
 		address, err := key.Address(chain, cfg.EnvConfig.Network, false)
 		if err != nil {
-			return "", fmt.Errorf("Error getting wallet address: %v", err)
+			return "", fmt.Errorf("error getting wallet address: %v", err)
 		}
 		balance, err := utils.Balance(chain, address, cfg.EnvConfig.Network, a)
 		if err != nil {
-			return "", fmt.Errorf("Error getting wallet balance: %v", err)
+			return "", fmt.Errorf("error getting wallet balance: %v", err)
 		}
 
 		if new(big.Int).SetUint64(params.Amount).Cmp(balance) > 0 {
@@ -96,7 +96,7 @@ func Deposit(cfg types.CoreConfig, params types.RequestDeposit) (string, error) 
 
 		txHash, err := client.FundInstantWallet(privKey, int64(params.Amount))
 		if err != nil {
-			return "", fmt.Errorf("Error funding wallet: %v", err)
+			return "", fmt.Errorf("error funding wallet: %v", err)
 
 		}
 		return txHash, nil

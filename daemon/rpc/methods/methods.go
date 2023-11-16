@@ -211,7 +211,7 @@ func (a *startExecutor) Query(cfg types.CoreConfig, params json.RawMessage) (jso
 
 	stdoutPipe, err := cmd.StdoutPipe()
 	if err != nil {
-		return json.Marshal(fmt.Sprintf("Error creating stdout pipe, err:%v", err))
+		return json.Marshal(fmt.Sprintf("error creating stdout pipe, err:%v", err))
 	}
 
 	if err := cmd.Start(); err != nil {
@@ -262,7 +262,7 @@ func (a *startStrategy) Query(cfg types.CoreConfig, params json.RawMessage) (jso
 
 	stdoutPipe, err := cmd.StdoutPipe()
 	if err != nil {
-		return json.Marshal(fmt.Sprintf("Error creating stdout pipe, err:%v", err))
+		return json.Marshal(fmt.Sprintf("error creating stdout pipe, err:%v", err))
 	}
 
 	if err := cmd.Start(); err != nil {
