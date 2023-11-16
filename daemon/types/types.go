@@ -69,6 +69,12 @@ type RequestStatus struct {
 	Account uint32 `json:"userAccount"`
 }
 
+type RequestRetry struct {
+	OrderId         uint64 `json:"orderId" binding:"required"`
+	Account         uint32 `json:"userAccount"`
+	IsInstantWallet bool   `json:"isInstantWallet"`
+}
+
 type AccountInfo struct {
 	AccountNo     string `json:"accountNo"`
 	Address       string `json:"address"`
