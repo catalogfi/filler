@@ -36,6 +36,7 @@ type Client interface {
 	KillService(data handlers.KillSerivce) (json.RawMessage, error)
 	StartService(data StartService) (json.RawMessage, error)
 	SetConfig(data utils.Config) (json.RawMessage, error)
+	RetryOrder(data types.RequestRetry) (json.RawMessage, error)
 }
 
 func NewClient(userName string, password string, protocol string, rpcServer string) Client {
@@ -247,6 +248,22 @@ func (c *client) SetConfig(data utils.Config) (json.RawMessage, error) {
 	}
 
 	resp, err := c.SendPostRequest("setConfig", jsonData)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+
+	return resp, nil
+}
+
+func (c *client) RetryOrder(data types.RequestRetry) (json.RawMessage, error) {
+
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal payload: %w", err)
+	}
+
+	resp, err := c.SendPostRequest("retryOrder", jsonData)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)

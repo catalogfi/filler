@@ -342,3 +342,26 @@ func (a *setConfig) Query(cfg types.CoreConfig, params json.RawMessage) (json.Ra
 
 	return json.Marshal("sucess")
 }
+
+type retry struct{}
+
+func Retry() Method {
+	return &retry{}
+}
+
+func (a *retry) Name() string {
+	return "retryOrder"
+}
+
+func (a *retry) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
+	var req types.RequestRetry
+	if err := json.Unmarshal(params, &req); err != nil {
+		return nil, err
+	}
+
+	if err := handlers.Retry(cfg, req); err != nil {
+		return nil, err
+	}
+
+	return json.Marshal("sucessfully retried")
+}

@@ -1,39 +1,20 @@
 package handlers
 
-<<<<<<< Updated upstream
-// import (
-// 	"encoding/hex"
-// 	"fmt"
-// 	"time"
-
-// 	storeType "github.com/catalogfi/cobi/store"
-// 	"github.com/catalogfi/cobi/utils"
-// 	"github.com/catalogfi/wbtc-garden/model"
-// 	"github.com/catalogfi/wbtc-garden/rest"
-// 	"github.com/catalogfi/cobi/pkg/swapper/bitcoin"
-// 	"github.com/ethereum/go-ethereum/crypto"
-// 	"github.com/spf13/cobra"
-// 	"go.uber.org/zap"
-// 	"gorm.io/driver/postgres"
-// 	"gorm.io/gorm"
-// 	glogger "gorm.io/gorm/logger"
-// )
-
-// func Retry(url string, keys utils.Keys, config model.Network, store storeType.Store, logger *zap.Logger, db string) *cobra.Command {
-=======
 import (
 	"encoding/hex"
 	"fmt"
 	"time"
 
+	"github.com/catalogfi/cobi/daemon/executor"
 	"github.com/catalogfi/cobi/daemon/types"
-	"github.com/catalogfi/cobi/wbtc-garden/model"
-	"github.com/catalogfi/cobi/wbtc-garden/rest"
-	"github.com/catalogfi/cobi/wbtc-garden/swapper/bitcoin"
+	"github.com/catalogfi/cobi/pkg/swapper/bitcoin"
+	storeType "github.com/catalogfi/cobi/store"
+	"github.com/catalogfi/cobi/utils"
+	"github.com/catalogfi/wbtc-garden/model"
+	"github.com/catalogfi/wbtc-garden/rest"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/spf13/cobra"
 	"go.uber.org/zap"
-	"gorm.io/driver/postgres"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -69,10 +50,9 @@ func Retry(cfg types.CoreConfig, params types.RequestRetry) error {
 	}
 
 	accountStore := cfg.Storage.UserStore(params.Account)
-	localOrder, err := accountStore.GetOrder(orderId)
+	localOrder, err := accountStore.GetOrder(uint(params.OrderId))
 	if err != nil {
-		cobra.CheckErr(fmt.Sprintf("Error while loading order from local state: %v", err))
-		return
+		return fmt.Errorf("Error while getting the  order: %v", err)
 	}
 	status := localOrder.Status
 	var updatedStatus storeType.Status
@@ -87,39 +67,50 @@ func Retry(cfg types.CoreConfig, params types.RequestRetry) error {
 		updatedStatus = storeType.FollowerRedeemed - 1
 	case storeType.InitiatorFailedToRefund:
 		if localOrder.InitiateTxHash == "" {
-			cobra.CheckErr(fmt.Errorf("could not find initiator's initiate tx hash for the order"))
-			return
+			return fmt.Errorf("could not find initiator's initiate tx hash for the order")
 		}
 		updatedStatus = storeType.InitiatorInitiated
 	case storeType.FollowerFailedToRefund:
 		if localOrder.InitiateTxHash == "" {
-			cobra.CheckErr(fmt.Errorf("could not find follower's initiate tx hash for the order"))
-			return
+			return fmt.Errorf("could not find follower's initiate tx hash for the order")
 		}
 		updatedStatus = storeType.FollowerInitiated
 	}
 	err = accountStore.PutStatus(order.SecretHash, updatedStatus)
 	if err != nil {
-		cobra.CheckErr(fmt.Sprintf("Error while parsing order pair: %v", err))
-		return
+		return fmt.Errorf("Error while putting the status: %v", err)
 	}
 
 	grandChildLogger := childLogger.With(zap.Uint("order id", order.ID), zap.String("SecHash", order.SecretHash))
-	iwStore, _ := bitcoin.NewStore(nil)
-	if useIw {
-		iwStore, err = bitcoin.NewStore(postgres.Open(db), &gorm.Config{
-			NowFunc: func() time.Time { return time.Now().UTC() },
-			Logger:  glogger.Default.LogMode(glogger.Silent),
-		})
-		if err != nil {
-			cobra.CheckErr(fmt.Sprintf("Could not load iw store: %v", err))
-			return
+
+	var iwConfig []bitcoin.InstantWalletConfig
+	if params.IsInstantWallet {
+		var iwStore bitcoin.Store
+		if cfg.EnvConfig.DB != "" {
+			iwStore, err = bitcoin.NewStore(sqlite.Open(cfg.EnvConfig.DB), &gorm.Config{
+				NowFunc: func() time.Time { return time.Now().UTC() },
+			})
+			if err != nil {
+				return fmt.Errorf("Could not load iw store: %v", err)
+			}
+		} else {
+			iwStore, err = bitcoin.NewStore((utils.DefaultInstantWalletDBDialector()), &gorm.Config{
+				NowFunc: func() time.Time { return time.Now().UTC() },
+			})
+			if err != nil {
+				return fmt.Errorf("Could not load iw store: %v", err)
+			}
 		}
+		iwConfig = append(iwConfig, bitcoin.InstantWalletConfig{
+			Store: iwStore,
+		})
+
 	}
-	execute(order, grandChildLogger, signer, keys, account, config, accountStore, iwStore)
+
+	executor.Execute(order, grandChildLogger, signer, *cfg.Keys, params.Account, cfg.EnvConfig.Network, accountStore, iwConfig...)
+	return nil
 }
 
->>>>>>> Stashed changes
 // 	var (
 // 		account uint32
 // 		orderId uint

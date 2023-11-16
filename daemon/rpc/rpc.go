@@ -160,6 +160,7 @@ func (r *rpc) Run() {
 	r.AddCommand(methods.StrategyService())
 	r.AddCommand(methods.Status())
 	r.AddCommand(methods.SetConfig())
+	r.AddCommand(methods.Retry())
 
 	s := gin.Default()
 

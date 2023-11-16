@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/catalogfi/cobi/cli/cobi"
+	"github.com/catalogfi/cobi/cli"
 )
 
 var BinaryVersion = "undefined"
 
 func main() {
-	if err := cobi.Run(BinaryVersion); err != nil {
+	if err := cli.Run(BinaryVersion); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}

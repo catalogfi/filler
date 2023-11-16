@@ -1,4 +1,4 @@
-package cobi
+package cli
 
 import (
 	"github.com/TheZeroSlave/zapsentry"
