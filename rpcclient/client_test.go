@@ -1,4 +1,4 @@
-package cobictl_test
+package rpcclient_test
 
 import (
 	"encoding/json"
@@ -6,10 +6,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/catalogfi/cobi/cobictl"
 	"github.com/catalogfi/cobi/cobid/handlers"
 	jsonrpc "github.com/catalogfi/cobi/cobid/rpc"
 	"github.com/catalogfi/cobi/cobid/types"
+	"github.com/catalogfi/cobi/rpcclient"
 	"github.com/catalogfi/cobi/store"
 	"github.com/catalogfi/cobi/utils"
 	"github.com/catalogfi/cobi/wbtc-garden/model"
@@ -23,7 +23,7 @@ import (
 
 var (
 	s            jsonrpc.RPC
-	c            cobictl.Client
+	c            rpcclient.Client
 	CurrentOrder uint64
 )
 
@@ -36,7 +36,7 @@ var _ = BeforeSuite(func() {
 
 	StartServer()
 	time.Sleep(3 * time.Second) // await server to start
-	c = cobictl.NewClient("admin", "root", "http", "127.0.0.1:8080")
+	c = rpcclient.NewClient("admin", "root", "http", "127.0.0.1:8080")
 })
 
 var _ = Describe("ClientTesting", func() {

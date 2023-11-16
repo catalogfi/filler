@@ -1,4 +1,4 @@
-package cobictl
+package commands
 
 import (
 	"encoding/json"
@@ -6,11 +6,12 @@ import (
 	"os"
 
 	"github.com/catalogfi/cobi/cobid/types"
+	"github.com/catalogfi/cobi/rpcclient"
 	"github.com/jedib0t/go-pretty/table"
 	"github.com/spf13/cobra"
 )
 
-func Accounts(rpcClient Client) *cobra.Command {
+func Accounts(rpcClient rpcclient.Client) *cobra.Command {
 	var (
 		user    uint32
 		asset   string

@@ -1,13 +1,14 @@
-package cobictl
+package commands
 
 import (
 	"fmt"
 
 	"github.com/catalogfi/cobi/cobid/types"
+	"github.com/catalogfi/cobi/rpcclient"
 	"github.com/spf13/cobra"
 )
 
-func Deposit(rpcClient Client) *cobra.Command {
+func Deposit(rpcClient rpcclient.Client) *cobra.Command {
 	var (
 		asset   string
 		account uint32

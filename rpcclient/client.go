@@ -1,4 +1,4 @@
-package cobictl
+package rpcclient
 
 import (
 	"bytes"
@@ -20,7 +20,11 @@ type client struct {
 	RPCServer string
 }
 
-
+type StartService struct {
+	ServiceType     handlers.Service `json:"service" binding:"required"`
+	Account         uint             `json:"userAccount"`
+	IsInstantWallet bool             `json:"isInstantWallet"`
+}
 
 type Client interface {
 	GetAccounts(data types.RequestAccount) (json.RawMessage, error)
@@ -30,7 +34,7 @@ type Client interface {
 	Transfer(data types.RequestTransfer) (json.RawMessage, error)
 	Deposit(data types.RequestDeposit) (json.RawMessage, error)
 	KillService(data handlers.KillSerivce) (json.RawMessage, error)
-	StartService(data StartPayload) (json.RawMessage, error)
+	StartService(data StartService) (json.RawMessage, error)
 	SetConfig(data utils.Config) (json.RawMessage, error)
 }
 
@@ -209,7 +213,7 @@ func (c *client) KillService(data handlers.KillSerivce) (json.RawMessage, error)
 	return resp, nil
 }
 
-func (c *client) StartService(data StartPayload) (json.RawMessage, error) {
+func (c *client) StartService(data StartService) (json.RawMessage, error) {
 	if data.ServiceType == "" {
 		return nil, fmt.Errorf("service type is required")
 	}

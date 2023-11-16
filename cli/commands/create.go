@@ -1,14 +1,15 @@
-package cobictl
+package commands
 
 import (
 	"encoding/json"
 	"fmt"
 
 	"github.com/catalogfi/cobi/cobid/types"
+	"github.com/catalogfi/cobi/rpcclient"
 	"github.com/spf13/cobra"
 )
 
-func Create(rpcClient Client) *cobra.Command {
+func Create(rpcClient rpcclient.Client) *cobra.Command {
 	var (
 		account       uint32
 		orderPair     string

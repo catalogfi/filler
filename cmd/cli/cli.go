@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/catalogfi/cobi"
+	"github.com/catalogfi/cobi/cli/cobi"
 )
 
 var BinaryVersion = "undefined"

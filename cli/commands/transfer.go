@@ -1,13 +1,14 @@
-package cobictl
+package commands
 
 import (
 	"fmt"
 
 	"github.com/catalogfi/cobi/cobid/types"
+	"github.com/catalogfi/cobi/rpcclient"
 	"github.com/spf13/cobra"
 )
 
-func Transfer(rpcClient Client) *cobra.Command {
+func Transfer(rpcClient rpcclient.Client) *cobra.Command {
 	var (
 		user   uint32
 		amount uint32

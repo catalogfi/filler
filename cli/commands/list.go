@@ -1,4 +1,4 @@
-package cobictl
+package commands
 
 import (
 	"encoding/json"
@@ -7,12 +7,13 @@ import (
 	"strings"
 
 	"github.com/catalogfi/cobi/cobid/types"
+	"github.com/catalogfi/cobi/rpcclient"
 	"github.com/catalogfi/cobi/wbtc-garden/model"
 	"github.com/jedib0t/go-pretty/table"
 	"github.com/spf13/cobra"
 )
 
-func List(rpcClient Client) *cobra.Command {
+func List(rpcClient rpcclient.Client) *cobra.Command {
 	var (
 		// url        string
 		maker      string

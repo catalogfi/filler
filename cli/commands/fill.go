@@ -1,13 +1,14 @@
-package cobictl
+package commands
 
 import (
 	"fmt"
 
 	"github.com/catalogfi/cobi/cobid/types"
+	"github.com/catalogfi/cobi/rpcclient"
 	"github.com/spf13/cobra"
 )
 
-func Fill(rpcClient Client) *cobra.Command {
+func Fill(rpcClient rpcclient.Client) *cobra.Command {
 	var (
 		account uint32
 		orderId uint

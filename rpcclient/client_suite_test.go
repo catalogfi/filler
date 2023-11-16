@@ -1,4 +1,4 @@
-package cobictl_test
+package rpcclient_test
 
 import (
 	"testing"

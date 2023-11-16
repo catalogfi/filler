@@ -1,15 +1,16 @@
-package cobictl
+package commands
 
 import (
 	"encoding/json"
 	"fmt"
 	"os"
 
+	"github.com/catalogfi/cobi/rpcclient"
 	"github.com/catalogfi/cobi/utils"
 	"github.com/spf13/cobra"
 )
 
-func SetConfig(rpcClient Client) *cobra.Command {
+func SetConfig(rpcClient rpcclient.Client) *cobra.Command {
 
 	var (
 		configFilePath string

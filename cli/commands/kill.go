@@ -1,14 +1,15 @@
-package cobictl
+package commands
 
 import (
 	"errors"
 	"fmt"
 
 	"github.com/catalogfi/cobi/cobid/handlers"
+	"github.com/catalogfi/cobi/rpcclient"
 	"github.com/spf13/cobra"
 )
 
-func KillService(rpcClient Client) *cobra.Command {
+func KillService(rpcClient rpcclient.Client) *cobra.Command {
 	var (
 		service handlers.Service
 		account uint32

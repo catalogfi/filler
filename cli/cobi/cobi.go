@@ -2,7 +2,8 @@ package cobi
 
 import (
 	"github.com/TheZeroSlave/zapsentry"
-	"github.com/catalogfi/cobi/cobictl"
+	"github.com/catalogfi/cobi/cli/commands"
+	"github.com/catalogfi/cobi/rpcclient"
 	"github.com/catalogfi/cobi/utils"
 	"github.com/getsentry/sentry-go"
 	"github.com/spf13/cobra"
@@ -50,20 +51,20 @@ func Run(version string) error {
 		protocol = "http"
 	}
 
-	rpcClient := cobictl.NewClient(envConfig.RpcUserName, envConfig.RpcPassword, protocol, envConfig.RPCServer)
+	rpcClient := rpcclient.NewClient(envConfig.RpcUserName, envConfig.RpcPassword, protocol, envConfig.RPCServer)
 
-	cmd.AddCommand(cobictl.Create(rpcClient))
-	cmd.AddCommand(cobictl.Fill(rpcClient))
-	cmd.AddCommand(cobictl.Accounts(rpcClient))
+	cmd.AddCommand(commands.Create(rpcClient))
+	cmd.AddCommand(commands.Fill(rpcClient))
+	cmd.AddCommand(commands.Accounts(rpcClient))
 	// cmd.AddCommand(Start(envConfig.OrderBook, envConfig.Strategies, keys, str, envConfig.Network, logger, envConfig.DB))
 	// cmd.AddCommand(Retry(envConfig.OrderBook, keys, envConfig.Network, str, logger, envConfig.DB))
-	cmd.AddCommand(cobictl.List(rpcClient))
+	cmd.AddCommand(commands.List(rpcClient))
 	// cmd.AddCommand(Network(envConfig.Network, logger))
 	// cmd.AddCommand(Update())
-	cmd.AddCommand(cobictl.Deposit(rpcClient))
-	cmd.AddCommand(cobictl.Transfer(rpcClient))
-	cmd.AddCommand(cobictl.KillService(rpcClient))
-	cmd.AddCommand(cobictl.SetConfig(rpcClient))
+	cmd.AddCommand(commands.Deposit(rpcClient))
+	cmd.AddCommand(commands.Transfer(rpcClient))
+	cmd.AddCommand(commands.KillService(rpcClient))
+	cmd.AddCommand(commands.SetConfig(rpcClient))
 	if err := cmd.Execute(); err != nil {
 		return err
 	}
