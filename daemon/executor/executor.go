@@ -128,7 +128,7 @@ LOOP:
 					e.Config.Logger.Info("recieved orders from the order book", zap.Int("count", count))
 					for _, order := range orders {
 						grandChildLogger := e.Config.Logger.With(zap.Uint("order id", order.ID), zap.String("pair", order.OrderPair))
-						e.execute(order, grandChildLogger, signer, *e.Config.Keys, params.Account, e.Config.EnvConfig.Network, e.Config.Storage.UserStore(params.Account), iwConfig...)
+						e.Execute(order, grandChildLogger, signer, *e.Config.Keys, params.Account, e.Config.EnvConfig.Network, e.Config.Storage.UserStore(params.Account), iwConfig...)
 					}
 					e.Config.Logger.Info("executed orders recieved from the order book", zap.Int("count", count))
 				}
@@ -142,7 +142,7 @@ LOOP:
 	}
 }
 
-func (e *executor) execute(order model.Order, logger *zap.Logger, signer common.Address, keys utils.Keys, account uint32, config model.Network, userStore store.UserStore, iwConfig ...bitcoin.InstantWalletConfig) {
+func (e *executor) Execute(order model.Order, logger *zap.Logger, signer common.Address, keys utils.Keys, account uint32, config model.Network, userStore store.UserStore, iwConfig ...bitcoin.InstantWalletConfig) {
 	logger.Info("processing order with id", zap.Uint("status", uint(order.Status)))
 	if isValid, err := userStore.CheckStatus(order.SecretHash); !isValid {
 		if err != "" {
