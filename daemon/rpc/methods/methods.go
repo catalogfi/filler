@@ -1,4 +1,4 @@
-package command
+package methods
 
 import (
 	"encoding/json"
@@ -10,19 +10,19 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/catalogfi/cobi/cobid/handlers"
-	"github.com/catalogfi/cobi/cobid/types"
+	"github.com/catalogfi/cobi/daemon/rpc/handlers"
+	"github.com/catalogfi/cobi/daemon/types"
 	"github.com/catalogfi/cobi/utils"
 )
 
-type Command interface {
+type Method interface {
 	Name() string
 	Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMessage, error)
 }
 
 type accountInfo struct{}
 
-func GetAccountInfo() Command {
+func GetAccountInfo() Method {
 	return &accountInfo{}
 }
 
@@ -46,7 +46,7 @@ func (a *accountInfo) Query(cfg types.CoreConfig, params json.RawMessage) (json.
 
 type createOrder struct{}
 
-func CreateNewOrder() Command {
+func CreateNewOrder() Method {
 	return &createOrder{}
 }
 
@@ -70,7 +70,7 @@ func (a *createOrder) Query(cfg types.CoreConfig, params json.RawMessage) (json.
 
 type fillOrder struct{}
 
-func FillOrder() Command {
+func FillOrder() Method {
 	return &fillOrder{}
 }
 
@@ -94,7 +94,7 @@ func (a *fillOrder) Query(cfg types.CoreConfig, params json.RawMessage) (json.Ra
 
 type depositFunds struct{}
 
-func DepositFunds() Command {
+func DepositFunds() Method {
 	return &depositFunds{}
 }
 
@@ -118,7 +118,7 @@ func (a *depositFunds) Query(cfg types.CoreConfig, params json.RawMessage) (json
 
 type transferFunds struct{}
 
-func TransferFunds() Command {
+func TransferFunds() Method {
 	return &transferFunds{}
 }
 
@@ -142,7 +142,7 @@ func (a *transferFunds) Query(cfg types.CoreConfig, params json.RawMessage) (jso
 
 type listOrders struct{}
 
-func ListOrders() Command {
+func ListOrders() Method {
 	return &listOrders{}
 }
 
@@ -166,7 +166,7 @@ func (a *listOrders) Query(cfg types.CoreConfig, params json.RawMessage) (json.R
 
 type killService struct{}
 
-func KillService() Command {
+func KillService() Method {
 	return &killService{}
 }
 
@@ -193,7 +193,7 @@ func (a *killService) Query(cfg types.CoreConfig, params json.RawMessage) (json.
 
 type startExecutor struct{}
 
-func ExecutorService() Command {
+func ExecutorService() Method {
 	return &startExecutor{}
 }
 
@@ -238,7 +238,7 @@ func (a *startExecutor) Query(cfg types.CoreConfig, params json.RawMessage) (jso
 
 type startStrategy struct{}
 
-func StrategyService() Command {
+func StrategyService() Method {
 	return &startStrategy{}
 }
 
@@ -289,7 +289,7 @@ func (a *startStrategy) Query(cfg types.CoreConfig, params json.RawMessage) (jso
 
 type status struct{}
 
-func Status() Command {
+func Status() Method {
 	return &status{}
 }
 
@@ -316,7 +316,7 @@ func (a *status) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMe
 
 type setConfig struct{}
 
-func SetConfig() Command {
+func SetConfig() Method {
 	return &setConfig{}
 }
 

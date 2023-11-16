@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/catalogfi/cobi/cobid/command"
-	"github.com/catalogfi/cobi/cobid/types"
+	"github.com/catalogfi/cobi/daemon/rpc/methods"
+	"github.com/catalogfi/cobi/daemon/types"
 	"github.com/catalogfi/cobi/store"
 	"github.com/catalogfi/cobi/utils"
 	"github.com/gin-gonic/gin"
@@ -17,14 +17,14 @@ import (
 )
 
 type RPC interface {
-	AddCommand(cmd command.Command)
+	AddCommand(cmd methods.Method)
 	HandleJSONRPC(ctx *gin.Context)
 	Run()
 	authenticateUser(ctx *gin.Context)
 }
 
 type rpc struct {
-	commands   map[string]command.Command
+	commands   map[string]methods.Method
 	coreConfig types.CoreConfig
 	authsha    [sha256.Size]byte
 }
@@ -93,7 +93,7 @@ func NewRpcServer(storage store.Store, envConfig utils.Config, keys *utils.Keys,
 	fmt.Println(auth)
 
 	return &rpc{
-		commands: make(map[string]command.Command),
+		commands: make(map[string]methods.Method),
 		authsha:  sha256.Sum256([]byte(auth)),
 		coreConfig: types.CoreConfig{
 			Storage:   storage,
@@ -104,7 +104,7 @@ func NewRpcServer(storage store.Store, envConfig utils.Config, keys *utils.Keys,
 	}
 }
 
-func (r *rpc) AddCommand(cmd command.Command) {
+func (r *rpc) AddCommand(cmd methods.Method) {
 	r.commands[cmd.Name()] = cmd
 }
 
@@ -149,17 +149,17 @@ func (r *rpc) authenticateUser(ctx *gin.Context) {
 }
 
 func (r *rpc) Run() {
-	r.AddCommand(command.GetAccountInfo())
-	r.AddCommand(command.CreateNewOrder())
-	r.AddCommand(command.FillOrder())
-	r.AddCommand(command.DepositFunds())
-	r.AddCommand(command.TransferFunds())
-	r.AddCommand(command.ListOrders())
-	r.AddCommand(command.KillService())
-	r.AddCommand(command.ExecutorService())
-	r.AddCommand(command.StrategyService())
-	r.AddCommand(command.Status())
-	r.AddCommand(command.SetConfig())
+	r.AddCommand(methods.GetAccountInfo())
+	r.AddCommand(methods.CreateNewOrder())
+	r.AddCommand(methods.FillOrder())
+	r.AddCommand(methods.DepositFunds())
+	r.AddCommand(methods.TransferFunds())
+	r.AddCommand(methods.ListOrders())
+	r.AddCommand(methods.KillService())
+	r.AddCommand(methods.ExecutorService())
+	r.AddCommand(methods.StrategyService())
+	r.AddCommand(methods.Status())
+	r.AddCommand(methods.SetConfig())
 
 	s := gin.Default()
 

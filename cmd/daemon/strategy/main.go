@@ -10,8 +10,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/catalogfi/cobi/cobid/strategy"
-	"github.com/catalogfi/cobi/cobid/types"
+	"github.com/catalogfi/cobi/daemon/strategy"
+	"github.com/catalogfi/cobi/daemon/types"
 	"github.com/catalogfi/cobi/store"
 	"github.com/catalogfi/cobi/utils"
 	"github.com/tyler-smith/go-bip39"

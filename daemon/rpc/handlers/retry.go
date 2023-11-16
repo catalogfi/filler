@@ -1,4 +1,4 @@
-package cobid
+package handlers
 
 // import (
 // 	"encoding/hex"

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/catalogfi/cobi/cobid/handlers"
+	"github.com/catalogfi/cobi/daemon/rpc/handlers"
 	"github.com/catalogfi/cobi/rpcclient"
 	"github.com/spf13/cobra"
 )

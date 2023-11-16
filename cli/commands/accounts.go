@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/catalogfi/cobi/cobid/types"
+	"github.com/catalogfi/cobi/daemon/types"
 	"github.com/catalogfi/cobi/rpcclient"
 	"github.com/jedib0t/go-pretty/table"
 	"github.com/spf13/cobra"

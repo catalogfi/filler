@@ -3,7 +3,7 @@ package main
 import (
 	"time"
 
-	jsonrpc "github.com/catalogfi/cobi/cobid/rpc"
+	jsonrpc "github.com/catalogfi/cobi/daemon/rpc"
 	"github.com/catalogfi/cobi/store"
 	"github.com/catalogfi/cobi/utils"
 	"github.com/tyler-smith/go-bip39"

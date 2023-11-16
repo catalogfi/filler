@@ -7,9 +7,9 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/catalogfi/cobi/cobid/handlers"
-	jsonrpc "github.com/catalogfi/cobi/cobid/rpc"
-	"github.com/catalogfi/cobi/cobid/types"
+	jsonrpc "github.com/catalogfi/cobi/daemon/rpc"
+	"github.com/catalogfi/cobi/daemon/rpc/handlers"
+	"github.com/catalogfi/cobi/daemon/types"
 	"github.com/catalogfi/cobi/utils"
 )
 
