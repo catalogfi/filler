@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
@@ -311,4 +312,33 @@ func (a *status) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMe
 	isActive := handlers.Status(*service, req.Account)
 	return json.Marshal(isActive)
 
+}
+
+type setConfig struct{}
+
+func SetConfig() Command {
+	return &setConfig{}
+}
+
+func (a *setConfig) Name() string {
+	return "setConfig"
+}
+
+func (a *setConfig) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
+	var req utils.Config
+	if err := json.Unmarshal(params, &req); err != nil {
+		return nil, err
+	}
+
+	bytes, err := json.MarshalIndent(req, "", " ")
+	if err != nil {
+		return nil, err
+	}
+
+	err = os.WriteFile("config.json", bytes, 0644)
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal("sucess")
 }

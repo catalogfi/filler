@@ -10,6 +10,7 @@ import (
 	"github.com/catalogfi/cobi/cobid/handlers"
 	jsonrpc "github.com/catalogfi/cobi/cobid/rpc"
 	"github.com/catalogfi/cobi/cobid/types"
+	"github.com/catalogfi/cobi/utils"
 )
 
 type client struct {
@@ -18,6 +19,8 @@ type client struct {
 	Protocol  string
 	RPCServer string
 }
+
+
 
 type Client interface {
 	GetAccounts(data types.RequestAccount) (json.RawMessage, error)
@@ -28,6 +31,7 @@ type Client interface {
 	Deposit(data types.RequestDeposit) (json.RawMessage, error)
 	KillService(data handlers.KillSerivce) (json.RawMessage, error)
 	StartService(data StartPayload) (json.RawMessage, error)
+	SetConfig(data utils.Config) (json.RawMessage, error)
 }
 
 func NewClient(userName string, password string, protocol string, rpcServer string) Client {
@@ -229,4 +233,20 @@ func (c *client) StartService(data StartPayload) (json.RawMessage, error) {
 
 	return resp, nil
 
+}
+
+func (c *client) SetConfig(data utils.Config) (json.RawMessage, error) {
+
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal payload: %w", err)
+	}
+
+	resp, err := c.SendPostRequest("setConfig", jsonData)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+
+	return resp, nil
 }
