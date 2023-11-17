@@ -1,9 +1,6 @@
 package bitcoin
 
 import (
-	"encoding/hex"
-	"fmt"
-
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
@@ -11,7 +8,6 @@ import (
 
 // NewHTLCScript builds a bitcoin script following BIP-199 (https://github.com/bitcoin/bips/blob/master/bip-0199.mediawiki#summary)
 func NewHTLCScript(initiatorAddress, redeemerAddress btcutil.Address, secretHash []byte, waitTime int64) ([]byte, error) {
-	fmt.Println(hex.EncodeToString(redeemerAddress.ScriptAddress()), hex.EncodeToString(initiatorAddress.ScriptAddress()), waitTime)
 	return txscript.NewScriptBuilder().
 		AddOp(txscript.OP_IF).
 		AddOp(txscript.OP_SHA256).

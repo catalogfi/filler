@@ -61,10 +61,5 @@ func Kill(service KillSerivce) error {
 		return fmt.Errorf("error killing process: %v", err)
 	}
 
-	err = os.Remove(pidFilePath)
-	if err != nil {
-		return fmt.Errorf("error deleting procpid file for %s, err : %v", pidFilePath, err)
-	}
-
 	return nil
 }

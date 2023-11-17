@@ -89,7 +89,7 @@ func (a *fillOrder) Query(cfg types.CoreConfig, params json.RawMessage) (json.Ra
 		return nil, err
 	}
 
-	return json.Marshal(("Order filled successFull"))
+	return json.Marshal(("Order filled successful"))
 }
 
 type depositFunds struct{}
@@ -252,7 +252,7 @@ func (a *startStrategy) Query(cfg types.CoreConfig, params json.RawMessage) (jso
 		return nil, err
 	}
 
-	var service *handlers.Service
+	var service handlers.Service
 	err := service.Set(req.Service)
 	if err != nil {
 		return nil, err
@@ -303,13 +303,13 @@ func (a *status) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMe
 		return nil, err
 	}
 
-	var service *handlers.Service
+	var service handlers.Service
 	err := service.Set(req.Service)
 	if err != nil {
 		return nil, err
 	}
 
-	isActive := handlers.Status(*service, req.Account)
+	isActive := handlers.Status(service, req.Account)
 	return json.Marshal(isActive)
 
 }

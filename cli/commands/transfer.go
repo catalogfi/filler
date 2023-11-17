@@ -34,7 +34,7 @@ func Transfer(rpcClient rpcclient.Client) *cobra.Command {
 			if err != nil {
 				cobra.CheckErr(fmt.Errorf("failed to send request: %w", err))
 			}
-			fmt.Println("SuccessFully transferred" + string(resp))
+			fmt.Println("Successfully transferred" + string(resp))
 		},
 		DisableAutoGenTag: true,
 	}

@@ -121,7 +121,6 @@ func GetAccounts(cfg types.CoreConfig, params types.RequestAccount) ([]types.Acc
 			}
 		}
 
-		var ReturnPayload []types.AccountInfo
 		ReturnPayload = append(ReturnPayload, types.AccountInfo{
 			AccountNo:     fmt.Sprintf("%d", i),
 			Address:       address,

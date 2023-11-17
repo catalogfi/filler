@@ -90,7 +90,6 @@ func NewRpcServer(storage store.Store, envConfig utils.Config, keys *utils.Keys,
 
 	login := envConfig.RpcUserName + ":" + envConfig.RpcPassword
 	auth := "Basic " + base64.StdEncoding.EncodeToString([]byte(login))
-	fmt.Println(auth)
 
 	return &rpc{
 		commands: make(map[string]methods.Method),

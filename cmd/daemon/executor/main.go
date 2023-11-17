@@ -127,7 +127,7 @@ func main() {
 	wg.Wait()
 
 	if _, err := os.Stat(pidFilePath); err == nil {
-		err := os.Remove(pidFilePath)
+		err = os.Remove(pidFilePath)
 		if err != nil {
 			logger.Error("failed to delete executor pid file", zap.Uint32("account", uint32(userAccount)), zap.Error(err))
 		}

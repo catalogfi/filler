@@ -58,6 +58,8 @@ func (ac *strategy) RunAutoCreateStrategy(s AutoCreateStrategy, isIw bool) {
 
 	}()
 
+	ac.config.Logger.Info("starting autocreator")
+
 	signer, client, err := utils.LoadClient(ac.config.EnvConfig.OrderBook, *ac.config.Keys, ac.config.Storage, s.account, 0)
 	if err != nil {
 		ac.config.Logger.Error("failed to connect to the client", zap.Error(err))
@@ -208,7 +210,7 @@ func (ac *strategy) RunAutoCreateStrategy(s AutoCreateStrategy, isIw bool) {
 
 		case <-ac.Quit:
 			{
-				ac.config.Logger.Info("terminating with auto creator")
+				ac.config.Logger.Info("terminating auto creator")
 				break
 			}
 		}
@@ -220,6 +222,8 @@ func (af *strategy) RunAutoFillStrategy(s AutoFillStrategy, isIw bool) {
 		af.config.Logger.Info("exiting auto fill strategy")
 		af.Wg.Done()
 	}()
+
+	af.config.Logger.Info("starting autofiller")
 
 	// Load keys
 	signer, client, err := utils.LoadClient(af.config.EnvConfig.OrderBook, *af.config.Keys, af.config.Storage, s.account, 0)
@@ -371,7 +375,7 @@ func (af *strategy) RunAutoFillStrategy(s AutoFillStrategy, isIw bool) {
 			}
 		case <-af.Quit:
 			{
-				af.config.Logger.Info("terminating with auto creator")
+				af.config.Logger.Info("terminating auto filler")
 				break
 			}
 		}

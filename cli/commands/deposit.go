@@ -29,7 +29,7 @@ func Deposit(rpcClient rpcclient.Client) *cobra.Command {
 				cobra.CheckErr(fmt.Errorf("failed to send request: %w", err))
 			}
 
-			fmt.Println("Funds Deposit Was SuccessFull" + string(resp))
+			fmt.Println("Funds Deposit Was Successful" + string(resp))
 
 		}}
 	cmd.Flags().Uint32Var(&account, "account", 0, "config file (default: 0)")
