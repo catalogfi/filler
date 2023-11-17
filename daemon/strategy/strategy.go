@@ -232,16 +232,91 @@ func (af *strategy) RunAutoFillStrategy(s AutoFillStrategy, isIw bool) {
 		return
 	}
 
+	toChain, fromChain, _, fromAsset, err := model.ParseOrderPair(s.OrderPair())
+	if err != nil {
+		af.config.Logger.Error("failed parsing order pair", zap.Error(err))
+		return
+	}
+
+	// Get the addresses on different chains.
+	fromKey, err := af.config.Keys.GetKey(fromChain, s.account, 0)
+	if err != nil {
+		af.config.Logger.Error("failed getting from key", zap.Error(err))
+		return
+	}
+	fromKeyInterface, err := fromKey.Interface(fromChain)
+	if err != nil {
+		af.config.Logger.Error("failed to load sender key", zap.Error(err))
+		return
+	}
+
+	var iwConfig []bitcoin.InstantWalletConfig
+
+	if fromChain.IsBTC() && isIw {
+		var iwStore bitcoin.Store
+		if af.config.EnvConfig.DB != "" {
+			iwStore, err = bitcoin.NewStore(sqlite.Open(af.config.EnvConfig.DB), &gorm.Config{
+				NowFunc: func() time.Time { return time.Now().UTC() },
+			})
+			if err != nil {
+				af.config.Logger.Error("Could not load iw store: %v", zap.Error(err))
+			}
+		} else {
+			iwStore, err = bitcoin.NewStore((utils.DefaultInstantWalletDBDialector()), &gorm.Config{
+				NowFunc: func() time.Time { return time.Now().UTC() },
+			})
+			if err != nil {
+				af.config.Logger.Error("Could not load iw store: %v", zap.Error(err))
+			}
+		}
+		privKey := fromKeyInterface.(*btcec.PrivateKey)
+		chainParams := blockchain.GetParams(fromChain)
+		rpcClient := jsonrpc.NewClient(new(http.Client), af.config.EnvConfig.Network[fromChain].IWRPC)
+		feeEstimator := btc.NewBlockstreamFeeEstimator(chainParams, af.config.EnvConfig.Network[fromChain].RPC["mempool"], 20*time.Second)
+		indexer := btc.NewElectrsIndexerClient(af.config.Logger, af.config.EnvConfig.Network[fromChain].RPC["mempool"], 5*time.Second)
+
+		guardianWallet, err := guardian.NewBitcoinWallet(af.config.Logger, privKey, chainParams, indexer, feeEstimator, rpcClient)
+		if err != nil {
+			af.config.Logger.Error("failed to load gurdian wallet", zap.Error(err))
+			return
+		}
+		iwConfig = append(iwConfig, bitcoin.InstantWalletConfig{
+			Store:   iwStore,
+			IWallet: guardianWallet,
+		})
+	}
+	iWfromAddress, err := fromKey.Address(fromChain, af.config.EnvConfig.Network, false, iwConfig...)
+	if err != nil {
+		af.config.Logger.Error("failed while getting address string", zap.Error(err))
+		return
+	}
+	fromAddress, err := fromKey.Address(fromChain, af.config.EnvConfig.Network, false)
+	if err != nil {
+		af.config.Logger.Error("failed getting from address string", zap.Error(err))
+		return
+	}
+	toKey, err := af.config.Keys.GetKey(toChain, s.account, 0)
+	if err != nil {
+		af.config.Logger.Error("failed getting to key", zap.Error(err))
+		return
+	}
+	toAddress, err := toKey.Address(toChain, af.config.EnvConfig.Network, false)
+	if err != nil {
+		af.config.Logger.Error("failed getting to address string", zap.Error(err))
+		return
+	}
+
+	price, err := s.PriceStrategy().Price()
+	if err != nil {
+		af.config.Logger.Error("failed calculating price", zap.Error(err))
+		return
+	}
+
 	for {
+		af.config.Logger.Info("here in select")
 		select {
 		case <-time.After(10 * time.Second):
 			{
-
-				price, err := s.PriceStrategy().Price()
-				if err != nil {
-					af.config.Logger.Error("failed calculating price", zap.Error(err))
-					continue
-				}
 
 				orders, err := client.GetOrders(rest.GetOrdersFilter{
 					Maker:     strings.Join(s.Makers, ","),
@@ -261,80 +336,6 @@ func (af *strategy) RunAutoFillStrategy(s AutoFillStrategy, isIw bool) {
 						Verbose:   true,
 					}))
 					continue
-				}
-
-				toChain, fromChain, _, fromAsset, err := model.ParseOrderPair(s.OrderPair())
-				if err != nil {
-					af.config.Logger.Error("failed parsing order pair", zap.Error(err))
-					return
-				}
-
-				// Get the addresses on different chains.
-				fromKey, err := af.config.Keys.GetKey(fromChain, s.account, 0)
-				if err != nil {
-					af.config.Logger.Error("failed getting from key", zap.Error(err))
-					return
-				}
-				fromKeyInterface, err := fromKey.Interface(fromChain)
-				if err != nil {
-					af.config.Logger.Error("failed to load sender key", zap.Error(err))
-					return
-				}
-
-				var iwConfig []bitcoin.InstantWalletConfig
-
-				if fromChain.IsBTC() && isIw {
-					var iwStore bitcoin.Store
-					if af.config.EnvConfig.DB != "" {
-						iwStore, err = bitcoin.NewStore(sqlite.Open(af.config.EnvConfig.DB), &gorm.Config{
-							NowFunc: func() time.Time { return time.Now().UTC() },
-						})
-						if err != nil {
-							af.config.Logger.Error("Could not load iw store: %v", zap.Error(err))
-						}
-					} else {
-						iwStore, err = bitcoin.NewStore((utils.DefaultInstantWalletDBDialector()), &gorm.Config{
-							NowFunc: func() time.Time { return time.Now().UTC() },
-						})
-						if err != nil {
-							af.config.Logger.Error("Could not load iw store: %v", zap.Error(err))
-						}
-					}
-					privKey := fromKeyInterface.(*btcec.PrivateKey)
-					chainParams := blockchain.GetParams(fromChain)
-					rpcClient := jsonrpc.NewClient(new(http.Client), af.config.EnvConfig.Network[fromChain].IWRPC)
-					feeEstimator := btc.NewBlockstreamFeeEstimator(chainParams, af.config.EnvConfig.Network[fromChain].RPC["mempool"], 20*time.Second)
-					indexer := btc.NewElectrsIndexerClient(af.config.Logger, af.config.EnvConfig.Network[fromChain].RPC["mempool"], 5*time.Second)
-
-					guardianWallet, err := guardian.NewBitcoinWallet(af.config.Logger, privKey, chainParams, indexer, feeEstimator, rpcClient)
-					if err != nil {
-						af.config.Logger.Error("failed to load gurdian wallet", zap.Error(err))
-						return
-					}
-					iwConfig = append(iwConfig, bitcoin.InstantWalletConfig{
-						Store:   iwStore,
-						IWallet: guardianWallet,
-					})
-				}
-				iWfromAddress, err := fromKey.Address(fromChain, af.config.EnvConfig.Network, false, iwConfig...)
-				if err != nil {
-					af.config.Logger.Error("failed while getting address string", zap.Error(err))
-					return
-				}
-				fromAddress, err := fromKey.Address(fromChain, af.config.EnvConfig.Network, false)
-				if err != nil {
-					af.config.Logger.Error("failed getting from address string", zap.Error(err))
-					return
-				}
-				toKey, err := af.config.Keys.GetKey(toChain, s.account, 0)
-				if err != nil {
-					af.config.Logger.Error("failed getting to key", zap.Error(err))
-					return
-				}
-				toAddress, err := toKey.Address(toChain, af.config.EnvConfig.Network, false)
-				if err != nil {
-					af.config.Logger.Error("failed getting to address string", zap.Error(err))
-					return
 				}
 
 				for _, order := range orders {
@@ -376,7 +377,7 @@ func (af *strategy) RunAutoFillStrategy(s AutoFillStrategy, isIw bool) {
 		case <-af.Quit:
 			{
 				af.config.Logger.Info("terminating auto filler")
-				break
+				return
 			}
 		}
 	}
