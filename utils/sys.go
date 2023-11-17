@@ -171,3 +171,22 @@ func LoadExtendedConfig(path string) (Config, error) {
 	}
 	return config, nil
 }
+
+func UpdateAuth(username, password string) error {
+	config, err := LoadExtendedConfig(DefaultConfigPath())
+	if err != nil {
+		return err
+	}
+	config.RpcUserName = username
+	config.RpcPassword = password
+
+	data, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return err
+	}
+	err = os.WriteFile(DefaultConfigPath(), data, 0644)
+	if err != nil {
+		return err
+	}
+	return nil
+}

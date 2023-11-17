@@ -21,6 +21,7 @@ type RPC interface {
 	HandleJSONRPC(ctx *gin.Context)
 	Run()
 	authenticateUser(ctx *gin.Context)
+	UpdateCredentials(ctx *gin.Context)
 }
 
 type rpc struct {
@@ -147,6 +148,32 @@ func (r *rpc) authenticateUser(ctx *gin.Context) {
 
 }
 
+func (r *rpc) UpdateCredentials(ctx *gin.Context) {
+
+	req := types.UpdateCredentials{}
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"message": "Invalid credentials"})
+		return
+	}
+
+	if req.RpcUserName == "" && req.RpcPassword == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"message": "Invalid credentials"})
+		return
+	}
+
+	rpcLogin := req.RpcUserName + ":" + req.RpcPassword
+	rpcAuth := "Basic " + base64.StdEncoding.EncodeToString([]byte(rpcLogin))
+
+	r.authsha = sha256.Sum256([]byte(rpcAuth))
+
+	if err := utils.UpdateAuth(req.RpcUserName, req.RpcPassword); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"message": "Invalid credentials"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "Credentials updated"})
+}
+
 func (r *rpc) Run() {
 	r.AddCommand(methods.GetAccountInfo())
 	r.AddCommand(methods.CreateNewOrder())
@@ -154,11 +181,11 @@ func (r *rpc) Run() {
 	r.AddCommand(methods.DepositFunds())
 	r.AddCommand(methods.TransferFunds())
 	r.AddCommand(methods.ListOrders())
-	r.AddCommand(methods.KillService())
-	r.AddCommand(methods.ExecutorService())
-	r.AddCommand(methods.StrategyService())
+	r.AddCommand(methods.KillService())     // will remove this
+	r.AddCommand(methods.ExecutorService()) // happens automatically when config is updated
+	r.AddCommand(methods.StrategyService()) // happens automatically when config is updated
 	r.AddCommand(methods.Status())
-	r.AddCommand(methods.SetConfig())
+	r.AddCommand(methods.SetConfig()) //needToUpdate it to take Only CoreConfig
 	r.AddCommand(methods.Retry())
 
 	s := gin.Default()
@@ -167,5 +194,6 @@ func (r *rpc) Run() {
 	authRoutes.Use(r.authenticateUser)
 
 	authRoutes.POST("/", r.HandleJSONRPC)
+	authRoutes.POST("/update", r.UpdateCredentials)
 	s.Run(":8080")
 }

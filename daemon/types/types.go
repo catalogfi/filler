@@ -75,6 +75,23 @@ type RequestRetry struct {
 	IsInstantWallet bool   `json:"isInstantWallet"`
 }
 
+type RequestSetConfig struct {
+	Account     uint32 `json:"userAccount"`
+	Mnemonic    string `json:"mnemonic"`
+	OrderBook   string `json:"orderBook"`
+	DB          string `json:"db"`
+	Sentry      string `json:"sentry"`
+	RpcUserName string `json:"rpcUserName"`
+	RpcPassword string `json:"rpcPassword"`
+	NoTLS       string `json:"noTLS"`
+	RPCServer   string `json:"rpcServer"`
+}
+
+type UpdateCredentials struct {
+	RpcUserName string `json:"rpcUserName"`
+	RpcPassword string `json:"rpcPassword"`
+}
+
 type AccountInfo struct {
 	AccountNo     string `json:"accountNo"`
 	Address       string `json:"address"`

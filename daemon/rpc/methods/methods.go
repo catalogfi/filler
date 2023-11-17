@@ -11,8 +11,10 @@ import (
 	"strconv"
 
 	"github.com/catalogfi/cobi/daemon/rpc/handlers"
+	"github.com/catalogfi/cobi/daemon/strategy"
 	"github.com/catalogfi/cobi/daemon/types"
 	"github.com/catalogfi/cobi/utils"
+	"github.com/catalogfi/wbtc-garden/model"
 )
 
 type Method interface {
@@ -325,21 +327,56 @@ func (a *setConfig) Name() string {
 }
 
 func (a *setConfig) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
-	var req utils.Config
+	var req types.RequestSetConfig
 	if err := json.Unmarshal(params, &req); err != nil {
 		return nil, err
 	}
 
-	bytes, err := json.MarshalIndent(req, "", " ")
+	config, err := utils.LoadExtendedConfig(utils.DefaultConfigPath())
 	if err != nil {
 		return nil, err
 	}
 
-	err = os.WriteFile(utils.DefaultConfigPath(), bytes, 0644)
+	if req.Mnemonic != "" {
+		config.Mnemonic = req.Mnemonic
+	}
+	if req.OrderBook != "" {
+		config.OrderBook = req.OrderBook
+	}
+	if req.DB != "" {
+		config.DB = req.DB
+	}
+	if req.Sentry != "" {
+		config.Sentry = req.Sentry
+	}
+	if req.RpcUserName != "" {
+		config.RpcUserName = req.RpcUserName
+	}
+	if req.RpcPassword != "" {
+		config.RpcPassword = req.RpcPassword
+	}
+	if req.NoTLS != "" {
+		switch req.NoTLS {
+		case "true":
+			config.NoTLS = true
+		case "false":
+			config.NoTLS = false
+		default:
+			return nil, errors.New("invalid arguments passed")
+		}
+	}
+	if req.RPCServer != "" {
+		config.RPCServer = req.RPCServer
+	}
+
+	data, err := json.MarshalIndent(config, "", "  ")
 	if err != nil {
 		return nil, err
 	}
 
+	if err := os.WriteFile(utils.DefaultConfigPath(), data, 0755); err != nil {
+		return nil, err
+	}
 	return json.Marshal("success")
 }
 
@@ -364,4 +401,118 @@ func (a *retry) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMes
 	}
 
 	return json.Marshal("successfully retried")
+}
+
+type setNetwork struct{}
+
+func SetNetwork() Method {
+	return &setNetwork{}
+}
+
+func (a *setNetwork) Name() string {
+	return "setNetwork"
+}
+
+func (a *setNetwork) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
+	var networkConfig model.Network
+	if err := json.Unmarshal(params, &networkConfig); err != nil {
+		return nil, err
+	}
+	config, err := utils.LoadExtendedConfig(utils.DefaultConfigPath())
+	if err != nil {
+		return nil, err
+	}
+	config.Network = networkConfig
+	bytes, err := json.MarshalIndent(config, "", " ")
+	if err != nil {
+		return nil, err
+	}
+	err = os.WriteFile(utils.DefaultConfigPath(), bytes, 0644)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal("success")
+}
+
+type getNetworks struct{}
+
+func GetNetworks() Method {
+	return &getNetworks{}
+}
+
+func (a *getNetworks) Name() string {
+	return "getNetworks"
+}
+
+func (a *getNetworks) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
+	config, err := utils.LoadExtendedConfig(utils.DefaultConfigPath())
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(config.Network)
+}
+
+type setStrategy struct{}
+
+func SetStrategy() Method {
+	return &setStrategy{}
+}
+
+func (a *setStrategy) Name() string {
+	return "setStrategy"
+}
+
+func (a *setStrategy) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
+	var strategyConfig json.RawMessage
+	if err := json.Unmarshal(params, &strategyConfig); err != nil {
+		return nil, err
+	}
+
+	strategies := []strategy.Strategy{}
+	if err := json.Unmarshal(strategyConfig, &strategies); err != nil {
+		return nil, err
+	}
+
+	config, err := utils.LoadExtendedConfig(utils.DefaultConfigPath())
+	if err != nil {
+		return nil, err
+	}
+
+	{
+		//TODO: compute hashes as ID's
+		// check for duplicates
+		// check for updated strategies
+		// check for new strategies
+		// check for removed strategies
+		// start requireed executors
+		// start strategies
+	}
+	config.Strategies = strategyConfig
+	bytes, err := json.MarshalIndent(config, "", " ")
+	if err != nil {
+		return nil, err
+	}
+	err = os.WriteFile(utils.DefaultConfigPath(), bytes, 0644)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal("success")
+}
+
+type getStrategy struct{}
+
+func GetStrategy() Method {
+	return &getStrategy{}
+}
+
+func (a *getStrategy) Name() string {
+	return "getStrategy"
+}
+
+func (a *getStrategy) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
+	config, err := utils.LoadExtendedConfig(utils.DefaultConfigPath())
+	if err != nil {
+		return nil, err
+	}
+	return config.Strategies, nil
 }
