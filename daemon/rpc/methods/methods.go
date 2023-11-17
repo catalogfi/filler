@@ -89,7 +89,7 @@ func (a *fillOrder) Query(cfg types.CoreConfig, params json.RawMessage) (json.Ra
 		return nil, err
 	}
 
-	return json.Marshal(("Order filled sucessFull"))
+	return json.Marshal(("Order filled successFull"))
 }
 
 type depositFunds struct{}
@@ -188,7 +188,7 @@ func (a *killService) Query(cfg types.CoreConfig, params json.RawMessage) (json.
 		return nil, err
 	}
 
-	return json.Marshal("Killed Sucessfull")
+	return json.Marshal("Killed successfull")
 }
 
 type startExecutor struct{}
@@ -340,7 +340,7 @@ func (a *setConfig) Query(cfg types.CoreConfig, params json.RawMessage) (json.Ra
 		return nil, err
 	}
 
-	return json.Marshal("sucess")
+	return json.Marshal("success")
 }
 
 type retry struct{}
@@ -363,5 +363,5 @@ func (a *retry) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMes
 		return nil, err
 	}
 
-	return json.Marshal("sucessfully retried")
+	return json.Marshal("successfully retried")
 }

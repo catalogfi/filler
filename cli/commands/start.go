@@ -36,8 +36,9 @@ func StartService(rpcClient rpcclient.Client) *cobra.Command {
 
 			fmt.Println(string(resp))
 		}}
-	cmd.Flags().Uint32Var(&account, "account", 0, "Account to be used (default: 0)")
+	cmd.Flags().Uint32Var(&account, "account", 0, "account to be used (default: 0)")
 	cmd.Flags().Var(&service, "service", "allowed: \"executor\", \"autofiller\", \"autocreator\"")
 	cmd.MarkFlagRequired("service")
+	cmd.Flags().BoolVarP(&isInstantWallet, "isIw", "i", false, "set to run service with instant wallet")
 	return cmd
 }

@@ -65,6 +65,7 @@ func Run(version string) error {
 	cmd.AddCommand(commands.Transfer(rpcClient))
 	cmd.AddCommand(commands.KillService(rpcClient))
 	cmd.AddCommand(commands.SetConfig(rpcClient))
+	cmd.AddCommand(commands.StartService(rpcClient))
 	if err := cmd.Execute(); err != nil {
 		return err
 	}
