@@ -1,14 +1,72 @@
 ## COBI: Your Decentralized Liquidity Provider
 
-- COBI is a distributed software solution designed to manage liquidity provision. It functions as an opposite bidder in atomic swaps for a catalog orderbook. COBI allows users to run the software on their machines, providing a seamless experience in managing their liquidity, wallets.
+- COBI is a distributed software solution designed to manage liquidity provision written in Go (golang). It functions as an opposite bidder in atomic swaps for a catalog orderbook. COBI allows users to run the software on their machines, providing a seamless experience in managing their liquidity and wallets.
 
 ### Components of Cobi Codebase
 
-COBI is a software tool inspired by the architectural design of the btcsuite Golang implementation. It consists of two main components: `cobid` and `cobi-cli`.
+COBI is inspired by the architectural design of the [btcsuite](https://github.com/btcsuite) Golang implementation. It consists of two main components: `cobid` and `cobi-cli`.
 
 - `cobid` operates as a daemon-like service that initiates a background RPC server. This server is used to manage executors, fillers, and creators along with wallet functions.
 
 - `cobi-cli` is a command-line interface (CLI) RPC client used to communicate with cobi-d through JSON-RPC with basic Authentication. It provides a user-friendly interface for interacting with the COBI system, managing their wallets.
+
+## Table of contents
+
+- Installation and Setup
+- Getting Started
+
+## Installation and Setup Guide
+
+Install cobi with following guide
+
+### prerequisites
+
+```
+Make
+git
+golang
+```
+
+- clone this repositery
+
+```bash
+  git clone https://github.com/catalogfi/cobi
+```
+
+- checkout into required branch current branch is `v1-iw`
+- use `Make` to build your binaries
+
+```
+make build_deamons
+```
+
+- This creates your binaries in ~/.cobi directory for `rpc` ,` strategies` and `executor`
+
+Now In order to Get started with Daemon you can run following command
+
+```
+make start
+```
+
+- this command will spin up a Json Rpc Daemon ready for you to interact with
+
+You can further docs for interaction with Json Rpc Daemon, defining your strategiesm operating executors at [cobid docs](docs/cobid.md)
+
+## Interacting With Cobi-cli
+
+Make sure you set cobi-cli bin in your environment
+
+```bash
+export PATH="$PATH~/.cobi/bin/cobi-cli"
+```
+
+You could check if its exported and built correctly using following command
+
+```bash
+cobi-cli --help
+```
+
+For further interaction docs with cobi-cli refer [cli docs](docs/cli.md)
 
 > folder Structure
 
@@ -96,38 +154,9 @@ COBI is a software tool inspired by the architectural design of the btcsuite Gol
 - `pkg` : consists of `blockchain` and `Swapper` packages responsible for handling chain specific logic and atomicswap execution logic respectively
 - `rpcclient` : json rpc client which implements all functions and Basic Auth for json rpc server
 
-## Installation and Setup Guide
-
-Install cobi with following guide
-
-### prerequisites
-
-```
-Make
-git
-golang
-```
-
-- clone this repositery
-
-```bash
-  git clone https://github.com/catalogfi/cobi
-```
-
-- checkout into required branch current branch is `v1-iw`
-- use `Make` to build your binaries
-
-```
-make build_deamons
-```
-
-- This creates your binaries in ~/.cobi directory for `rpc` ,` strategies` and
-
-`TBD`
-
 ## API Reference
 
-- server follows JSON RPC pattern [version 2]
+- Server follows JSON RPC pattern [version 2]
 
 #### Get all accounts , balances , and virtual balances
 
