@@ -75,7 +75,7 @@ type RequestRetry struct {
 	IsInstantWallet bool   `json:"isInstantWallet"`
 }
 
-type RequestSetConfig struct {
+type SetConfig struct {
 	Account     uint32 `json:"userAccount"`
 	Mnemonic    string `json:"mnemonic"`
 	OrderBook   string `json:"orderBook"`

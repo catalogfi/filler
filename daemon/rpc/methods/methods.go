@@ -327,7 +327,7 @@ func (a *setConfig) Name() string {
 }
 
 func (a *setConfig) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
-	var req types.RequestSetConfig
+	var req types.SetConfig
 	if err := json.Unmarshal(params, &req); err != nil {
 		return nil, err
 	}
@@ -515,4 +515,30 @@ func (a *getStrategy) Query(cfg types.CoreConfig, params json.RawMessage) (json.
 		return nil, err
 	}
 	return config.Strategies, nil
+}
+
+type getConfig struct{}
+
+func GetConfig() Method {
+	return &getConfig{}
+}
+
+func (a *getConfig) Name() string {
+	return "getConfig"
+}
+
+func (a *getConfig) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
+	config, err := utils.LoadExtendedConfig(utils.DefaultConfigPath())
+	if err != nil {
+		return nil, err
+	}
+	var requestConfig types.SetConfig
+	if err := json.Unmarshal(params, &requestConfig); err != nil {
+		return nil, err
+	}
+
+	requestConfig.Mnemonic = ""
+	requestConfig.RpcUserName = ""
+	requestConfig.RpcPassword = ""
+	return json.Marshal(config)
 }

@@ -187,6 +187,10 @@ func (r *rpc) Run() {
 	r.AddCommand(methods.Status())
 	r.AddCommand(methods.SetConfig()) //needToUpdate it to take Only CoreConfig
 	r.AddCommand(methods.Retry())
+	r.AddCommand(methods.GetNetworks())
+	r.AddCommand(methods.GetStrategy())
+	r.AddCommand(methods.SetNetwork())
+	r.AddCommand(methods.SetStrategy())
 
 	s := gin.Default()
 
