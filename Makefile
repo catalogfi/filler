@@ -7,4 +7,5 @@ start:
 build_cli:
 	mkdir -p ~/.cobi
 	mkdir -p ~/.cobi/bin
-	go build -tags netgo -ldflags '-s -w' -o ~/.cobi/bin ./cmd/cli
+	go build -tags netgo -ldflags '-s -w' -o ~/.cobi/bin/cobi-cli ./cmd/cli
+	export PATH=$$PATH:~/.cobi/bin/cobi-cli

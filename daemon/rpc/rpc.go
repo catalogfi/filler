@@ -134,7 +134,6 @@ func (r *rpc) HandleJSONRPC(ctx *gin.Context) {
 
 func (r *rpc) authenticateUser(ctx *gin.Context) {
 	authhdr := ctx.GetHeader("Authorization")
-	fmt.Println("auth", authhdr)
 	if len(authhdr) <= 0 {
 		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"message": "Unauthorized Invalid credentials"})
 		return
@@ -181,11 +180,9 @@ func (r *rpc) Run() {
 	r.AddCommand(methods.DepositFunds())
 	r.AddCommand(methods.TransferFunds())
 	r.AddCommand(methods.ListOrders())
-	r.AddCommand(methods.KillService())     // will remove this
-	r.AddCommand(methods.ExecutorService()) // happens automatically when config is updated
-	r.AddCommand(methods.StrategyService()) // happens automatically when config is updated
 	r.AddCommand(methods.Status())
-	r.AddCommand(methods.SetConfig()) //needToUpdate it to take Only CoreConfig
+	r.AddCommand(methods.SetConfig())
+	r.AddCommand(methods.GetConfig())
 	r.AddCommand(methods.Retry())
 	r.AddCommand(methods.GetNetworks())
 	r.AddCommand(methods.GetStrategy())

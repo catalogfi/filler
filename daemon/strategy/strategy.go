@@ -26,19 +26,26 @@ import (
 	"gorm.io/gorm"
 )
 
+type StrategyType string
+
+const (
+	Filler  StrategyType = "fill"
+	Creator StrategyType = "create"
+)
+
 type strategy struct {
 	config types.CoreConfig
 	Quit   chan struct{}
 	Wg     *sync.WaitGroup
 }
 
-type Stategy interface {
+type StrategyService interface {
 	RunAutoCreateStrategy(s AutoCreateStrategy, isIw bool)
 	RunAutoFillStrategy(s AutoFillStrategy, isIw bool)
 	Done()
 }
 
-func NewStrategy(config types.CoreConfig, wg *sync.WaitGroup) Stategy {
+func NewStrategyService(config types.CoreConfig, wg *sync.WaitGroup) StrategyService {
 	quit := make(chan struct{})
 	return &strategy{
 		config: config,
@@ -381,4 +388,12 @@ func (af *strategy) RunAutoFillStrategy(s AutoFillStrategy, isIw bool) {
 			}
 		}
 	}
+}
+
+func Uid(strat Strategy) (string, error) {
+	hash, err := utils.HashData(strat)
+	if err != nil {
+		return "", nil
+	}
+	return hash[:8], nil
 }

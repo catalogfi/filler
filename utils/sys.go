@@ -1,7 +1,11 @@
 package utils
 
 import (
+	"bytes"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/gob"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -189,4 +193,16 @@ func UpdateAuth(username, password string) error {
 		return err
 	}
 	return nil
+}
+
+func HashData(data interface{}) (string, error) {
+	b := bytes.Buffer{}
+	e := gob.NewEncoder(&b)
+	err := e.Encode(data)
+	if err != nil {
+		return "", err
+	}
+	hash := sha256.Sum256(b.Bytes())
+	hash = sha256.Sum256(hash[:]) // double hash to produce unique uids using first 8 hex digits
+	return hex.EncodeToString(hash[:]), nil
 }

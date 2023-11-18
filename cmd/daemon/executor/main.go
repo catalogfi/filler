@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strconv"
 	"sync"
 	"syscall"
@@ -12,11 +11,11 @@ import (
 
 	"github.com/catalogfi/cobi/daemon/executor"
 	"github.com/catalogfi/cobi/daemon/types"
+	"github.com/catalogfi/cobi/pkg/process"
 	"github.com/catalogfi/cobi/store"
 	"github.com/catalogfi/cobi/utils"
 	"github.com/tyler-smith/go-bip39"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -26,7 +25,9 @@ func main() {
 		fmt.Fprint(os.Stdout, "arguments not enough")
 		return
 	}
-	userAccount, err := strconv.ParseUint(os.Args[1], 10, 32)
+
+	// Format inputs
+	userAccount, err := strconv.ParseUint(os.Args[1], 10, 16)
 	if err != nil {
 		fmt.Fprint(os.Stdout, err)
 		return
@@ -37,12 +38,15 @@ func main() {
 		fmt.Fprint(os.Stdout, err)
 		return
 	}
+
+	// Load config
 	envConfig, err := utils.LoadExtendedConfig(utils.DefaultConfigPath())
 	if err != nil {
 		fmt.Fprint(os.Stdout, err)
 		return
 	}
 
+	// Initialize db
 	var str store.Store
 	if envConfig.DB != "" {
 		// Initialise db
@@ -72,39 +76,29 @@ func main() {
 	// Load keys
 	keys := utils.NewKeys(entropy)
 
-	config := zap.NewProductionEncoderConfig()
-	config.EncodeTime = zapcore.ISO8601TimeEncoder
-	fileEncoder := zapcore.NewJSONEncoder(config)
-	logFile, _ := os.OpenFile(filepath.Join(utils.DefaultCobiLogs(), fmt.Sprintf("executor_account_%d.log", userAccount)), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	writer := zapcore.AddSync(logFile)
-	defaultLogLevel := zapcore.DebugLevel
-	core := zapcore.NewTee(
-		zapcore.NewCore(fileEncoder, writer, defaultLogLevel),
-	)
-	logger := zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
-
-	pidFilePath := filepath.Join(utils.DefaultCobiPids(), fmt.Sprintf("executor_account_%d.pid", userAccount))
-
-	if _, err := os.Stat(pidFilePath); err == nil {
-		fmt.Fprint(os.Stdout, "executor already running")
-	}
-	pid := strconv.Itoa(os.Getpid())
-	err = os.WriteFile(pidFilePath, []byte(pid), 0644)
+	uid, err := executor.Uid(uint32(userAccount))
 	if err != nil {
-		fmt.Fprint(os.Stdout, "failed to write pid")
+		fmt.Fprint(os.Stdout, err)
+		return
 	}
 
-	wg := new(sync.WaitGroup)
+	logger := process.NewFileLogger(uid)
 
-	exec := executor.NewExecutor(types.CoreConfig{
+	// Initialize PID manager
+	pidManager := process.NewPidManager(uid)
+
+	// Initialize config
+	config := types.CoreConfig{
 		Logger:    logger,
 		EnvConfig: envConfig,
 		Keys:      &keys,
 		Storage:   str,
-	}, wg)
+	}
+	wg := new(sync.WaitGroup)
 
-	fmt.Fprint(os.Stdout, "successful")
+	exec := executor.NewExecutor(config, wg)
 
+	// Start service
 	wg.Add(1)
 	go func() {
 		exec.Start(
@@ -115,6 +109,7 @@ func main() {
 			})
 	}()
 
+	// Start signal receiver
 	go func() {
 		sigs := make(chan os.Signal, 1)
 		signal.Notify(sigs, syscall.SIGQUIT)
@@ -124,16 +119,24 @@ func main() {
 		wg.Wait()
 	}()
 
+	// Create pid file
+	err = pidManager.Write()
+	if err != nil {
+		fmt.Fprintf(os.Stdout, "err : %v", err)
+		return
+	}
+
+	fmt.Fprint(os.Stdout, process.DefaultSuccessfulMsg)
+
 	wg.Wait()
 
-	if _, err := os.Stat(pidFilePath); err == nil {
-		err = os.Remove(pidFilePath)
-		if err != nil {
-			logger.Error("failed to delete executor pid file", zap.Uint32("account", uint32(userAccount)), zap.Error(err))
-		}
-	} else {
-		logger.Error("executor pid file not found", zap.Uint32("account", uint32(userAccount)), zap.Error(err))
+	// Remove pid file
+	err = pidManager.Remove()
+	if err != nil {
+		logger.Error("failed to delete executor pid file", zap.Uint32("account", uint32(userAccount)), zap.Error(err))
+		return
 	}
+
 	logger.Info("stopped executor", zap.Uint32("account", uint32(userAccount)))
 
 }

@@ -46,6 +46,76 @@ type AutoFillStrategy struct {
 	priceStrategy PriceStrategy
 }
 
+func StrategyToAutoCreateStrategy(strategy Strategy) (AutoCreateStrategy, error) {
+	autoCreateStrategy := AutoCreateStrategy{
+		MinTimeInterval: strategy.MinTimeInterval,
+		MaxTimeInterval: strategy.MaxTimeInterval,
+		account:         strategy.Account,
+		minAmount:       nil, // need to parse and convert the string to big.Int
+		maxAmount:       nil, // need to parse and convert the string to big.Int
+		orderPair:       strategy.OrderPair,
+		priceStrategy:   nil, // need to convert strategy.PriceStrategy to PriceStrategy
+	}
+
+	// Parse and convert MinAmount and MaxAmount
+	minAmount, ok := new(big.Int).SetString(strategy.MinAmount, 10)
+	if !ok {
+		return AutoCreateStrategy{}, fmt.Errorf("failed to convert minAmount to big.Int")
+	}
+	autoCreateStrategy.minAmount = minAmount
+
+	maxAmount, ok := new(big.Int).SetString(strategy.MaxAmount, 10)
+	if !ok {
+		return AutoCreateStrategy{}, fmt.Errorf("failed to convert maxAmount to big.Int")
+	}
+	autoCreateStrategy.maxAmount = maxAmount
+
+	// Parse and convert PriceStrategy
+	types := strings.Split(strategy.StrategyType, "-")
+
+	priceStrategy, err := UnmarshalPriceStrategy(types[0], strategy.PriceStrategy)
+	if err != nil {
+		return AutoCreateStrategy{}, fmt.Errorf("failed to convert PriceStrategy: %v", err)
+	}
+	autoCreateStrategy.priceStrategy = priceStrategy
+
+	return autoCreateStrategy, nil
+}
+func StrategyToAutoFillStrategy(strategy Strategy) (AutoFillStrategy, error) {
+	autoFillStrategy := AutoFillStrategy{
+		Makers:        strategy.Makers,
+		account:       strategy.Account,
+		minAmount:     nil, // need to parse and convert the string to big.Int
+		maxAmount:     nil, // need to parse and convert the string to big.Int
+		orderPair:     strategy.OrderPair,
+		priceStrategy: nil, // need to convert strategy.PriceStrategy to PriceStrategy
+	}
+
+	// Parse and convert MinAmount and MaxAmount
+	minAmount, ok := new(big.Int).SetString(strategy.MinAmount, 10)
+	if !ok {
+		return AutoFillStrategy{}, fmt.Errorf("failed to convert minAmount to big.Int")
+	}
+	autoFillStrategy.minAmount = minAmount
+
+	maxAmount, ok := new(big.Int).SetString(strategy.MaxAmount, 10)
+	if !ok {
+		return AutoFillStrategy{}, fmt.Errorf("failed to convert maxAmount to big.Int")
+	}
+	autoFillStrategy.maxAmount = maxAmount
+
+	// Parse and convert PriceStrategy
+	types := strings.Split(strategy.StrategyType, "-")
+
+	priceStrategy, err := UnmarshalPriceStrategy(types[0], strategy.PriceStrategy)
+	if err != nil {
+		return AutoFillStrategy{}, fmt.Errorf("failed to convert PriceStrategy: %v", err)
+	}
+	autoFillStrategy.priceStrategy = priceStrategy
+
+	return autoFillStrategy, nil
+}
+
 type AutoStrategy interface {
 	MinAmount() *big.Int
 	MaxAmount() *big.Int
@@ -86,7 +156,14 @@ func (s AutoCreateStrategy) Account() uint32 {
 	return s.account
 }
 
-func UnmarshalStrategy(data []byte) ([]AutoStrategy, error) {
+func UnmarshalStrategy(data []byte) ([]Strategy, error) {
+	strategies := []Strategy{}
+	if err := json.Unmarshal(data, &strategies); err != nil {
+		return nil, err
+	}
+	return strategies, nil
+}
+func UnmarshalStrategyToAuto(data []byte) ([]AutoStrategy, error) {
 	strategies := []Strategy{}
 	if err := json.Unmarshal(data, &strategies); err != nil {
 		return nil, err

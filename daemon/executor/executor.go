@@ -34,13 +34,6 @@ type executor struct {
 	Wg     *sync.WaitGroup
 }
 
-// type CoreConfig struct {
-// 	Storage   store.Store
-// 	EnvConfig utils.Config
-// 	Keys      *utils.Keys
-// 	Logger    *zap.Logger
-// }
-
 type RequestStartExecutor struct {
 	Account         uint32 `json:"userAccount"`
 	IsInstantWallet bool   `json:"isInstantWallet"`
@@ -400,4 +393,12 @@ func handleRefund(atomicSwap model.AtomicSwap, secretHash string, keyInterface i
 	} else {
 		logger.Error("failed to refund status : swap not expired")
 	}
+}
+
+func Uid(account uint32) (string, error) {
+	hash, err := utils.HashData(fmt.Sprintf("executor_account_%d", account))
+	if err != nil {
+		return "", nil
+	}
+	return hash[:8], nil
 }

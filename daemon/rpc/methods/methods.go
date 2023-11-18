@@ -4,15 +4,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 
+	"github.com/catalogfi/cobi/daemon/executor"
 	"github.com/catalogfi/cobi/daemon/rpc/handlers"
 	"github.com/catalogfi/cobi/daemon/strategy"
 	"github.com/catalogfi/cobi/daemon/types"
+	"github.com/catalogfi/cobi/pkg/process"
 	"github.com/catalogfi/cobi/utils"
 	"github.com/catalogfi/wbtc-garden/model"
 )
@@ -164,129 +164,6 @@ func (a *listOrders) Query(cfg types.CoreConfig, params json.RawMessage) (json.R
 	}
 
 	return json.Marshal(Orders)
-}
-
-type killService struct{}
-
-func KillService() Method {
-	return &killService{}
-}
-
-func (a *killService) Name() string {
-	return "killService"
-}
-
-func (a *killService) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
-	var req handlers.KillSerivce
-	if err := json.Unmarshal(params, &req); err != nil {
-		return nil, err
-	}
-	if req.ServiceType == "" {
-		return nil, errors.New("invalid arguments passed")
-	}
-
-	err := handlers.Kill(req)
-	if err != nil {
-		return nil, err
-	}
-
-	return json.Marshal("Killed successfull")
-}
-
-type startExecutor struct{}
-
-func ExecutorService() Method {
-	return &startExecutor{}
-}
-
-func (a *startExecutor) Name() string {
-	return "startExecutor"
-}
-
-func (a *startExecutor) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
-	var req types.RequestStartExecutor
-	if err := json.Unmarshal(params, &req); err != nil {
-		return nil, err
-	}
-
-	cmd := exec.Command(filepath.Join(utils.DefaultCobiBin(), "executor"), strconv.Itoa(int(req.Account)), strconv.FormatBool(req.IsInstantWallet))
-
-	stdoutPipe, err := cmd.StdoutPipe()
-	if err != nil {
-		return json.Marshal(fmt.Sprintf("error creating stdout pipe, err:%v", err))
-	}
-
-	if err := cmd.Start(); err != nil {
-		return json.Marshal(fmt.Sprintf("error starting process, err:%v", err))
-	}
-
-	if cmd == nil || cmd.ProcessState != nil && cmd.ProcessState.Exited() || cmd.Process == nil {
-		return json.Marshal("error starting process")
-	}
-
-	buf := make([]byte, 1024)
-	n, err := stdoutPipe.Read(buf)
-	if err != nil && err != io.EOF {
-		return json.Marshal("Error reading from pipe")
-	}
-
-	receivedData := string(buf[:n])
-	if receivedData != "successful" {
-		return json.Marshal(receivedData)
-	}
-
-	return json.Marshal("started successfully")
-}
-
-type startStrategy struct{}
-
-func StrategyService() Method {
-	return &startStrategy{}
-}
-
-func (a *startStrategy) Name() string {
-	return "startStrategy"
-}
-
-func (a *startStrategy) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
-	var req types.RequestStartStrategy
-	if err := json.Unmarshal(params, &req); err != nil {
-		return nil, err
-	}
-
-	var service handlers.Service
-	err := service.Set(req.Service)
-	if err != nil {
-		return nil, err
-	}
-
-	cmd := exec.Command(filepath.Join(utils.DefaultCobiBin(), "strategy"), req.Service, strconv.FormatBool(req.IsInstantWallet))
-
-	stdoutPipe, err := cmd.StdoutPipe()
-	if err != nil {
-		return json.Marshal(fmt.Sprintf("error creating stdout pipe, err:%v", err))
-	}
-
-	if err := cmd.Start(); err != nil {
-		return json.Marshal(fmt.Sprintf("error starting process, err:%v", err.Error()))
-	}
-
-	if cmd == nil || cmd.ProcessState != nil && cmd.ProcessState.Exited() || cmd.Process == nil {
-		return json.Marshal("error starting process")
-	}
-
-	buf := make([]byte, 1024)
-	n, err := stdoutPipe.Read(buf)
-	if err != nil && err != io.EOF {
-		return json.Marshal("error reading from pipe")
-	}
-
-	receivedData := string(buf[:n])
-	if receivedData != "successful" {
-		return json.Marshal(receivedData)
-	}
-
-	return json.Marshal("started successfully")
 }
 
 type status struct{}
@@ -468,8 +345,13 @@ func (a *setStrategy) Query(cfg types.CoreConfig, params json.RawMessage) (json.
 		return nil, err
 	}
 
+	stratBytes, err := json.MarshalIndent(strategyConfig, "", " ")
+	if err != nil {
+		return nil, err
+	}
+
 	strategies := []strategy.Strategy{}
-	if err := json.Unmarshal(strategyConfig, &strategies); err != nil {
+	if err := json.Unmarshal(stratBytes, &strategies); err != nil {
 		return nil, err
 	}
 
@@ -478,14 +360,47 @@ func (a *setStrategy) Query(cfg types.CoreConfig, params json.RawMessage) (json.
 		return nil, err
 	}
 
-	{
-		//TODO: compute hashes as ID's
-		// check for duplicates
-		// check for updated strategies
-		// check for new strategies
-		// check for removed strategies
-		// start requireed executors
-		// start strategies
+	oldStratBytes, err := json.MarshalIndent(config.Strategies, "", " ")
+	if err != nil {
+		return nil, err
+	}
+
+	oldStrategies := []strategy.Strategy{}
+	if err := json.Unmarshal(oldStratBytes, &oldStrategies); err != nil {
+		return nil, err
+	}
+
+	accounts := make(map[uint32]process.ProcessManager)
+	newStrats := make(map[string]process.ProcessManager)
+	commonStrats := make(map[string]bool)
+	quitStrats := make(map[string]process.ProcessManager)
+
+	for _, s := range strategies {
+		execUid, _ := executor.Uid(s.Account)
+		execProcess := process.NewProcessManager(execUid)
+		if _, ok := accounts[s.Account]; !ok {
+			if !execProcess.IsActive() {
+				accounts[s.Account] = execProcess
+			}
+		}
+
+		stratUid, _ := strategy.Uid(s)
+		stratProcess := process.NewProcessManager(stratUid)
+
+		if !stratProcess.IsActive() {
+			if _, ok := newStrats[stratUid]; !ok {
+				newStrats[stratUid] = stratProcess
+			}
+		} else {
+			commonStrats[stratUid] = true
+		}
+	}
+	for _, s := range oldStrategies {
+		stratUid, _ := strategy.Uid(s)
+		stratProcess := process.NewProcessManager(stratUid)
+		if stratProcess.IsActive() && !commonStrats[stratUid] {
+			quitStrats[stratUid] = stratProcess
+		}
 	}
 	config.Strategies = strategyConfig
 	bytes, err := json.MarshalIndent(config, "", " ")
@@ -496,7 +411,62 @@ func (a *setStrategy) Query(cfg types.CoreConfig, params json.RawMessage) (json.
 	if err != nil {
 		return nil, err
 	}
-	return json.Marshal("success")
+
+	for id, process := range accounts {
+		err := a.startExecutor(process, id, false)
+		if err != nil {
+			return json.Marshal(fmt.Sprintf("failed to start executor, err : %v", err))
+		}
+	}
+
+	for _, process := range newStrats {
+		err := a.startStrategy(process, false)
+		if err != nil {
+			return json.Marshal(fmt.Sprintf("failed to start strategy, err : %v", err))
+		}
+	}
+	for _, process := range quitStrats {
+		err := a.stopStrategy(process)
+		if err != nil {
+			return json.Marshal(fmt.Sprintf("failed to stop strategy, err : %v", err))
+		}
+	}
+
+	return json.Marshal("successfully started strategies")
+}
+
+func (a *setStrategy) startExecutor(execProcess process.ProcessManager, account uint32, isIw bool) error {
+	n, msgBytes, err := execProcess.Start(
+		filepath.Join(utils.DefaultCobiBin(), "executor"),
+		[]string{strconv.FormatUint(uint64(account), 10), strconv.FormatBool(isIw)})
+	if err != nil {
+		return err
+	}
+
+	msg := string(msgBytes[:n])
+	if msg == process.DefaultSuccessfulMsg {
+		return nil
+	}
+	return fmt.Errorf("%s", msg)
+}
+
+func (a *setStrategy) startStrategy(stratProcess process.ProcessManager, isIw bool) error {
+	n, msgBytes, err := stratProcess.Start(
+		filepath.Join(utils.DefaultCobiBin(), "strategy"),
+		[]string{stratProcess.GetUid(), strconv.FormatBool(isIw)})
+
+	if err != nil {
+		return err
+	}
+
+	msg := string(msgBytes[:n])
+	if msg == process.DefaultSuccessfulMsg {
+		return nil
+	}
+	return fmt.Errorf("%s", msg)
+}
+func (a *setStrategy) stopStrategy(stratProcess process.ProcessManager) error {
+	return stratProcess.Stop()
 }
 
 type getStrategy struct{}
@@ -537,8 +507,8 @@ func (a *getConfig) Query(cfg types.CoreConfig, params json.RawMessage) (json.Ra
 		return nil, err
 	}
 
-	requestConfig.Mnemonic = ""
-	requestConfig.RpcUserName = ""
-	requestConfig.RpcPassword = ""
+	config.Mnemonic = ""
+	config.RpcUserName = ""
+	config.RpcPassword = ""
 	return json.Marshal(config)
 }
