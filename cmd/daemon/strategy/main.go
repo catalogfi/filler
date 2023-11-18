@@ -9,17 +9,13 @@ import (
 	"strings"
 	"sync"
 	"syscall"
-	"time"
 
+	"github.com/catalogfi/cobi/cmd/daemon/common"
 	"github.com/catalogfi/cobi/daemon/strategy"
 	"github.com/catalogfi/cobi/daemon/types"
 	"github.com/catalogfi/cobi/pkg/process"
-	"github.com/catalogfi/cobi/store"
 	"github.com/catalogfi/cobi/utils"
-	"github.com/tyler-smith/go-bip39"
 	"go.uber.org/zap"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 )
 
 func main() {
@@ -33,14 +29,14 @@ func main() {
 
 	isIW, err := strconv.ParseBool(os.Args[2])
 	if err != nil {
-		fmt.Fprintf(os.Stdout, "err : %v", err)
+		fmt.Fprintf(os.Stdout, "failed to parse isIw ,%v", err)
 		return
 	}
 
 	// Load config
 	envConfig, err := utils.LoadExtendedConfig(utils.DefaultConfigPath())
 	if err != nil {
-		fmt.Fprintf(os.Stdout, "err : %v", err)
+		fmt.Fprintf(os.Stdout, "failed to load config, %v", err)
 		return
 	}
 
@@ -58,43 +54,26 @@ func main() {
 
 	strat, err := searchStrat(strategyUid, strategies)
 	if err != nil {
-		fmt.Fprintf(os.Stdout, "err: %v", err)
+		fmt.Fprintf(os.Stdout, "invalid strategy, %v", err)
 		return
 	}
 
 	// Initialise db
-	var str store.Store
-	if envConfig.DB != "" {
-		str, err = store.NewStore(sqlite.Open(envConfig.DB), &gorm.Config{
-			NowFunc: func() time.Time { return time.Now().UTC() },
-		})
-		if err != nil {
-			fmt.Fprintf(os.Stdout, "err : %v", err)
-			return
-		}
-	} else {
-		str, err = store.NewStore(sqlite.Open(utils.DefaultStorePath()), &gorm.Config{
-			NowFunc: func() time.Time { return time.Now().UTC() },
-		})
-		if err != nil {
-			fmt.Fprintf(os.Stdout, "err : %v", err)
-			return
-		}
-	}
-
-	entropy, err := bip39.EntropyFromMnemonic(envConfig.Mnemonic)
+	str, err := common.LoadDB(envConfig.DB)
 	if err != nil {
-		fmt.Fprintf(os.Stdout, "err : %v", err)
+		fmt.Fprintf(os.Stdout, "could not load db, %v", err)
 		return
 	}
 
-	// Load keys
-	keys := utils.NewKeys(entropy)
-
+	keys, err := common.LoadKeys(envConfig.Mnemonic)
+	if err != nil {
+		fmt.Fprintf(os.Stdout, "could not load keys, %v", err)
+		return
+	}
 	// Calculate uid
 	uid, err := strategy.Uid(strat)
 	if err != nil {
-		fmt.Fprint(os.Stdout, err)
+		fmt.Fprintf(os.Stdout, "could not calculate uid, %v", err)
 		return
 	}
 
@@ -117,32 +96,16 @@ func main() {
 	pidManager := process.NewPidManager(uid)
 
 	// Strart service
-	seriveType := strings.Split(strat.StrategyType, "-")
-	if len(seriveType) < 2 {
+	serviceType := strings.Split(strat.StrategyType, "-")
+	if len(serviceType) < 2 {
 		fmt.Fprintf(os.Stdout, "invalid strat type")
 		return
 	}
-	switch strategy.StrategyType(seriveType[1]) {
-	case strategy.Filler:
-		{
-			service, err := strategy.StrategyToAutoFillStrategy(strat)
-			if err != nil {
-				fmt.Fprintf(os.Stdout, "err : %v", err)
-				return
-			}
-			wg.Add(1)
-			go s.RunAutoFillStrategy(service, isIW)
-		}
-	case strategy.Creator:
-		{
-			wg.Add(1)
-			service, err := strategy.StrategyToAutoCreateStrategy(strat)
-			if err != nil {
-				fmt.Fprintf(os.Stdout, "err : %v", err)
-				return
-			}
-			go s.RunAutoCreateStrategy(service, isIW)
-		}
+
+	err = startService(serviceType[1], wg, s, strat, isIW)
+	if err != nil {
+		fmt.Fprintf(os.Stdout, "error starting service, %v", err)
+		return
 	}
 
 	// Start signal receiver
@@ -157,7 +120,7 @@ func main() {
 	// Create pid file
 	err = pidManager.Write()
 	if err != nil {
-		fmt.Fprintf(os.Stdout, "err : %v", err)
+		fmt.Fprintf(os.Stdout, "failed to remove pid file, %v", err)
 		return
 	}
 
@@ -190,4 +153,28 @@ func searchStrat(strategyUid string, strategies []strategy.Strategy) (strategy.S
 
 	return strategy.Strategy{}, fmt.Errorf("strategy not found")
 
+}
+
+func startService(serviceType string, wg *sync.WaitGroup, s strategy.StrategyService, strat strategy.Strategy, isIW bool) error {
+	switch strategy.StrategyType(serviceType) {
+	case strategy.Filler:
+		{
+			service, err := strategy.StrategyToAutoFillStrategy(strat)
+			if err != nil {
+				return err
+			}
+			wg.Add(1)
+			go s.RunAutoFillStrategy(service, isIW)
+		}
+	case strategy.Creator:
+		{
+			wg.Add(1)
+			service, err := strategy.StrategyToAutoCreateStrategy(strat)
+			if err != nil {
+				return err
+			}
+			go s.RunAutoCreateStrategy(service, isIW)
+		}
+	}
+	return nil
 }

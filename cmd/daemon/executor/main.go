@@ -7,17 +7,13 @@ import (
 	"strconv"
 	"sync"
 	"syscall"
-	"time"
 
+	"github.com/catalogfi/cobi/cmd/daemon/common"
 	"github.com/catalogfi/cobi/daemon/executor"
 	"github.com/catalogfi/cobi/daemon/types"
 	"github.com/catalogfi/cobi/pkg/process"
-	"github.com/catalogfi/cobi/store"
 	"github.com/catalogfi/cobi/utils"
-	"github.com/tyler-smith/go-bip39"
 	"go.uber.org/zap"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 )
 
 func main() {
@@ -29,13 +25,13 @@ func main() {
 	// Format inputs
 	userAccount, err := strconv.ParseUint(os.Args[1], 10, 16)
 	if err != nil {
-		fmt.Fprint(os.Stdout, err)
+		fmt.Fprintf(os.Stdout, "failed to parse user account ,%v", err)
 		return
 	}
 
 	isIW, err := strconv.ParseBool(os.Args[2])
 	if err != nil {
-		fmt.Fprint(os.Stdout, err)
+		fmt.Fprintf(os.Stdout, "failed to parse isIw ,%v", err)
 		return
 	}
 
@@ -47,38 +43,21 @@ func main() {
 	}
 
 	// Initialize db
-	var str store.Store
-	if envConfig.DB != "" {
-		// Initialise db
-		str, err = store.NewStore(sqlite.Open(envConfig.DB), &gorm.Config{
-			NowFunc: func() time.Time { return time.Now().UTC() },
-		})
-		if err != nil {
-			fmt.Fprint(os.Stdout, err)
-			return
-		}
-	} else {
-		str, err = store.NewStore(sqlite.Open(utils.DefaultStorePath()), &gorm.Config{
-			NowFunc: func() time.Time { return time.Now().UTC() },
-		})
-		if err != nil {
-			fmt.Fprint(os.Stdout, err)
-			return
-		}
-	}
-
-	entropy, err := bip39.EntropyFromMnemonic(envConfig.Mnemonic)
+	str, err := common.LoadDB(envConfig.DB)
 	if err != nil {
-		fmt.Fprint(os.Stdout, err)
+		fmt.Fprintf(os.Stdout, "could not load db, %v", err)
 		return
 	}
 
-	// Load keys
-	keys := utils.NewKeys(entropy)
+	keys, err := common.LoadKeys(envConfig.Mnemonic)
+	if err != nil {
+		fmt.Fprintf(os.Stdout, "could not load keys, %v", err)
+		return
+	}
 
 	uid, err := executor.Uid(uint32(userAccount))
 	if err != nil {
-		fmt.Fprint(os.Stdout, err)
+		fmt.Fprintf(os.Stdout, "could not calculate uid, %v", err)
 		return
 	}
 
@@ -122,7 +101,7 @@ func main() {
 	// Create pid file
 	err = pidManager.Write()
 	if err != nil {
-		fmt.Fprintf(os.Stdout, "err : %v", err)
+		fmt.Fprintf(os.Stdout, "failed to remove pid file, %v", err)
 		return
 	}
 
