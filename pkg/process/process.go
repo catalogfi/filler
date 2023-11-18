@@ -64,6 +64,10 @@ func (p *process) Start(binaryPath string, args []string) (int, []byte, error) {
 	cmd.Stdin = reader
 	cmd.Stdout = writer
 
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setsid: true,
+	}
+
 	if err := cmd.Start(); err != nil {
 		return 0, nil, fmt.Errorf(fmt.Sprintf("error starting process, err:%v", err))
 	}
@@ -76,7 +80,6 @@ func (p *process) Start(binaryPath string, args []string) (int, []byte, error) {
 	if err != nil {
 		return 0, nil, fmt.Errorf("error reading process")
 	}
-	fmt.Println("24567oi")
 
 	return n, msg, nil
 }
