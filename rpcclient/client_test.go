@@ -7,7 +7,6 @@ import (
 	"time"
 
 	jsonrpc "github.com/catalogfi/cobi/daemon/rpc"
-	"github.com/catalogfi/cobi/daemon/rpc/handlers"
 	"github.com/catalogfi/cobi/daemon/types"
 	"github.com/catalogfi/cobi/rpcclient"
 	"github.com/catalogfi/cobi/store"
@@ -124,15 +123,6 @@ var _ = Describe("ClientTesting", func() {
 		}
 
 		_, err := c.Deposit(Deposit)
-		Expect(err).To(BeNil())
-	})
-
-	It("Kill Service", func() {
-		Skip("Works But for Now skipping Cuz PID is not dumped")
-		KillService := handlers.KillSerivce{
-			ServiceType: handlers.AutoCreator,
-		}
-		_, err := c.KillService(KillService)
 		Expect(err).To(BeNil())
 	})
 

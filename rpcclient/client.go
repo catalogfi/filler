@@ -8,7 +8,6 @@ import (
 	"net/http"
 
 	jsonrpc "github.com/catalogfi/cobi/daemon/rpc"
-	"github.com/catalogfi/cobi/daemon/rpc/handlers"
 	"github.com/catalogfi/cobi/daemon/types"
 	"github.com/catalogfi/cobi/utils"
 )
@@ -20,12 +19,6 @@ type client struct {
 	RPCServer string
 }
 
-type StartService struct {
-	ServiceType     handlers.Service `json:"service" binding:"required"`
-	Account         uint             `json:"userAccount"`
-	IsInstantWallet bool             `json:"isInstantWallet"`
-}
-
 type Client interface {
 	GetAccounts(data types.RequestAccount) (json.RawMessage, error)
 	CreateOrder(data types.RequestCreate) (json.RawMessage, error)
@@ -33,8 +26,6 @@ type Client interface {
 	FillOrder(data types.RequestFill) (json.RawMessage, error)
 	Transfer(data types.RequestTransfer) (json.RawMessage, error)
 	Deposit(data types.RequestDeposit) (json.RawMessage, error)
-	KillService(data handlers.KillSerivce) (json.RawMessage, error)
-	StartService(data StartService) (json.RawMessage, error)
 	SetConfig(data utils.Config) (json.RawMessage, error)
 	RetryOrder(data types.RequestRetry) (json.RawMessage, error)
 }
@@ -198,46 +189,6 @@ func (c *client) Deposit(data types.RequestDeposit) (json.RawMessage, error) {
 	}
 
 	return resp, nil
-}
-
-func (c *client) KillService(data handlers.KillSerivce) (json.RawMessage, error) {
-	jsonData, err := json.Marshal(data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal payload: %w", err)
-	}
-
-	resp, err := c.SendPostRequest("killService", jsonData)
-	if err != nil {
-
-		return nil, fmt.Errorf("failed to send request: %w", err)
-	}
-	return resp, nil
-}
-
-func (c *client) StartService(data StartService) (json.RawMessage, error) {
-	if data.ServiceType == "" {
-		return nil, fmt.Errorf("service type is required")
-	}
-
-	var procedure string
-	if data.ServiceType == handlers.Executor {
-		procedure = "startExecutor"
-	} else {
-		procedure = "startStrategy"
-	}
-
-	jsonData, err := json.Marshal(data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal payload: %w", err)
-	}
-
-	resp, err := c.SendPostRequest(procedure, jsonData)
-	if err != nil {
-		return nil, fmt.Errorf("failed to send request: %w", err)
-	}
-
-	return resp, nil
-
 }
 
 func (c *client) SetConfig(data utils.Config) (json.RawMessage, error) {

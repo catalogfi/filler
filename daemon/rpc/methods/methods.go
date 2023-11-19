@@ -182,14 +182,9 @@ func (a *status) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMe
 		return nil, err
 	}
 
-	var service handlers.Service
-	err := service.Set(req.Service)
-	if err != nil {
-		return nil, err
-	}
+	// check strategy status
 
-	isActive := handlers.Status(service, req.Account)
-	return json.Marshal(isActive)
+	return json.Marshal(true)
 
 }
 
