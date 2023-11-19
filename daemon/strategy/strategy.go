@@ -6,24 +6,16 @@ import (
 	"encoding/hex"
 	"math"
 	"math/big"
-	"net/http"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/btcsuite/btcd/btcec/v2"
-	"github.com/catalogfi/blockchain/btc"
 	"github.com/catalogfi/cobi/daemon/types"
-	"github.com/catalogfi/cobi/pkg/blockchain"
 	"github.com/catalogfi/cobi/pkg/swapper/bitcoin"
 	"github.com/catalogfi/cobi/utils"
-	"github.com/catalogfi/guardian"
-	"github.com/catalogfi/guardian/jsonrpc"
 	"github.com/catalogfi/wbtc-garden/model"
 	"github.com/catalogfi/wbtc-garden/rest"
 	"go.uber.org/zap"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 )
 
 type StrategyType string
@@ -94,29 +86,12 @@ func (ac *strategy) RunAutoCreateStrategy(s AutoCreateStrategy, isIw bool) {
 	var iwConfig []bitcoin.InstantWalletConfig
 
 	if fromChain.IsBTC() && isIw {
-		var iwStore bitcoin.Store
-		if ac.config.EnvConfig.DB != "" {
-			iwStore, err = bitcoin.NewStore(sqlite.Open(ac.config.EnvConfig.DB), &gorm.Config{
-				NowFunc: func() time.Time { return time.Now().UTC() },
-			})
-			if err != nil {
-				ac.config.Logger.Error("Could not load iw store: %v", zap.Error(err))
-			}
-		} else {
-			iwStore, err = bitcoin.NewStore((utils.DefaultInstantWalletDBDialector()), &gorm.Config{
-				NowFunc: func() time.Time { return time.Now().UTC() },
-			})
-			if err != nil {
-				ac.config.Logger.Error("Could not load iw store: %v", zap.Error(err))
-			}
+		iwStore, err := utils.LoadIwDB(ac.config.EnvConfig.DB)
+		if err != nil {
+			ac.config.Logger.Info("Could not load iw store: %v", zap.Error(err))
 		}
-		privKey := fromKeyInterface.(*btcec.PrivateKey)
-		chainParams := blockchain.GetParams(fromChain)
-		rpcClient := jsonrpc.NewClient(new(http.Client), ac.config.EnvConfig.Network[fromChain].IWRPC)
-		feeEstimator := btc.NewBlockstreamFeeEstimator(chainParams, ac.config.EnvConfig.Network[fromChain].RPC["mempool"], 20*time.Second)
-		indexer := btc.NewElectrsIndexerClient(ac.config.Logger, ac.config.EnvConfig.Network[fromChain].RPC["mempool"], 5*time.Second)
 
-		guardianWallet, err := guardian.NewBitcoinWallet(ac.config.Logger, privKey, chainParams, indexer, feeEstimator, rpcClient)
+		guardianWallet, err := utils.GetGuardianWallet(fromKeyInterface, ac.config.Logger, fromChain, ac.config.EnvConfig.Network)
 		if err != nil {
 			ac.config.Logger.Error("failed to load gurdian wallet", zap.Error(err))
 			return
@@ -260,29 +235,12 @@ func (af *strategy) RunAutoFillStrategy(s AutoFillStrategy, isIw bool) {
 	var iwConfig []bitcoin.InstantWalletConfig
 
 	if fromChain.IsBTC() && isIw {
-		var iwStore bitcoin.Store
-		if af.config.EnvConfig.DB != "" {
-			iwStore, err = bitcoin.NewStore(sqlite.Open(af.config.EnvConfig.DB), &gorm.Config{
-				NowFunc: func() time.Time { return time.Now().UTC() },
-			})
-			if err != nil {
-				af.config.Logger.Error("Could not load iw store: %v", zap.Error(err))
-			}
-		} else {
-			iwStore, err = bitcoin.NewStore((utils.DefaultInstantWalletDBDialector()), &gorm.Config{
-				NowFunc: func() time.Time { return time.Now().UTC() },
-			})
-			if err != nil {
-				af.config.Logger.Error("Could not load iw store: %v", zap.Error(err))
-			}
+		iwStore, err := utils.LoadIwDB(af.config.EnvConfig.DB)
+		if err != nil {
+			af.config.Logger.Info("Could not load iw store: %v", zap.Error(err))
 		}
-		privKey := fromKeyInterface.(*btcec.PrivateKey)
-		chainParams := blockchain.GetParams(fromChain)
-		rpcClient := jsonrpc.NewClient(new(http.Client), af.config.EnvConfig.Network[fromChain].IWRPC)
-		feeEstimator := btc.NewBlockstreamFeeEstimator(chainParams, af.config.EnvConfig.Network[fromChain].RPC["mempool"], 20*time.Second)
-		indexer := btc.NewElectrsIndexerClient(af.config.Logger, af.config.EnvConfig.Network[fromChain].RPC["mempool"], 5*time.Second)
 
-		guardianWallet, err := guardian.NewBitcoinWallet(af.config.Logger, privKey, chainParams, indexer, feeEstimator, rpcClient)
+		guardianWallet, err := utils.GetGuardianWallet(fromKeyInterface, af.config.Logger, fromChain, af.config.EnvConfig.Network)
 		if err != nil {
 			af.config.Logger.Error("failed to load gurdian wallet", zap.Error(err))
 			return

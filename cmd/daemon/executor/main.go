@@ -8,7 +8,6 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/catalogfi/cobi/cmd/daemon/common"
 	"github.com/catalogfi/cobi/daemon/executor"
 	"github.com/catalogfi/cobi/daemon/types"
 	"github.com/catalogfi/cobi/pkg/process"
@@ -43,13 +42,13 @@ func main() {
 	}
 
 	// Initialize db
-	str, err := common.LoadDB(envConfig.DB)
+	str, err := utils.LoadDB(envConfig.DB)
 	if err != nil {
 		fmt.Fprintf(os.Stdout, "could not load db, %v", err)
 		return
 	}
 
-	keys, err := common.LoadKeys(envConfig.Mnemonic)
+	keys, err := utils.LoadKeys(envConfig.Mnemonic)
 	if err != nil {
 		fmt.Fprintf(os.Stdout, "could not load keys, %v", err)
 		return

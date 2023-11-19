@@ -4,28 +4,20 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"net/http"
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
-	"github.com/btcsuite/btcd/btcec/v2"
-	"github.com/catalogfi/blockchain/btc"
 	"github.com/catalogfi/cobi/daemon/types"
 	"github.com/catalogfi/cobi/pkg/blockchain"
 	"github.com/catalogfi/cobi/pkg/swapper/bitcoin"
 	"github.com/catalogfi/cobi/store"
 	"github.com/catalogfi/cobi/utils"
-	"github.com/catalogfi/guardian"
-	"github.com/catalogfi/guardian/jsonrpc"
 	"github.com/catalogfi/wbtc-garden/model"
 	"github.com/catalogfi/wbtc-garden/rest"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"go.uber.org/zap"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 )
 
 type executor struct {
@@ -73,21 +65,9 @@ func (e *executor) Start(params RequestStartExecutor) {
 	var iwConfig []bitcoin.InstantWalletConfig
 
 	if params.IsInstantWallet {
-		var iwStore bitcoin.Store
-		if e.Config.EnvConfig.DB != "" {
-			iwStore, err = bitcoin.NewStore(sqlite.Open(e.Config.EnvConfig.DB), &gorm.Config{
-				NowFunc: func() time.Time { return time.Now().UTC() },
-			})
-			if err != nil {
-				e.Config.Logger.Error("Could not load iw store: %v", zap.Error(err))
-			}
-		} else {
-			iwStore, err = bitcoin.NewStore((utils.DefaultInstantWalletDBDialector()), &gorm.Config{
-				NowFunc: func() time.Time { return time.Now().UTC() },
-			})
-			if err != nil {
-				e.Config.Logger.Error("Could not load iw store: %v", zap.Error(err))
-			}
+		iwStore, err := utils.LoadIwDB(e.Config.EnvConfig.DB)
+		if err != nil {
+			e.Config.Logger.Info("Could not load iw store: %v", zap.Error(err))
 		}
 		iwConfig = append(iwConfig, bitcoin.InstantWalletConfig{
 			Store: iwStore,
@@ -227,13 +207,7 @@ func Execute(order model.Order, logger *zap.Logger, signer common.Address, keys 
 func handleRedeem(atomicSwap model.AtomicSwap, secret, secretHash string, keyInterface interface{}, config model.Network, userStore store.UserStore, logger *zap.Logger, isInitiator bool, iwConfig ...bitcoin.InstantWalletConfig) {
 	logger.Info("redeeming an order")
 	if len(iwConfig) != 0 && atomicSwap.Chain.IsBTC() {
-		privKey := keyInterface.(*btcec.PrivateKey)
-		chainParams := blockchain.GetParams(atomicSwap.Chain)
-		rpcClient := jsonrpc.NewClient(new(http.Client), config[atomicSwap.Chain].IWRPC)
-		feeEstimator := btc.NewBlockstreamFeeEstimator(chainParams, config[atomicSwap.Chain].RPC["mempool"], 20*time.Second)
-		indexer := btc.NewElectrsIndexerClient(logger, config[atomicSwap.Chain].RPC["mempool"], 5*time.Second)
-
-		guardianWallet, err := guardian.NewBitcoinWallet(logger, privKey, chainParams, indexer, feeEstimator, rpcClient)
+		guardianWallet, err := utils.GetGuardianWallet(keyInterface, logger, atomicSwap.Chain, config)
 		if err != nil {
 			logger.Error("failed to load gurdian wallet", zap.Error(err))
 			return
@@ -283,13 +257,7 @@ func handleRedeem(atomicSwap model.AtomicSwap, secret, secretHash string, keyInt
 func handleInitiate(atomicSwap model.AtomicSwap, secretHash string, keyInterface interface{}, config model.Network, userStore store.UserStore, logger *zap.Logger, isInitiator bool, iwConfig ...bitcoin.InstantWalletConfig) {
 	logger.Info("initiating an order")
 	if len(iwConfig) != 0 && atomicSwap.Chain.IsBTC() {
-		privKey := keyInterface.(*btcec.PrivateKey)
-		chainParams := blockchain.GetParams(atomicSwap.Chain)
-		rpcClient := jsonrpc.NewClient(new(http.Client), config[atomicSwap.Chain].IWRPC)
-		feeEstimator := btc.NewBlockstreamFeeEstimator(chainParams, config[atomicSwap.Chain].RPC["mempool"], 20*time.Second)
-		indexer := btc.NewElectrsIndexerClient(logger, config[atomicSwap.Chain].RPC["mempool"], 5*time.Second)
-
-		guardianWallet, err := guardian.NewBitcoinWallet(logger, privKey, chainParams, indexer, feeEstimator, rpcClient)
+		guardianWallet, err := utils.GetGuardianWallet(keyInterface, logger, atomicSwap.Chain, config)
 		if err != nil {
 			logger.Error("failed to load gurdian wallet", zap.Error(err))
 			return
@@ -334,13 +302,7 @@ func handleInitiate(atomicSwap model.AtomicSwap, secretHash string, keyInterface
 func handleRefund(atomicSwap model.AtomicSwap, secretHash string, keyInterface interface{}, config model.Network, userStore store.UserStore, logger *zap.Logger, isInitiator bool, iwConfig ...bitcoin.InstantWalletConfig) {
 	logger.Info("refunding an order")
 	if len(iwConfig) != 0 && atomicSwap.Chain.IsBTC() {
-		privKey := keyInterface.(*btcec.PrivateKey)
-		chainParams := blockchain.GetParams(atomicSwap.Chain)
-		rpcClient := jsonrpc.NewClient(new(http.Client), config[atomicSwap.Chain].IWRPC)
-		feeEstimator := btc.NewBlockstreamFeeEstimator(chainParams, config[atomicSwap.Chain].RPC["mempool"], 20*time.Second)
-		indexer := btc.NewElectrsIndexerClient(logger, config[atomicSwap.Chain].RPC["mempool"], 5*time.Second)
-
-		guardianWallet, err := guardian.NewBitcoinWallet(logger, privKey, chainParams, indexer, feeEstimator, rpcClient)
+		guardianWallet, err := utils.GetGuardianWallet(keyInterface, logger, atomicSwap.Chain, config)
 		if err != nil {
 			logger.Error("failed to load gurdian wallet", zap.Error(err))
 			return
