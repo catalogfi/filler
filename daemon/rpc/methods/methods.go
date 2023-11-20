@@ -46,17 +46,17 @@ func (a *accountInfo) Query(cfg types.CoreConfig, params json.RawMessage) (json.
 	return json.Marshal(accounts)
 }
 
-type createOrder struct{}
+type CreateOrder struct{}
 
 func CreateNewOrder() Method {
-	return &createOrder{}
+	return &CreateOrder{}
 }
 
-func (a *createOrder) Name() string {
-	return "createNewOrder"
+func (a *CreateOrder) Name() string {
+	return "createOrder"
 }
 
-func (a *createOrder) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
+func (a *CreateOrder) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
 	var req types.RequestCreate
 	if err := json.Unmarshal(params, &req); err != nil {
 		return nil, err
@@ -495,10 +495,6 @@ func (a *getConfig) Name() string {
 func (a *getConfig) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
 	config, err := utils.LoadExtendedConfig(utils.DefaultConfigPath())
 	if err != nil {
-		return nil, err
-	}
-	var requestConfig types.SetConfig
-	if err := json.Unmarshal(params, &requestConfig); err != nil {
 		return nil, err
 	}
 

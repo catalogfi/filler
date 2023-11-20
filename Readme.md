@@ -158,8 +158,6 @@ For further interaction docs with cobi-cli refer [cli docs](docs/cli.md)
 
 - Server follows JSON RPC pattern [version 2]
 
-#### Get all accounts , balances , and virtual balances
-
 ### Base Request Payload Structure
 
 ```json
@@ -170,6 +168,17 @@ For further interaction docs with cobi-cli refer [cli docs](docs/cli.md)
   "params": { } # BODY JSON
 }
 ```
+
+#### Get all accounts , balances , and virtual balances
+
+Method : getAccountInfo
+
+| Parameter       | Type     | Description                                        |
+| :-------------- | :------- | :------------------------------------------------- |
+| `userAccount`   | `uint`   | **Required**. Account user wants to get balance of |
+| `orderPair`     | `string` | **Required** `fromChain:fromAsset-ToChain:ToAsset` |
+| `sendAmount`    | `string` | **Required** amount to be sent                     |
+| `receiveAmount` | `string` | **Required** amount to be expected in return       |
 
 Method : createNewOrder
 
