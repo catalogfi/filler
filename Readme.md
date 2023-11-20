@@ -173,12 +173,12 @@ For further interaction docs with cobi-cli refer [cli docs](docs/cli.md)
 
 Method : getAccountInfo
 
-| Parameter       | Type     | Description                                        |
-| :-------------- | :------- | :------------------------------------------------- |
-| `userAccount`   | `uint`   | **Required**. Account user wants to get balance of |
-| `orderPair`     | `string` | **Required** `fromChain:fromAsset-ToChain:ToAsset` |
-| `sendAmount`    | `string` | **Required** amount to be sent                     |
-| `receiveAmount` | `string` | **Required** amount to be expected in return       |
+| Parameter  | Type     | Description                                  |
+| :--------- | :------- | :------------------------------------------- |
+| `isLegacy` | `bool`   | **Required** set true to get Legacy Accounts |
+| `asset`    | `string` | **Required** Asset to get balance of         |
+| `perPage`  | `uint`   | Number of accounts per page                  |
+| `page`     | `uint`   | Page number                                  |
 
 Method : createNewOrder
 
