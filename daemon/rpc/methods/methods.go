@@ -498,8 +498,19 @@ func (a *getConfig) Query(cfg types.CoreConfig, params json.RawMessage) (json.Ra
 		return nil, err
 	}
 
-	config.Mnemonic = ""
-	config.RpcUserName = ""
-	config.RpcPassword = ""
-	return json.Marshal(config)
+	var resp struct {
+		OrderBook string `json:"orderBook"`
+		DB        string `json:"db"`
+		Sentry    string `json:"sentry"`
+		RpcServer string `json:"rpcServer"`
+		NoTLS bool `json:"noTLS"`
+	}
+
+	resp.OrderBook = config.OrderBook
+	resp.DB = config.DB
+	resp.Sentry = config.Sentry
+	resp.RpcServer = config.RPCServer
+	resp.NoTLS = config.NoTLS
+
+	return json.Marshal(resp)
 }
