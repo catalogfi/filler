@@ -196,5 +196,5 @@ func (r *rpc) Run() {
 
 	authRoutes.POST("/", r.HandleJSONRPC)
 	authRoutes.POST("/update", r.UpdateCredentials)
-	s.Run(":8080")
+	s.Run(":3000")
 }
