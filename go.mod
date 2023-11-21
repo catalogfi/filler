@@ -8,8 +8,8 @@ require (
 	github.com/btcsuite/btcd/btcec/v2 v2.3.2
 	github.com/btcsuite/btcd/btcutil v1.1.3
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.2
-	github.com/catalogfi/blockchain v0.0.4
-	github.com/catalogfi/guardian v0.0.0-20231108104139-025131b2f4dd
+	github.com/catalogfi/blockchain v0.0.5-0.20231110104128-a5df8ee2b2b9
+	github.com/catalogfi/guardian v0.0.0-20231121015735-9466f7ef9f58
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/ethereum/go-ethereum v1.12.2
 	github.com/fatih/color v1.15.0

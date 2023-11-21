@@ -253,7 +253,7 @@ func MarshalStrategy(autoStrategies []AutoStrategy) ([]byte, error) {
 
 type PriceStrategy interface {
 	Price() (float64, error)
-	CalculatereceiveAmount(val *big.Int) (*big.Int, error)
+	CalculateReceiveAmount(val *big.Int) (*big.Int, error)
 }
 
 func MarshalPriceStrategy(strategy PriceStrategy) (string, json.RawMessage, error) {
@@ -287,7 +287,7 @@ type Likewise struct {
 }
 
 // FEE is in BIPS, 1 BIP = 0.01% and 10000 BIPS = 100%
-func (lw Likewise) CalculatereceiveAmount(val *big.Int) (*big.Int, error) {
+func (lw Likewise) CalculateReceiveAmount(val *big.Int) (*big.Int, error) {
 	return big.NewInt(val.Int64() * int64(10000-lw.Fee) / 10000), nil
 }
 

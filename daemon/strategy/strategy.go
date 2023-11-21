@@ -162,7 +162,7 @@ func (ac *strategy) RunAutoCreateStrategy(s AutoCreateStrategy) {
 					continue
 				}
 
-				receiveAmount, err := s.priceStrategy.CalculatereceiveAmount(randAmount)
+				receiveAmount, err := s.priceStrategy.CalculateReceiveAmount(randAmount)
 				if err != nil {
 					ac.config.Logger.Error("failed while getting address string", zap.Error(err))
 					return

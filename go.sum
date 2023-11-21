@@ -51,8 +51,12 @@ github.com/bytedance/sonic v1.9.1 h1:6iJ6NqdoxCDr6mbY8h18oSO+cShGSMRGCEo7F2h0x8s
 github.com/bytedance/sonic v1.9.1/go.mod h1:i736AoUSYt75HyZLoJW9ERYxcy6eaN6h4BZXU064P/U=
 github.com/catalogfi/blockchain v0.0.4 h1:YNN9kkOVkOwmqLwy7ewqKwLuySljTrkoMslGRfb0Wzw=
 github.com/catalogfi/blockchain v0.0.4/go.mod h1:e67lvEd6gEKh4yGAliq7J9CbAw4IA2yV1u0kgbBCgSE=
+github.com/catalogfi/blockchain v0.0.5-0.20231110104128-a5df8ee2b2b9 h1:K6sgBUXKcEUtV3ofFL6Ir+SwXbdrioe4jEO4lWyMxZA=
+github.com/catalogfi/blockchain v0.0.5-0.20231110104128-a5df8ee2b2b9/go.mod h1:e67lvEd6gEKh4yGAliq7J9CbAw4IA2yV1u0kgbBCgSE=
 github.com/catalogfi/guardian v0.0.0-20231108104139-025131b2f4dd h1:/vLm1sat/W0DqzrIBGJcEtJBl7wSS4yKECCvAuccTQ0=
 github.com/catalogfi/guardian v0.0.0-20231108104139-025131b2f4dd/go.mod h1:acLQ/akUdeln9+mvUSEbWLiM0OjC+K05+1drTpi85fA=
+github.com/catalogfi/guardian v0.0.0-20231121015735-9466f7ef9f58 h1:17DHPOYTW2XV3ua8Z1n6ZjkY5KPTqPwh/Dusct6DG+k=
+github.com/catalogfi/guardian v0.0.0-20231121015735-9466f7ef9f58/go.mod h1:JY1Xkf6qRX/rGxces0dhN8RmdLnOew7dDDvJAa3n5zY=
 github.com/catalogfi/wbtc-garden v0.0.0-20231018063504-74db33fd7fcf h1:bJJFL8Xe4m94ccVYRpGq8INaxwuGGrAIspSTOAmLVPs=
 github.com/catalogfi/wbtc-garden v0.0.0-20231018063504-74db33fd7fcf/go.mod h1:Kf6ZSVkbPoatqxuCteQ6+GG2kZ4IY/WGotcPHGM5h3U=
 github.com/cespare/cp v0.1.0 h1:SE+dxFebS7Iik5LK0tsi1k9ZCxEaFX4AjQmoyA+1dJk=
