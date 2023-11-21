@@ -6,9 +6,10 @@ import (
 	"github.com/catalogfi/cobi/daemon/types"
 	"github.com/catalogfi/cobi/rpcclient"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 )
 
-func Deposit(rpcClient rpcclient.Client) *cobra.Command {
+func Deposit(rpcClient rpcclient.Client , logger *zap.Logger) *cobra.Command {
 	var (
 		asset   string
 		account uint32
@@ -29,8 +30,7 @@ func Deposit(rpcClient rpcclient.Client) *cobra.Command {
 				cobra.CheckErr(fmt.Errorf("failed to send request: %w", err))
 			}
 
-			fmt.Println("Funds Deposit Was Successful" + string(resp))
-
+			logger.Info("Successfully deposited" , zap.String("txHash" ,string(resp)))
 		}}
 	cmd.Flags().Uint32Var(&account, "account", 0, "config file (default: 0)")
 	cmd.Flags().Uint64Var(&amount, "amount", 0, "User should provide the amount to deposit to instant wallet")

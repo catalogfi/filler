@@ -53,14 +53,17 @@ func Run(version string) error {
 
 	rpcClient := rpcclient.NewClient(envConfig.RpcUserName, envConfig.RpcPassword, protocol, envConfig.RPCServer)
 
+	
+
+
 	cmd.AddCommand(commands.Create(rpcClient))
-	cmd.AddCommand(commands.Fill(rpcClient))
+	cmd.AddCommand(commands.Fill(rpcClient , logger))
 	cmd.AddCommand(commands.Accounts(rpcClient))
 	// cmd.AddCommand(Retry(envConfig.OrderBook, keys, envConfig.Network, str, logger, envConfig.DB))
 	cmd.AddCommand(commands.List(rpcClient))
-	cmd.AddCommand(commands.Deposit(rpcClient))
-	cmd.AddCommand(commands.Transfer(rpcClient))
-	cmd.AddCommand(commands.SetConfig(rpcClient))
+	cmd.AddCommand(commands.Deposit(rpcClient , logger))
+	cmd.AddCommand(commands.Transfer(rpcClient , logger))
+	cmd.AddCommand(commands.SetConfig(rpcClient ,logger ))
 	if err := cmd.Execute(); err != nil {
 		return err
 	}

@@ -6,9 +6,10 @@ import (
 	"github.com/catalogfi/cobi/daemon/types"
 	"github.com/catalogfi/cobi/rpcclient"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 )
 
-func Retry(rpcClient rpcclient.Client) *cobra.Command {
+func Retry(rpcClient rpcclient.Client , logger *zap.Logger) *cobra.Command {
 	var (
 		orderId uint
 		account uint32
@@ -24,12 +25,12 @@ func Retry(rpcClient rpcclient.Client) *cobra.Command {
 				IsInstantWallet: useIw,
 			}
 
-			resp, err := rpcClient.RetryOrder(RetryPayload)
+			_, err := rpcClient.RetryOrder(RetryPayload)
 			if err != nil {
 				cobra.CheckErr(fmt.Errorf("failed to send request: %w", err))
 			}
 
-			fmt.Println(string(resp))
+			logger.Info("Successfully retried order")
 		}}
 
 	cmd.Flags().UintVar(&orderId, "order-id", 0, "User should provide the order id")

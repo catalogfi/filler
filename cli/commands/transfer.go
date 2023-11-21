@@ -6,9 +6,10 @@ import (
 	"github.com/catalogfi/cobi/daemon/types"
 	"github.com/catalogfi/cobi/rpcclient"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 )
 
-func Transfer(rpcClient rpcclient.Client) *cobra.Command {
+func Transfer(rpcClient rpcclient.Client , logger *zap.Logger) *cobra.Command {
 	var (
 		user   uint32
 		amount uint32
@@ -34,7 +35,8 @@ func Transfer(rpcClient rpcclient.Client) *cobra.Command {
 			if err != nil {
 				cobra.CheckErr(fmt.Errorf("failed to send request: %w", err))
 			}
-			fmt.Println("Successfully transferred" + string(resp))
+
+			logger.Info("Successfully transferred" , zap.String("txHash" ,string(resp)))
 		},
 		DisableAutoGenTag: true,
 	}

@@ -8,9 +8,10 @@ import (
 	"github.com/catalogfi/cobi/daemon/types"
 	"github.com/catalogfi/cobi/rpcclient"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 )
 
-func SetConfig(rpcClient rpcclient.Client) *cobra.Command {
+func SetConfig(rpcClient rpcclient.Client , logger *zap.Logger) *cobra.Command {
 
 	var (
 		configFilePath string
@@ -29,13 +30,13 @@ func SetConfig(rpcClient rpcclient.Client) *cobra.Command {
 				cobra.CheckErr(fmt.Errorf("failed to unmarshal config file: %w", err))
 			}
 
-			resp, err := rpcClient.SetConfig(config)
+			_, err = rpcClient.SetConfig(config)
 			if err != nil {
 				cobra.CheckErr(fmt.Errorf("failed to set config: %w", err))
 			}
 			rpcClient.UpdateAuth(config.RpcUserName , config.RpcPassword)
 
-			fmt.Println(string(resp))
+			logger.Info("Successfully set config")
 		}}
 
 	cmd.Flags().StringVar(&configFilePath, "config-file", "", "config file")

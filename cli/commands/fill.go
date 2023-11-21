@@ -6,9 +6,10 @@ import (
 	"github.com/catalogfi/cobi/daemon/types"
 	"github.com/catalogfi/cobi/rpcclient"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 )
 
-func Fill(rpcClient rpcclient.Client) *cobra.Command {
+func Fill(rpcClient rpcclient.Client , logger *zap.Logger) *cobra.Command {
 	var (
 		account uint32
 		orderId uint
@@ -22,12 +23,12 @@ func Fill(rpcClient rpcclient.Client) *cobra.Command {
 				OrderId:     uint64(orderId),
 			}
 
-			resp, err := rpcClient.FillOrder(FillOrder)
+			_, err := rpcClient.FillOrder(FillOrder)
 			if err != nil {
 				cobra.CheckErr(fmt.Errorf("failed to send request: %w", err))
 			}
 
-			fmt.Println(string(resp))
+			logger.Info("Successfully filled order" )
 		}}
 	cmd.Flags().Uint32Var(&account, "account", 0, "config file (default: 0)")
 	cmd.Flags().UintVar(&orderId, "order-id", 0, "User should provide the order id")

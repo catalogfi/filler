@@ -5,7 +5,6 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/catalogfi/cobi/daemon/rpc/methods"
@@ -120,7 +119,6 @@ func (r *rpc) HandleJSONRPC(ctx *gin.Context) {
 		return
 	}
 
-	fmt.Println("params", string(req.Params))
 	result, err := cmd.Query(&r.coreConfig, req.Params)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, NewResponse(req.ID, nil, NewError(ErrorCodeInternalError, ErrorMessageInternalError, err.Error())))
