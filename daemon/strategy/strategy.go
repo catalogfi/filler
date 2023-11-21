@@ -32,8 +32,8 @@ type strategy struct {
 }
 
 type StrategyService interface {
-	RunAutoCreateStrategy(s AutoCreateStrategy, isIw bool)
-	RunAutoFillStrategy(s AutoFillStrategy, isIw bool)
+	RunAutoCreateStrategy(s AutoCreateStrategy)
+	RunAutoFillStrategy(s AutoFillStrategy)
 	Done()
 }
 
@@ -50,7 +50,7 @@ func (s *strategy) Done() {
 	s.Quit <- struct{}{}
 }
 
-func (ac *strategy) RunAutoCreateStrategy(s AutoCreateStrategy, isIw bool) {
+func (ac *strategy) RunAutoCreateStrategy(s AutoCreateStrategy) {
 	defer func() {
 		ac.config.Logger.Info("exiting auto create strategy")
 		ac.Wg.Done()
@@ -85,7 +85,7 @@ func (ac *strategy) RunAutoCreateStrategy(s AutoCreateStrategy, isIw bool) {
 
 	var iwConfig []bitcoin.InstantWalletConfig
 
-	if fromChain.IsBTC() && isIw {
+	if fromChain.IsBTC() && s.UseIw {
 		iwStore, err := utils.LoadIwDB(ac.config.EnvConfig.DB)
 		if err != nil {
 			ac.config.Logger.Info("Could not load iw store: %v", zap.Error(err))
@@ -199,7 +199,7 @@ func (ac *strategy) RunAutoCreateStrategy(s AutoCreateStrategy, isIw bool) {
 	}
 }
 
-func (af *strategy) RunAutoFillStrategy(s AutoFillStrategy, isIw bool) {
+func (af *strategy) RunAutoFillStrategy(s AutoFillStrategy) {
 	defer func() {
 		af.config.Logger.Info("exiting auto fill strategy")
 		af.Wg.Done()
@@ -234,7 +234,7 @@ func (af *strategy) RunAutoFillStrategy(s AutoFillStrategy, isIw bool) {
 
 	var iwConfig []bitcoin.InstantWalletConfig
 
-	if fromChain.IsBTC() && isIw {
+	if fromChain.IsBTC() && s.UseIw {
 		iwStore, err := utils.LoadIwDB(af.config.EnvConfig.DB)
 		if err != nil {
 			af.config.Logger.Info("Could not load iw store: %v", zap.Error(err))
@@ -278,7 +278,6 @@ func (af *strategy) RunAutoFillStrategy(s AutoFillStrategy, isIw bool) {
 	}
 
 	for {
-		af.config.Logger.Info("here in select")
 		select {
 		case <-time.After(10 * time.Second):
 			{
@@ -353,5 +352,5 @@ func Uid(strat Strategy) (string, error) {
 	if err != nil {
 		return "", nil
 	}
-	return hash[:8], nil
+	return strings.Join([]string{hash[:8], strat.StrategyType}, "_"), nil
 }

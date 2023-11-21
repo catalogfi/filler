@@ -4,17 +4,10 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
-	"net/http"
-	"time"
 
-	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/catalogfi/blockchain/btc"
 	"github.com/catalogfi/cobi/daemon/types"
-	"github.com/catalogfi/cobi/pkg/blockchain"
 	"github.com/catalogfi/cobi/pkg/swapper/bitcoin"
 	"github.com/catalogfi/cobi/utils"
-	"github.com/catalogfi/guardian"
-	"github.com/catalogfi/guardian/jsonrpc"
 	"github.com/catalogfi/wbtc-garden/model"
 	"github.com/catalogfi/wbtc-garden/rest"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -23,7 +16,7 @@ import (
 
 func GetAccounts(cfg types.CoreConfig, params types.RequestAccount) ([]types.AccountInfo, error) {
 	if err := types.CheckStrings(params.Asset); err != nil {
-		return nil, fmt.Errorf("Asset is not valid: %v", err)
+		return nil, fmt.Errorf("asset is not valid: %v", err)
 	}
 	if err := types.CheckUint32s(params.PerPage, params.Page); err != nil {
 		return nil, fmt.Errorf("error while parsing PerPage: %v", err)
@@ -32,26 +25,33 @@ func GetAccounts(cfg types.CoreConfig, params types.RequestAccount) ([]types.Acc
 	if err != nil {
 		return nil, fmt.Errorf("error while parsing Chain and Asset: %v", err)
 	}
-	var iwStore bitcoin.Store
-	var guardianWallet guardian.BitcoinWallet
+	// var iwStore bitcoin.Store
+	// var guardianWallet guardian.BitcoinWallet
+	// var logger *zap.Logger
+	// var chainParams *chaincfg.Params
+	// var rpcClient jsonrpc.Client
+	// var feeEstimator btc.FeeEstimator
+	// var indexer btc.IndexerClient
+
 	var ReturnPayload []types.AccountInfo
-	var logger *zap.Logger
-	var chainParams *chaincfg.Params
-	var rpcClient jsonrpc.Client
-	var feeEstimator btc.FeeEstimator
-	var indexer btc.IndexerClient
-
 	config := cfg.EnvConfig.Network
-
-	if params.IsInstantWallet {
-		logger, _ = zap.NewProduction()
-		iwStore, _ = bitcoin.NewStore(utils.DefaultInstantWalletDBDialector())
-		chainParams = blockchain.GetParams(ch)
-		rpcClient = jsonrpc.NewClient(new(http.Client), cfg.EnvConfig.Network[ch].IWRPC)
-		feeEstimator = btc.NewBlockstreamFeeEstimator(chainParams, cfg.EnvConfig.Network[ch].RPC["mempool"], 20*time.Second)
-		indexer = btc.NewElectrsIndexerClient(logger, cfg.EnvConfig.Network[ch].RPC["mempool"], 5*time.Second)
-
+	iwStore, err := utils.LoadIwDB(cfg.EnvConfig.DB)
+	if err != nil {
+		return nil, fmt.Errorf("error loading iw db: %v", err)
 	}
+	logger, err := zap.NewProduction()
+	if err != nil {
+		return nil, fmt.Errorf("error initializing logger: %v", err)
+	}
+
+	// if params.IsInstantWallet {
+	// 	iwStore, _ = bitcoin.NewStore(utils.DefaultInstantWalletDBDialector())
+	// 	chainParams = blockchain.GetParams(ch)
+	// 	rpcClient = jsonrpc.NewClient(new(http.Client), cfg.EnvConfig.Network[ch].IWRPC)
+	// 	feeEstimator = btc.NewBlockstreamFeeEstimator(chainParams, cfg.EnvConfig.Network[ch].RPC["mempool"], 20*time.Second)
+	// 	indexer = btc.NewElectrsIndexerClient(logger, cfg.EnvConfig.Network[ch].RPC["mempool"], 5*time.Second)
+
+	// }
 
 	for i := params.PerPage*params.Page - params.PerPage; i < params.PerPage*params.Page; i++ {
 		key, err := cfg.Keys.GetKey(ch, uint32(i), 0)
@@ -89,7 +89,7 @@ func GetAccounts(cfg types.CoreConfig, params types.RequestAccount) ([]types.Acc
 		var balance *big.Int
 		var usableBalance *big.Int
 		if params.IsInstantWallet {
-			guardianWallet, err = guardian.NewBitcoinWallet(logger, key.BtcKey(), chainParams, indexer, feeEstimator, rpcClient)
+			guardianWallet, err := utils.GetGuardianWallet(key.BtcKey(), logger, ch, config)
 			if err != nil {
 				return nil, err
 			}

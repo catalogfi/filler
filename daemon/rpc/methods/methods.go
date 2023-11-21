@@ -365,17 +365,32 @@ func (a *setStrategy) Query(cfg types.CoreConfig, params json.RawMessage) (json.
 		return nil, err
 	}
 
-	accounts := make(map[uint32]process.ProcessManager)
+	startAccounts := make(map[uint32]process.ProcessManager)
+	stopAccounts := make(map[uint32]process.ProcessManager)
 	newStrats := make(map[string]process.ProcessManager)
 	commonStrats := make(map[string]bool)
 	quitStrats := make(map[string]process.ProcessManager)
+	isIw := make(map[uint32]bool)
 
 	for _, s := range strategies {
-		execUid, _ := executor.Uid(s.Account)
+		i, ok := isIw[s.Account]
+		if ok && i != s.UseIw {
+			return json.Marshal("uncertain strategy, strategies of same account can have only one value for UseIw")
+		}
+		execUid, _ := executor.Uid(s.UseIw, s.Account)
 		execProcess := process.NewProcessManager(execUid)
-		if _, ok := accounts[s.Account]; !ok {
+		if _, ok := startAccounts[s.Account]; !ok {
 			if !execProcess.IsActive() {
-				accounts[s.Account] = execProcess
+				startAccounts[s.Account] = execProcess
+				isIw[s.Account] = s.UseIw
+			}
+		}
+
+		execUid, _ = executor.Uid(!s.UseIw, s.Account)
+		execProcess = process.NewProcessManager(execUid)
+		if _, ok := stopAccounts[s.Account]; !ok {
+			if execProcess.IsActive() {
+				stopAccounts[s.Account] = execProcess
 			}
 		}
 
@@ -407,23 +422,29 @@ func (a *setStrategy) Query(cfg types.CoreConfig, params json.RawMessage) (json.
 		return nil, err
 	}
 
-	for id, process := range accounts {
-		err := a.startExecutor(process, id, false)
+	for _, process := range stopAccounts {
+		err := a.stopExecutor(process)
 		if err != nil {
-			return json.Marshal(fmt.Sprintf("failed to start executor, err : %v", err))
+			return json.Marshal(fmt.Sprintf("failed to stop executor, err : %v", err))
 		}
 	}
 
-	for _, process := range newStrats {
-		err := a.startStrategy(process, false)
+	for id, process := range startAccounts {
+		err := a.startExecutor(process, id, isIw[id])
 		if err != nil {
-			return json.Marshal(fmt.Sprintf("failed to start strategy, err : %v", err))
+			return json.Marshal(fmt.Sprintf("failed to start executor, err : %v", err))
 		}
 	}
 	for _, process := range quitStrats {
 		err := a.stopStrategy(process)
 		if err != nil {
 			return json.Marshal(fmt.Sprintf("failed to stop strategy, err : %v", err))
+		}
+	}
+	for _, process := range newStrats {
+		err := a.startStrategy(process, false)
+		if err != nil {
+			return json.Marshal(fmt.Sprintf("failed to start strategy, err : %v", err))
 		}
 	}
 
@@ -444,11 +465,14 @@ func (a *setStrategy) startExecutor(execProcess process.ProcessManager, account 
 	}
 	return fmt.Errorf("%s", msg)
 }
+func (a *setStrategy) stopExecutor(execProcess process.ProcessManager) error {
+	return execProcess.Stop()
+}
 
 func (a *setStrategy) startStrategy(stratProcess process.ProcessManager, isIw bool) error {
 	n, msgBytes, err := stratProcess.Start(
 		filepath.Join(utils.DefaultCobiBin(), "strategy"),
-		[]string{stratProcess.GetUid(), strconv.FormatBool(isIw)})
+		[]string{stratProcess.GetUid()})
 
 	if err != nil {
 		return err

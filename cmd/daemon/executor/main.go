@@ -54,7 +54,7 @@ func main() {
 		return
 	}
 
-	uid, err := executor.Uid(uint32(userAccount))
+	uid, err := executor.Uid(isIW, uint32(userAccount))
 	if err != nil {
 		fmt.Fprintf(os.Stdout, "could not calculate uid, %v", err)
 		return

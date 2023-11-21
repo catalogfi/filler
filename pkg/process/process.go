@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"syscall"
+	"time"
 
 	"github.com/catalogfi/cobi/utils"
 )
@@ -104,7 +105,9 @@ func (p *process) Stop(signal ...os.Signal) error {
 	if err != nil {
 		return fmt.Errorf("error killing process: %v", err)
 	}
-
+	for !p.exited(process) {
+		time.Sleep(500 * time.Microsecond)
+	}
 	return nil
 }
 
@@ -178,5 +181,10 @@ func (p *process) IsActive() bool {
 		return false
 	}
 	err = pr.Signal(syscall.Signal(0))
+	return err == nil
+}
+
+func (p *process) exited(process *os.Process) bool {
+	err := process.Signal(syscall.Signal(0))
 	return err == nil
 }

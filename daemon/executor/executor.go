@@ -357,10 +357,10 @@ func handleRefund(atomicSwap model.AtomicSwap, secretHash string, keyInterface i
 	}
 }
 
-func Uid(account uint32) (string, error) {
-	hash, err := utils.HashData(fmt.Sprintf("executor_account_%d", account))
+func Uid(useIw bool, account uint32) (string, error) {
+	hash, err := utils.HashData(fmt.Sprintf("executor_account_%d_%t", account, useIw))
 	if err != nil {
 		return "", nil
 	}
-	return hash[:8], nil
+	return strings.Join([]string{hash[:8], "exec"}, "_"), nil
 }

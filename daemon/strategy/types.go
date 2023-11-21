@@ -23,6 +23,7 @@ type Strategy struct {
 	MaxAmount     string          `json:"maxAmount"`
 	OrderPair     string          `json:"orderPair"`
 	PriceStrategy json.RawMessage `json:"priceStrategy"`
+	UseIw         bool            `json:"UseIw"`
 }
 
 type AutoCreateStrategy struct {
@@ -34,6 +35,7 @@ type AutoCreateStrategy struct {
 	maxAmount     *big.Int
 	orderPair     string
 	priceStrategy PriceStrategy
+	UseIw         bool
 }
 
 type AutoFillStrategy struct {
@@ -44,6 +46,7 @@ type AutoFillStrategy struct {
 	maxAmount     *big.Int
 	orderPair     string
 	priceStrategy PriceStrategy
+	UseIw         bool
 }
 
 func StrategyToAutoCreateStrategy(strategy Strategy) (AutoCreateStrategy, error) {
@@ -55,6 +58,7 @@ func StrategyToAutoCreateStrategy(strategy Strategy) (AutoCreateStrategy, error)
 		maxAmount:       nil, // need to parse and convert the string to big.Int
 		orderPair:       strategy.OrderPair,
 		priceStrategy:   nil, // need to convert strategy.PriceStrategy to PriceStrategy
+		UseIw:           strategy.UseIw,
 	}
 
 	// Parse and convert MinAmount and MaxAmount
@@ -89,6 +93,7 @@ func StrategyToAutoFillStrategy(strategy Strategy) (AutoFillStrategy, error) {
 		maxAmount:     nil, // need to parse and convert the string to big.Int
 		orderPair:     strategy.OrderPair,
 		priceStrategy: nil, // need to convert strategy.PriceStrategy to PriceStrategy
+		UseIw:         strategy.UseIw,
 	}
 
 	// Parse and convert MinAmount and MaxAmount

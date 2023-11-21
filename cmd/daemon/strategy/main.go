@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -18,19 +17,13 @@ import (
 )
 
 func main() {
-	if len(os.Args) != 3 {
+	if len(os.Args) != 2 {
 		fmt.Fprint(os.Stdout, "arguments not enough")
 		return
 	}
 
 	// Format inputs
 	strategyUid := os.Args[1]
-
-	isIW, err := strconv.ParseBool(os.Args[2])
-	if err != nil {
-		fmt.Fprintf(os.Stdout, "failed to parse isIw ,%v", err)
-		return
-	}
 
 	// Load config
 	envConfig, err := utils.LoadExtendedConfig(utils.DefaultConfigPath())
@@ -101,7 +94,7 @@ func main() {
 		return
 	}
 
-	err = startService(serviceType[1], wg, s, strat, isIW)
+	err = startService(serviceType[1], wg, s, strat)
 	if err != nil {
 		fmt.Fprintf(os.Stdout, "error starting service, %v", err)
 		return
@@ -154,7 +147,7 @@ func searchStrat(strategyUid string, strategies []strategy.Strategy) (strategy.S
 
 }
 
-func startService(serviceType string, wg *sync.WaitGroup, s strategy.StrategyService, strat strategy.Strategy, isIW bool) error {
+func startService(serviceType string, wg *sync.WaitGroup, s strategy.StrategyService, strat strategy.Strategy) error {
 	switch strategy.StrategyType(serviceType) {
 	case strategy.Filler:
 		{
@@ -163,7 +156,7 @@ func startService(serviceType string, wg *sync.WaitGroup, s strategy.StrategySer
 				return err
 			}
 			wg.Add(1)
-			go s.RunAutoFillStrategy(service, isIW)
+			go s.RunAutoFillStrategy(service)
 		}
 	case strategy.Creator:
 		{
@@ -172,7 +165,7 @@ func startService(serviceType string, wg *sync.WaitGroup, s strategy.StrategySer
 			if err != nil {
 				return err
 			}
-			go s.RunAutoCreateStrategy(service, isIW)
+			go s.RunAutoCreateStrategy(service)
 		}
 	}
 	return nil

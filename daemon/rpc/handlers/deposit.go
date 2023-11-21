@@ -3,20 +3,13 @@ package handlers
 import (
 	"fmt"
 	"math/big"
-	"net/http"
-	"time"
 
-	"github.com/catalogfi/blockchain/btc"
 	"github.com/catalogfi/cobi/daemon/types"
 	"github.com/catalogfi/cobi/pkg/blockchain"
 	"github.com/catalogfi/cobi/pkg/swapper/bitcoin"
 	"github.com/catalogfi/cobi/utils"
-	"github.com/catalogfi/guardian"
-	"github.com/catalogfi/guardian/jsonrpc"
 	"github.com/catalogfi/wbtc-garden/model"
 	"go.uber.org/zap"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 )
 
 func Deposit(cfg types.CoreConfig, params types.RequestDeposit) (string, error) {
@@ -35,23 +28,28 @@ func Deposit(cfg types.CoreConfig, params types.RequestDeposit) (string, error) 
 		return "", fmt.Errorf("error while parsing chain asset: %v", err)
 	}
 
-	var iwStore bitcoin.Store
-	if cfg.EnvConfig.DB != "" {
-
-		iwStore, err = bitcoin.NewStore(sqlite.Open(cfg.EnvConfig.DB), &gorm.Config{
-			NowFunc: func() time.Time { return time.Now().UTC() },
-		})
-		if err != nil {
-			return "", fmt.Errorf("Could not load iw store: %v", err)
-		}
-	} else {
-		iwStore, err = bitcoin.NewStore((utils.DefaultInstantWalletDBDialector()), &gorm.Config{
-			NowFunc: func() time.Time { return time.Now().UTC() },
-		})
-		if err != nil {
-			return "", fmt.Errorf("Could not load iw store: %v", err)
-		}
+	iwStore, err := utils.LoadIwDB(cfg.EnvConfig.DB)
+	if err != nil {
+		return "", fmt.Errorf("could not load iw db: %v", err)
 	}
+
+	// var iwStore bitcoin.Store
+	// if cfg.EnvConfig.DB != "" {
+
+	// 	iwStore, err = bitcoin.NewStore(sqlite.Open(cfg.EnvConfig.DB), &gorm.Config{
+	// 		NowFunc: func() time.Time { return time.Now().UTC() },
+	// 	})
+	// 	if err != nil {
+	// 		return "", fmt.Errorf("Could not load iw store: %v", err)
+	// 	}
+	// } else {
+	// 	iwStore, err = bitcoin.NewStore((utils.DefaultInstantWalletDBDialector()), &gorm.Config{
+	// 		NowFunc: func() time.Time { return time.Now().UTC() },
+	// 	})
+	// 	if err != nil {
+	// 		return "", fmt.Errorf("Could not load iw store: %v", err)
+	// 	}
+	// }
 
 	key, err := cfg.Keys.GetKey(chain, params.UserAccount, 0)
 	if err != nil {
@@ -59,19 +57,19 @@ func Deposit(cfg types.CoreConfig, params types.RequestDeposit) (string, error) 
 	}
 
 	privKey := key.BtcKey()
-	chainParams := blockchain.GetParams(chain)
-	rpcClient := jsonrpc.NewClient(new(http.Client), cfg.EnvConfig.Network[chain].IWRPC)
-	feeEstimator := btc.NewBlockstreamFeeEstimator(chainParams, cfg.EnvConfig.Network[chain].RPC["mempool"], 20*time.Second)
-	indexer := btc.NewElectrsIndexerClient(logger, cfg.EnvConfig.Network[chain].RPC["mempool"], 5*time.Second)
+	// chainParams := blockchain.GetParams(chain)
+	// rpcClient := jsonrpc.NewClient(new(http.Client), cfg.EnvConfig.Network[chain].IWRPC)
+	// feeEstimator := btc.NewBlockstreamFeeEstimator(chainParams, cfg.EnvConfig.Network[chain].RPC["mempool"], 20*time.Second)
+	// indexer := btc.NewElectrsIndexerClient(logger, cfg.EnvConfig.Network[chain].RPC["mempool"], 5*time.Second)
 
-	guardianWallet, err := guardian.NewBitcoinWallet(logger, privKey, chainParams, indexer, feeEstimator, rpcClient)
+	guardianWallet, err := utils.GetGuardianWallet(privKey, logger, chain, cfg.EnvConfig.Network)
+	if err != nil {
+		return "", err
+	}
 
 	iwConfig := bitcoin.InstantWalletConfig{
 		Store:   iwStore,
 		IWallet: guardianWallet,
-	}
-	if err != nil {
-		return "", fmt.Errorf("Could not load iw store: %v", err)
 	}
 
 	client, err := blockchain.LoadClient(chain, cfg.EnvConfig.Network, iwConfig)
@@ -81,7 +79,7 @@ func Deposit(cfg types.CoreConfig, params types.RequestDeposit) (string, error) 
 	switch client := client.(type) {
 	case bitcoin.InstantClient:
 
-		address, err := key.Address(chain, cfg.EnvConfig.Network, false)
+		address, err := key.Address(chain, cfg.EnvConfig.Network, true)
 		if err != nil {
 			return "", fmt.Errorf("error getting wallet address: %v", err)
 		}
@@ -91,7 +89,7 @@ func Deposit(cfg types.CoreConfig, params types.RequestDeposit) (string, error) 
 		}
 
 		if new(big.Int).SetUint64(params.Amount).Cmp(balance) > 0 {
-			return "", fmt.Errorf("Insufficient funds")
+			return "", fmt.Errorf("insufficient funds")
 		}
 
 		txHash, err := client.FundInstantWallet(privKey, int64(params.Amount))
@@ -101,5 +99,5 @@ func Deposit(cfg types.CoreConfig, params types.RequestDeposit) (string, error) 
 		}
 		return txHash, nil
 	}
-	return "", fmt.Errorf("Invalid Asset Passet: %s", params.Asset)
+	return "", fmt.Errorf("invalid Asset Passet: %s", params.Asset)
 }
