@@ -27,7 +27,6 @@ type RPC interface {
 type rpc struct {
 	commands   map[string]methods.Method
 	coreConfig types.CoreConfig
-	authsha    [sha256.Size]byte
 }
 
 // Request defines a JSON-RPC 2.0 request object.
@@ -94,12 +93,12 @@ func NewRpcServer(storage store.Store, envConfig utils.Config, keys *utils.Keys,
 
 	return &rpc{
 		commands: make(map[string]methods.Method),
-		authsha:  sha256.Sum256([]byte(auth)),
 		coreConfig: types.CoreConfig{
 			Storage:   storage,
-			EnvConfig: envConfig,
+			EnvConfig: &envConfig,
 			Keys:      keys,
 			Logger:    logger,
+			Authsha:  sha256.Sum256([]byte(auth)),
 		},
 	}
 }
@@ -122,14 +121,12 @@ func (r *rpc) HandleJSONRPC(ctx *gin.Context) {
 	}
 
 	fmt.Println("params", string(req.Params))
-	result, err := cmd.Query(r.coreConfig, req.Params)
+	result, err := cmd.Query(&r.coreConfig, req.Params)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, NewResponse(req.ID, nil, NewError(ErrorCodeInternalError, ErrorMessageInternalError, err.Error())))
 		return
 	}
-
 	ctx.JSON(http.StatusOK, NewResponse(req.ID, result, nil))
-
 }
 
 func (r *rpc) authenticateUser(ctx *gin.Context) {
@@ -139,7 +136,7 @@ func (r *rpc) authenticateUser(ctx *gin.Context) {
 		return
 	}
 	authsha := sha256.Sum256([]byte(authhdr))
-	cmp := subtle.ConstantTimeCompare(authsha[:], r.authsha[:])
+	cmp := subtle.ConstantTimeCompare(authsha[:], r.coreConfig.Authsha[:])
 	if cmp != 1 {
 		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"message": "Unauthorized Invalid credentials"})
 		return
@@ -163,7 +160,7 @@ func (r *rpc) UpdateCredentials(ctx *gin.Context) {
 	rpcLogin := req.RpcUserName + ":" + req.RpcPassword
 	rpcAuth := "Basic " + base64.StdEncoding.EncodeToString([]byte(rpcLogin))
 
-	r.authsha = sha256.Sum256([]byte(rpcAuth))
+	r.coreConfig.Authsha = sha256.Sum256([]byte(rpcAuth))
 
 	if err := utils.UpdateAuth(req.RpcUserName, req.RpcPassword); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"message": "Invalid credentials"})

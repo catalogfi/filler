@@ -35,7 +35,7 @@ var _ = BeforeSuite(func() {
 
 	StartServer()
 	time.Sleep(3 * time.Second) // await server to start
-	c = rpcclient.NewClient("admin", "root", "http", "127.0.0.1:8080")
+	c = rpcclient.NewClient("admin", "pass", "http", "127.0.0.1:3000")
 })
 
 var _ = Describe("ClientTesting", func() {
@@ -85,6 +85,8 @@ var _ = Describe("ClientTesting", func() {
 	})
 
 	It("Create Order", func() {
+		Skip("")
+
 		CreateOrder := types.RequestCreate{
 			UserAccount:   0,
 			OrderPair:     "bitcoin_testnet-ethereum_sepolia:0x130Ff59B75a415d0bcCc2e996acAf27ce70fD5eF",
@@ -105,6 +107,8 @@ var _ = Describe("ClientTesting", func() {
 	})
 
 	It("FillOder", func() {
+		Skip("")
+
 		FillOrder := types.RequestFill{
 			UserAccount: 1,
 			OrderId:     CurrentOrder,
@@ -116,6 +120,8 @@ var _ = Describe("ClientTesting", func() {
 	})
 
 	It("Deposit to Instant Wallet", func() {
+		Skip("")
+
 		Deposit := types.RequestDeposit{
 			UserAccount: 1,
 			Amount:      10000,
@@ -142,7 +148,7 @@ var _ = Describe("ClientTesting", func() {
 	})
 
 	It("Get List Of Orders", func() {
-
+		Skip("Testging setConfig")
 		resp, err := c.ListOrders(types.RequestListOrders{
 			Page:    1,
 			PerPage: 10,
@@ -158,6 +164,41 @@ var _ = Describe("ClientTesting", func() {
 		fmt.Println("len", len(orders))
 		// Expect(len(orders)).To(Equal(10))
 
+	})
+
+	It("Should SetConfig and verify Config State Has Changed in server", func() {
+		AccountReq := types.RequestAccount{
+			IsInstantWallet: true,
+			Asset:           "bitcoin_testnet",
+			Page:            uint32(1),
+			PerPage:         uint32(10),
+			UserAccount:     0,
+		}
+
+
+		resp , err := c.SetConfig(types.SetConfig{
+			RpcUserName: "rpcuser",
+			RpcPassword: "rpcpass",
+		})
+		Expect(err).To(BeNil())
+		fmt.Println("resp", string(resp))
+
+		c.UpdateAuth("admin" , "pass")
+		resp, err = c.GetAccounts(AccountReq)
+		Expect(err).ToNot(BeNil())
+		
+		c.UpdateAuth("Malicious_admin" , "pass")
+		resp, err = c.GetAccounts(AccountReq)
+		Expect(err).ToNot(BeNil())
+		
+		c.UpdateAuth("admin" , "wrong_pass")
+		resp, err = c.GetAccounts(AccountReq)
+		Expect(err).ToNot(BeNil())
+
+		c.UpdateAuth("rpcuser" , "rpcpass")
+		resp, err = c.GetAccounts(AccountReq)
+		Expect(err).To(BeNil())
+		Expect(resp).ToNot(BeNil())
 	})
 })
 

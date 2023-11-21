@@ -1,6 +1,7 @@
 package types
 
 import (
+	"crypto/sha256"
 	"errors"
 	"strings"
 
@@ -101,9 +102,10 @@ type AccountInfo struct {
 
 type CoreConfig struct {
 	Storage   store.Store
-	EnvConfig utils.Config
+	EnvConfig *utils.Config
 	Keys      *utils.Keys
 	Logger    *zap.Logger
+	Authsha    [sha256.Size]byte
 }
 
 func CheckStrings(elements ...string) error {

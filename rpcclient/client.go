@@ -9,7 +9,6 @@ import (
 
 	jsonrpc "github.com/catalogfi/cobi/daemon/rpc"
 	"github.com/catalogfi/cobi/daemon/types"
-	"github.com/catalogfi/cobi/utils"
 )
 
 type client struct {
@@ -19,6 +18,8 @@ type client struct {
 	RPCServer string
 }
 
+
+
 type Client interface {
 	GetAccounts(data types.RequestAccount) (json.RawMessage, error)
 	CreateOrder(data types.RequestCreate) (json.RawMessage, error)
@@ -26,8 +27,9 @@ type Client interface {
 	FillOrder(data types.RequestFill) (json.RawMessage, error)
 	Transfer(data types.RequestTransfer) (json.RawMessage, error)
 	Deposit(data types.RequestDeposit) (json.RawMessage, error)
-	SetConfig(data utils.Config) (json.RawMessage, error)
+	SetConfig(data types.SetConfig) (json.RawMessage, error)
 	RetryOrder(data types.RequestRetry) (json.RawMessage, error)
+	UpdateAuth(username, password string) 
 }
 
 func NewClient(userName string, password string, protocol string, rpcServer string) Client {
@@ -191,7 +193,7 @@ func (c *client) Deposit(data types.RequestDeposit) (json.RawMessage, error) {
 	return resp, nil
 }
 
-func (c *client) SetConfig(data utils.Config) (json.RawMessage, error) {
+func (c *client) SetConfig(data types.SetConfig) (json.RawMessage, error) {
 
 	jsonData, err := json.Marshal(data)
 	if err != nil {
@@ -222,3 +224,14 @@ func (c *client) RetryOrder(data types.RequestRetry) (json.RawMessage, error) {
 
 	return resp, nil
 }
+
+
+func (c *client) UpdateAuth(username, password string) {
+	if username != "" {
+		c.User = username
+	}
+	if password != "" {
+		c.Pass = password
+	}
+ }
+ 

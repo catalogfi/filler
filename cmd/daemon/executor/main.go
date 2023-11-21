@@ -68,7 +68,7 @@ func main() {
 	// Initialize config
 	config := types.CoreConfig{
 		Logger:    logger,
-		EnvConfig: envConfig,
+		EnvConfig: &envConfig,
 		Keys:      &keys,
 		Storage:   str,
 	}

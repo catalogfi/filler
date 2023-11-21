@@ -1,6 +1,8 @@
 package methods
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,7 +21,7 @@ import (
 
 type Method interface {
 	Name() string
-	Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMessage, error)
+	Query(cfg *types.CoreConfig, params json.RawMessage) (json.RawMessage, error)
 }
 
 type accountInfo struct{}
@@ -32,13 +34,13 @@ func (a *accountInfo) Name() string {
 	return "getAccountInfo"
 }
 
-func (a *accountInfo) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
+func (a *accountInfo) Query(cfg *types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
 	var req types.RequestAccount
 	if err := json.Unmarshal(params, &req); err != nil {
 		return nil, err
 	}
 
-	accounts, err := handlers.GetAccounts(cfg, req)
+	accounts, err := handlers.GetAccounts(*cfg, req)
 	if err != nil {
 		return nil, err
 	}
@@ -56,13 +58,13 @@ func (a *CreateOrder) Name() string {
 	return "createOrder"
 }
 
-func (a *CreateOrder) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
+func (a *CreateOrder) Query(cfg *types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
 	var req types.RequestCreate
 	if err := json.Unmarshal(params, &req); err != nil {
 		return nil, err
 	}
 
-	id, err := handlers.Create(cfg, req)
+	id, err := handlers.Create(*cfg, req)
 	if err != nil {
 		return nil, err
 	}
@@ -80,13 +82,13 @@ func (a *fillOrder) Name() string {
 	return "fillOrder"
 }
 
-func (a *fillOrder) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
+func (a *fillOrder) Query(cfg *types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
 	var req types.RequestFill
 	if err := json.Unmarshal(params, &req); err != nil {
 		return nil, err
 	}
 
-	err := handlers.FillOrder(cfg, req)
+	err := handlers.FillOrder(*cfg, req)
 	if err != nil {
 		return nil, err
 	}
@@ -104,13 +106,13 @@ func (a *depositFunds) Name() string {
 	return "depositFunds"
 }
 
-func (a *depositFunds) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
+func (a *depositFunds) Query(cfg *types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
 	var req types.RequestDeposit
 	if err := json.Unmarshal(params, &req); err != nil {
 		return nil, err
 	}
 
-	txhash, err := handlers.Deposit(cfg, req)
+	txhash, err := handlers.Deposit(*cfg, req)
 	if err != nil {
 		return nil, err
 	}
@@ -128,13 +130,13 @@ func (a *transferFunds) Name() string {
 	return "transferFunds"
 }
 
-func (a *transferFunds) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
+func (a *transferFunds) Query(cfg *types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
 	var req types.RequestTransfer
 	if err := json.Unmarshal(params, &req); err != nil {
 		return nil, err
 	}
 
-	txhash, err := handlers.Transfer(cfg, req)
+	txhash, err := handlers.Transfer(*cfg, req)
 	if err != nil {
 		return nil, err
 	}
@@ -152,13 +154,13 @@ func (a *listOrders) Name() string {
 	return "listOrders"
 }
 
-func (a *listOrders) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
+func (a *listOrders) Query(cfg *types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
 	var req types.RequestListOrders
 	if err := json.Unmarshal(params, &req); err != nil {
 		return nil, err
 	}
 
-	Orders, err := handlers.List(cfg, req)
+	Orders, err := handlers.List(*cfg, req)
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +178,7 @@ func (a *status) Name() string {
 	return "status"
 }
 
-func (a *status) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
+func (a *status) Query(cfg *types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
 	var req types.RequestStatus
 	if err := json.Unmarshal(params, &req); err != nil {
 		return nil, err
@@ -198,7 +200,7 @@ func (a *setConfig) Name() string {
 	return "setConfig"
 }
 
-func (a *setConfig) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
+func (a *setConfig) Query(cfg *types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
 	var req types.SetConfig
 	if err := json.Unmarshal(params, &req); err != nil {
 		return nil, err
@@ -211,34 +213,50 @@ func (a *setConfig) Query(cfg types.CoreConfig, params json.RawMessage) (json.Ra
 
 	if req.Mnemonic != "" {
 		config.Mnemonic = req.Mnemonic
+		cfg.EnvConfig.Mnemonic = req.Mnemonic
 	}
 	if req.OrderBook != "" {
 		config.OrderBook = req.OrderBook
+		cfg.EnvConfig.OrderBook = req.OrderBook
+		
 	}
 	if req.DB != "" {
 		config.DB = req.DB
+		cfg.EnvConfig.DB = req.DB
 	}
 	if req.Sentry != "" {
 		config.Sentry = req.Sentry
+		cfg.EnvConfig.Sentry = req.Sentry
 	}
 	if req.RpcUserName != "" {
 		config.RpcUserName = req.RpcUserName
+		cfg.EnvConfig.RpcUserName = req.RpcUserName
 	}
 	if req.RpcPassword != "" {
 		config.RpcPassword = req.RpcPassword
+		cfg.EnvConfig.RpcPassword = req.RpcPassword
 	}
+
+	// update authentication
+	rpcLogin := config.RpcUserName + ":" + config.RpcPassword
+	rpcAuth := "Basic " + base64.StdEncoding.EncodeToString([]byte(rpcLogin))
+	cfg.Authsha = sha256.Sum256([]byte(rpcAuth))
+
 	if req.NoTLS != "" {
 		switch req.NoTLS {
 		case "true":
 			config.NoTLS = true
+			cfg.EnvConfig.NoTLS = true
 		case "false":
 			config.NoTLS = false
+			cfg.EnvConfig.NoTLS = false
 		default:
 			return nil, errors.New("invalid arguments passed")
 		}
 	}
 	if req.RPCServer != "" {
 		config.RPCServer = req.RPCServer
+		cfg.EnvConfig.RPCServer = req.RPCServer
 	}
 
 	data, err := json.MarshalIndent(config, "", "  ")
@@ -262,13 +280,13 @@ func (a *retry) Name() string {
 	return "retryOrder"
 }
 
-func (a *retry) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
+func (a *retry) Query(cfg *types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
 	var req types.RequestRetry
 	if err := json.Unmarshal(params, &req); err != nil {
 		return nil, err
 	}
 
-	if err := handlers.Retry(cfg, req); err != nil {
+	if err := handlers.Retry(*cfg, req); err != nil {
 		return nil, err
 	}
 
@@ -285,7 +303,7 @@ func (a *setNetwork) Name() string {
 	return "setNetwork"
 }
 
-func (a *setNetwork) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
+func (a *setNetwork) Query(cfg *types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
 	var networkConfig model.Network
 	if err := json.Unmarshal(params, &networkConfig); err != nil {
 		return nil, err
@@ -316,7 +334,7 @@ func (a *getNetworks) Name() string {
 	return "getNetworks"
 }
 
-func (a *getNetworks) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
+func (a *getNetworks) Query(cfg *types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
 	config, err := utils.LoadExtendedConfig(utils.DefaultConfigPath())
 	if err != nil {
 		return nil, err
@@ -334,7 +352,7 @@ func (a *setStrategy) Name() string {
 	return "setStrategy"
 }
 
-func (a *setStrategy) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
+func (a *setStrategy) Query(cfg *types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
 	var strategyConfig json.RawMessage
 	if err := json.Unmarshal(params, &strategyConfig); err != nil {
 		return nil, err
@@ -498,7 +516,7 @@ func (a *getStrategy) Name() string {
 	return "getStrategy"
 }
 
-func (a *getStrategy) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
+func (a *getStrategy) Query(cfg *types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
 	config, err := utils.LoadExtendedConfig(utils.DefaultConfigPath())
 	if err != nil {
 		return nil, err
@@ -516,7 +534,7 @@ func (a *getConfig) Name() string {
 	return "getConfig"
 }
 
-func (a *getConfig) Query(cfg types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
+func (a *getConfig) Query(cfg *types.CoreConfig, params json.RawMessage) (json.RawMessage, error) {
 	config, err := utils.LoadExtendedConfig(utils.DefaultConfigPath())
 	if err != nil {
 		return nil, err
