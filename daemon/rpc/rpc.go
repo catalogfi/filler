@@ -11,6 +11,7 @@ import (
 	"github.com/catalogfi/cobi/daemon/types"
 	"github.com/catalogfi/cobi/store"
 	"github.com/catalogfi/cobi/utils"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
@@ -97,7 +98,7 @@ func NewRpcServer(storage store.Store, envConfig utils.Config, keys *utils.Keys,
 			EnvConfig: &envConfig,
 			Keys:      keys,
 			Logger:    logger,
-			Authsha:  sha256.Sum256([]byte(auth)),
+			Authsha:   sha256.Sum256([]byte(auth)),
 		},
 	}
 }
@@ -185,6 +186,14 @@ func (r *rpc) Run() {
 	r.AddCommand(methods.SetStrategy())
 
 	s := gin.Default()
+
+	s.Use(cors.New(cors.Config{
+		AllowAllOrigins:  true,
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Authorization", "Content-Type"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+	}))
 
 	authRoutes := s.Group("/")
 	authRoutes.Use(r.authenticateUser)
