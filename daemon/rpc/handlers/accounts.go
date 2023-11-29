@@ -8,8 +8,8 @@ import (
 	"github.com/catalogfi/cobi/daemon/types"
 	"github.com/catalogfi/cobi/pkg/swapper/bitcoin"
 	"github.com/catalogfi/cobi/utils"
-	"github.com/catalogfi/wbtc-garden/model"
-	"github.com/catalogfi/wbtc-garden/rest"
+	"github.com/catalogfi/orderbook/model"
+	"github.com/catalogfi/orderbook/rest"
 	"github.com/ethereum/go-ethereum/crypto"
 	"go.uber.org/zap"
 )

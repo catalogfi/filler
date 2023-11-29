@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"github.com/catalogfi/cobi/daemon/types"
-	"github.com/catalogfi/wbtc-garden/model"
-	"github.com/catalogfi/wbtc-garden/rest"
+	"github.com/catalogfi/orderbook/model"
+	"github.com/catalogfi/orderbook/rest"
 	"github.com/ethereum/go-ethereum/crypto"
 )
 

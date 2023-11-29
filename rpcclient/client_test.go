@@ -11,7 +11,7 @@ import (
 	"github.com/catalogfi/cobi/rpcclient"
 	"github.com/catalogfi/cobi/store"
 	"github.com/catalogfi/cobi/utils"
-	"github.com/catalogfi/wbtc-garden/model"
+	"github.com/catalogfi/orderbook/model"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/tyler-smith/go-bip39"
@@ -175,27 +175,26 @@ var _ = Describe("ClientTesting", func() {
 			UserAccount:     0,
 		}
 
-
-		resp , err := c.SetConfig(types.SetConfig{
+		resp, err := c.SetConfig(types.SetConfig{
 			RpcUserName: "rpcuser",
 			RpcPassword: "rpcpass",
 		})
 		Expect(err).To(BeNil())
 		fmt.Println("resp", string(resp))
 
-		c.UpdateAuth("admin" , "pass")
-		resp, err = c.GetAccounts(AccountReq)
-		Expect(err).ToNot(BeNil())
-		
-		c.UpdateAuth("Malicious_admin" , "pass")
-		resp, err = c.GetAccounts(AccountReq)
-		Expect(err).ToNot(BeNil())
-		
-		c.UpdateAuth("admin" , "wrong_pass")
+		c.UpdateAuth("admin", "pass")
 		resp, err = c.GetAccounts(AccountReq)
 		Expect(err).ToNot(BeNil())
 
-		c.UpdateAuth("rpcuser" , "rpcpass")
+		c.UpdateAuth("Malicious_admin", "pass")
+		resp, err = c.GetAccounts(AccountReq)
+		Expect(err).ToNot(BeNil())
+
+		c.UpdateAuth("admin", "wrong_pass")
+		resp, err = c.GetAccounts(AccountReq)
+		Expect(err).ToNot(BeNil())
+
+		c.UpdateAuth("rpcuser", "rpcpass")
 		resp, err = c.GetAccounts(AccountReq)
 		Expect(err).To(BeNil())
 		Expect(resp).ToNot(BeNil())

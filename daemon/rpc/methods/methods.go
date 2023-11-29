@@ -16,7 +16,7 @@ import (
 	"github.com/catalogfi/cobi/daemon/types"
 	"github.com/catalogfi/cobi/pkg/process"
 	"github.com/catalogfi/cobi/utils"
-	"github.com/catalogfi/wbtc-garden/model"
+	"github.com/catalogfi/orderbook/model"
 )
 
 type Method interface {
@@ -218,7 +218,7 @@ func (a *setConfig) Query(cfg *types.CoreConfig, params json.RawMessage) (json.R
 	if req.OrderBook != "" {
 		config.OrderBook = req.OrderBook
 		cfg.EnvConfig.OrderBook = req.OrderBook
-		
+
 	}
 	if req.DB != "" {
 		config.DB = req.DB
@@ -545,7 +545,7 @@ func (a *getConfig) Query(cfg *types.CoreConfig, params json.RawMessage) (json.R
 		DB        string `json:"db"`
 		Sentry    string `json:"sentry"`
 		RpcServer string `json:"rpcServer"`
-		NoTLS bool `json:"noTLS"`
+		NoTLS     bool   `json:"noTLS"`
 	}
 
 	resp.OrderBook = config.OrderBook

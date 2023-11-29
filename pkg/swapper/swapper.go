@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/catalogfi/wbtc-garden/model"
+	"github.com/catalogfi/orderbook/model"
 )
 
 var (

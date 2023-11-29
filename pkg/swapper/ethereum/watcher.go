@@ -8,7 +8,7 @@ import (
 
 	"github.com/catalogfi/cobi/pkg/swapper"
 	"github.com/catalogfi/cobi/pkg/swapper/ethereum/typings/AtomicSwap"
-	"github.com/catalogfi/wbtc-garden/model"
+	"github.com/catalogfi/orderbook/model"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"

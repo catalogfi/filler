@@ -8,7 +8,7 @@ import (
 	"github.com/catalogfi/cobi/pkg/blockchain"
 	"github.com/catalogfi/cobi/pkg/swapper/bitcoin"
 	"github.com/catalogfi/cobi/utils"
-	"github.com/catalogfi/wbtc-garden/model"
+	"github.com/catalogfi/orderbook/model"
 	"go.uber.org/zap"
 )
 

@@ -13,7 +13,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/catalogfi/wbtc-garden/model"
+	"github.com/catalogfi/orderbook/model"
 	"github.com/fatih/color"
 	"github.com/tyler-smith/go-bip39"
 	"gorm.io/driver/sqlite"

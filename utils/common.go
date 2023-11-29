@@ -11,7 +11,7 @@ import (
 	"github.com/catalogfi/cobi/store"
 	"github.com/catalogfi/guardian"
 	"github.com/catalogfi/guardian/jsonrpc"
-	"github.com/catalogfi/wbtc-garden/model"
+	"github.com/catalogfi/orderbook/model"
 	"github.com/tyler-smith/go-bip39"
 	"go.uber.org/zap"
 	"gorm.io/driver/sqlite"
