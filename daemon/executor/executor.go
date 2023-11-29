@@ -90,7 +90,10 @@ LOOP:
 		for {
 
 			select {
-			case resp := <-respChan:
+			case resp, ok := <-respChan:
+				if !ok {
+					break
+				}
 				switch response := resp.(type) {
 				case rest.WebsocketError:
 					break
