@@ -277,20 +277,23 @@ func (af *strategy) RunAutoFillStrategy(s AutoFillStrategy) {
 		return
 	}
 
+	// exponetial set back is used to reconnect to the socket in cal of a error
+	expSb := time.Second
 	for {
 		// connect to the websocket and subscribe on the signer's address
 		wsClient := rest.NewWSClient(fmt.Sprintf("wss://%s/", af.config.EnvConfig.OrderBook), af.config.Logger)
 		wsClient.Subscribe(fmt.Sprintf("subscribe::%v", s.orderPair))
 		respChan := wsClient.Listen()
+	SIGNALOOP:
 		for {
-
 			select {
 			case resp := <-respChan:
 				switch response := resp.(type) {
 				case rest.WebsocketError:
-					break
+					break SIGNALOOP
 				case rest.OpenOrder:
 					{
+						expSb = time.Second
 						order := response.Order
 
 						balance, err := utils.VirtualBalance(fromChain, iWfromAddress, af.config.EnvConfig.Network, fromAsset, signer.Hex(), client, iwConfig...)
@@ -340,6 +343,10 @@ func (af *strategy) RunAutoFillStrategy(s AutoFillStrategy) {
 				}
 
 			}
+		}
+		time.Sleep(expSb)
+		if expSb < (8 * time.Second) {
+			expSb *= 2
 		}
 	}
 }

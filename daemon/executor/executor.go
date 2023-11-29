@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/catalogfi/cobi/daemon/types"
 	"github.com/catalogfi/cobi/pkg/blockchain"
@@ -81,22 +82,27 @@ func (e *executor) Start(params RequestStartExecutor) {
 		return
 	}
 	signer := crypto.PubkeyToAddress(privKey.PublicKey)
+
+	expSb := time.Second
 LOOP:
 	for {
+		e.Config.Logger.Info("subcribing to socket")
 		// connect to the websocket and subscribe on the signer's address
 		client := rest.NewWSClient(fmt.Sprintf("wss://%s/", e.Config.EnvConfig.OrderBook), e.Config.Logger)
 		client.Subscribe(fmt.Sprintf("subscribe::%v", signer))
 		respChan := client.Listen()
+	SIGNALOOP:
 		for {
 
 			select {
 			case resp, ok := <-respChan:
 				if !ok {
-					break
+					break SIGNALOOP
 				}
+				expSb = time.Second
 				switch response := resp.(type) {
 				case rest.WebsocketError:
-					break
+					break SIGNALOOP
 				case rest.UpdatedOrders:
 					// execute orders
 					orders := response.Orders
@@ -114,6 +120,10 @@ LOOP:
 				break LOOP
 			}
 
+		}
+		time.Sleep(expSb)
+		if expSb < (8 * time.Second) {
+			expSb *= 2
 		}
 	}
 }
