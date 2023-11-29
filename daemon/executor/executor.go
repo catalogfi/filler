@@ -85,7 +85,7 @@ LOOP:
 	for {
 		// connect to the websocket and subscribe on the signer's address
 		client := rest.NewWSClient(fmt.Sprintf("wss://%s/", e.Config.EnvConfig.OrderBook), e.Config.Logger)
-		client.Subscribe(fmt.Sprintf("subscribe_%v", signer))
+		client.Subscribe(fmt.Sprintf("subscribe::%v", signer))
 		respChan := client.Listen()
 		for {
 
