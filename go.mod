@@ -10,7 +10,7 @@ require (
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.2
 	github.com/catalogfi/blockchain v0.0.5-0.20231110104128-a5df8ee2b2b9
 	github.com/catalogfi/guardian v0.0.0-20231121015735-9466f7ef9f58
-	github.com/catalogfi/orderbook v0.0.0-20231129182455-5f9bd3f57c72
+	github.com/catalogfi/orderbook v0.0.0-20231129184259-d3833faea350
 	github.com/ethereum/go-ethereum v1.12.2
 	github.com/fatih/color v1.15.0
 	github.com/getsentry/sentry-go v0.23.0

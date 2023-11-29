@@ -55,6 +55,8 @@ github.com/catalogfi/guardian v0.0.0-20231121015735-9466f7ef9f58 h1:17DHPOYTW2XV
 github.com/catalogfi/guardian v0.0.0-20231121015735-9466f7ef9f58/go.mod h1:JY1Xkf6qRX/rGxces0dhN8RmdLnOew7dDDvJAa3n5zY=
 github.com/catalogfi/orderbook v0.0.0-20231129182455-5f9bd3f57c72 h1:opP5doWzEaos8FquU0edksyssOsYauVEDSwMro2rTsE=
 github.com/catalogfi/orderbook v0.0.0-20231129182455-5f9bd3f57c72/go.mod h1:6JqH+eXT+ArPLVdI7OU0zKH2KrRPYLuePGe5Quf7Yps=
+github.com/catalogfi/orderbook v0.0.0-20231129184259-d3833faea350 h1:62Ca10v6N5VNu+pXms8Kuh19k/EWycsdBDbw8Il/8IE=
+github.com/catalogfi/orderbook v0.0.0-20231129184259-d3833faea350/go.mod h1:6JqH+eXT+ArPLVdI7OU0zKH2KrRPYLuePGe5Quf7Yps=
 github.com/cespare/cp v0.1.0 h1:SE+dxFebS7Iik5LK0tsi1k9ZCxEaFX4AjQmoyA+1dJk=
 github.com/cespare/xxhash/v2 v2.2.0 h1:DC2CZ1Ep5Y4k3ZQ899DldepgrayRUGE6BBZ/cd9Cj44=
 github.com/chenzhuoyu/base64x v0.0.0-20211019084208-fb5309c8db06/go.mod h1:DH46F32mSOjUmXrMHnKwZdA8wcEefY7UVqBKYGjpdQY=
