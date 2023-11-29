@@ -291,48 +291,50 @@ func (af *strategy) RunAutoFillStrategy(s AutoFillStrategy) {
 				switch response := resp.(type) {
 				case rest.WebsocketError:
 					break SIGNALOOP
-				case rest.OpenOrder:
+				case rest.OpenOrders:
 					{
 						expSb = time.Second
-						order := response.Order
 
-						balance, err := utils.VirtualBalance(fromChain, iWfromAddress, af.config.EnvConfig.Network, fromAsset, signer.Hex(), client, iwConfig...)
-						if err != nil {
-							af.config.Logger.Error("failed to get virtual balance", zap.String("address", fromAddress), zap.Error(err))
-							continue
-						}
+						for _, order := range response.Orders {
 
-						if order.FollowerAtomicSwap == nil {
-							af.config.Logger.Error("malformed order", zap.Any("order", order))
-							continue
-						}
+							balance, err := utils.VirtualBalance(fromChain, iWfromAddress, af.config.EnvConfig.Network, fromAsset, signer.Hex(), client, iwConfig...)
+							if err != nil {
+								af.config.Logger.Error("failed to get virtual balance", zap.String("address", fromAddress), zap.Error(err))
+								continue
+							}
 
-						orderAmount, ok := new(big.Int).SetString(order.FollowerAtomicSwap.Amount, 10)
-						if !ok {
-							af.config.Logger.Info("failed to get order amount", zap.Error(err))
-							continue
-						}
+							if order.FollowerAtomicSwap == nil {
+								af.config.Logger.Error("malformed order", zap.Any("order", order))
+								continue
+							}
 
-						if balance.Cmp(orderAmount) < 0 {
-							af.config.Logger.Info("insufficient balance", zap.String("chain", string(fromChain)), zap.String("asset", string(fromAsset)), zap.String("address", iWfromAddress), zap.String("have", balance.String()), zap.String("need", orderAmount.String()))
-							continue
-						}
+							orderAmount, ok := new(big.Int).SetString(order.FollowerAtomicSwap.Amount, 10)
+							if !ok {
+								af.config.Logger.Info("failed to get order amount", zap.Error(err))
+								continue
+							}
 
-						if order.Price < price {
-							// todo : add other price strategies
-							continue
-						}
+							if balance.Cmp(orderAmount) < 0 {
+								af.config.Logger.Info("insufficient balance", zap.String("chain", string(fromChain)), zap.String("asset", string(fromAsset)), zap.String("address", iWfromAddress), zap.String("have", balance.String()), zap.String("need", orderAmount.String()))
+								continue
+							}
 
-						if err := client.FillOrder(order.ID, fromAddress, toAddress); err != nil {
-							af.config.Logger.Error("failed to fill the order ❌", zap.Uint("id", order.ID), zap.Error(err))
-							continue
-						}
+							if order.Price < price {
+								// todo : add other price strategies
+								continue
+							}
 
-						if err = af.config.Storage.UserStore(s.account).PutSecretHash(order.SecretHash, uint64(order.ID)); err != nil {
-							af.config.Logger.Error("failed storing secret hash: %v", zap.Error(err))
-							continue
+							if err := client.FillOrder(order.ID, fromAddress, toAddress); err != nil {
+								af.config.Logger.Error("failed to fill the order ❌", zap.Uint("id", order.ID), zap.Error(err))
+								continue
+							}
+
+							if err = af.config.Storage.UserStore(s.account).PutSecretHash(order.SecretHash, uint64(order.ID)); err != nil {
+								af.config.Logger.Error("failed storing secret hash: %v", zap.Error(err))
+								continue
+							}
+							af.config.Logger.Info("filled order ✅", zap.Uint("id", order.ID))
 						}
-						af.config.Logger.Info("filled order ✅", zap.Uint("id", order.ID))
 
 					}
 				}
