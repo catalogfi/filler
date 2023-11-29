@@ -1,10 +1,12 @@
 package bitcoin
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"strconv"
 	"strings"
@@ -37,6 +39,7 @@ func NewWatcher(scriptAddr btcutil.Address, waitBlocks int64, minConfirmations, 
 		waitBlocks:       waitBlocks,
 		minConfirmations: minConfirmations,
 		client:           client,
+		iwRpc:            iwRpc,
 	}, nil
 }
 
@@ -137,10 +140,10 @@ func (w *watcher) Status(initateTxHash string) (uint64, uint64, bool, error) {
 	if err != nil {
 		return 0, 0, false, fmt.Errorf("failed to get confirmations: %w", err)
 	}
-	isIW, err := w.IsInstantWallet(txHashes[0])
-	if err != nil {
-		return 0, 0, false, fmt.Errorf("failed to check for instant wallet txs: %w", err)
-	}
+	isIW, _ := w.IsInstantWallet(txHashes[0])
+	// if err != nil {
+	// 	return 0, 0, false, fmt.Errorf("failed to check for instant wallet txs: %w", err)
+	// }
 
 	if len(txHashes) > 1 {
 		for _, txHash := range txHashes[1:] {
@@ -155,10 +158,10 @@ func (w *watcher) Status(initateTxHash string) (uint64, uint64, bool, error) {
 				conf = nextConf
 			}
 			if isIW {
-				isIW, err = w.IsInstantWallet(txHashes[0])
-				if err != nil {
-					return 0, 0, false, fmt.Errorf("failed to check for instant wallet txs: %w", err)
-				}
+				isIW, _ = w.IsInstantWallet(txHash)
+				// if err != nil {
+				// 	return 0, 0, false, fmt.Errorf("failed to check for instant wallet txs: %w", err)
+				// }
 			}
 		}
 	}
@@ -261,7 +264,25 @@ func (w *watcher) IsInstantWallet(txHash string) (bool, error) {
 	if w.iwRpc == "" {
 		return false, nil
 	}
-	resp, err := http.Get(w.iwRpc + "/validateTransaction/" + txHash)
+
+	data, err := json.Marshal(model.RequestBtcGetCommitment{
+		TxHash: txHash,
+	})
+	if err != nil {
+		return false, err
+	}
+	request := model.Request{
+		Version: "2.0",
+		ID:      rand.Int(),
+		Method:  "btc_getCommitment",
+		Params:  data,
+	}
+	buf := new(bytes.Buffer)
+	if err := json.NewEncoder(buf).Encode(request); err != nil {
+		return false, err
+	}
+
+	resp, err := http.Post(w.iwRpc, "application/json", buf)
 	if err != nil {
 		return false, err
 	}
@@ -282,15 +303,15 @@ func (w *watcher) IsInstantWallet(txHash string) (bool, error) {
 		}
 		return false, fmt.Errorf("request failed %v", errObj.Error)
 	}
-	response := struct {
-		Message bool `json:"message"`
-	}{}
+	response := model.Response{}
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 		return false, fmt.Errorf("failed to get decode response: %v", err)
 	}
 
-	if !response.Message {
-		return false, nil
+	commitment := model.ResponseBtcGetCommitment{}
+	if err := json.Unmarshal(response.Result, &commitment); err != nil {
+		return false, fmt.Errorf("failed to get decode commitment: %v", err)
 	}
-	return true, nil
+
+	return commitment.Commitment.Success, nil
 }
