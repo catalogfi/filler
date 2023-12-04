@@ -27,6 +27,11 @@ type process struct {
 	Pipe     Pipe
 }
 
+// review :
+//  1. i would suggest to move this definition to the pid.go file. So people don't to go to different files for the
+//     same type. If you want to have all the types defined in the same file, you can leave all the interfaces here
+//  2. if the process is killed unexpectedly and the pid didn't get removed.
+//     next time the pid will be wrong.
 type pid struct {
 	PidPath string
 }
@@ -42,6 +47,14 @@ type Pipe interface {
 	Close() error
 }
 
+// review : i would suggest not to manage those processes on this level.
+//
+//	We could have the cobid running as a whole binary which contains multiple components
+//	- rpc server
+//	- executor
+//	- storage
+//	- strategy runner
+//	The rpc server takes requests and control other different components accordingly
 type ProcessManager interface {
 	// returns pid from the file, doest check if the process is running with that pid is running or not
 	GetPid() (int, error)

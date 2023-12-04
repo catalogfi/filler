@@ -14,6 +14,48 @@ import (
 	"github.com/btcsuite/btcd/wire"
 )
 
+// review : the `mempool` and `blockstream` are basically the same except for getting `GetFeeRate`
+//	        we could have a `electrs` type which implements all the functions except `GetFeeRate`
+//
+// type electrs struct {
+// 	url        string
+// 	getFeeRate func(string) (FeeRates, error)
+// }
+//
+// func newElectrs(url string, getFeeRates func(string) (FeeRates, error)) Indexer{
+// 	return electrs{
+// 		url:        url,
+// 		getFeeRate: getFeeRates,
+// 	}
+// }
+//
+// var (
+// 	mempoolGetFeeRate = func(string) (FeeRates, error) {
+// 		// ...
+// 	}
+//
+// 	blockstreamGetFeeRate = func(string) (FeeRates, error) {
+// 		// ...
+// 	}
+// )
+//
+// func main(){
+// 	mp := newElectrs("mempool...", mempoolGetFeeRate)
+// 	bs := newElectrs("blockstream...", blockstreamGetFeeRate)
+//
+// 	// You can wrap the initialiser to more clear by
+// 	newMempoolClient := func(url string ) electrs {
+// 		newElectrs(url, mempoolGetFeeRate)
+// 	}
+// 	newBlockStreamClient := func(url string ) electrs {
+// 		newElectrs(url, blockstreamGetFeeRate)
+// 	}
+// }
+//
+// This will makes the code more readable, people don't need to go through the same code twice.
+// And you won't need to worry about forget updating some changes with only one implementation.
+//
+
 type mempool struct {
 	url string
 }
@@ -361,6 +403,7 @@ func (blockstream *blockstream) GetFeeRates() (FeeRates, error) {
 		}, nil
 	}
 
+	// review : be careful about the index out of range
 	return FeeRates{
 		FastestFee:  int(math.Ceil(fees["1"])),
 		HalfHourFee: int(math.Ceil(fees["3"])),

@@ -100,12 +100,15 @@ type AccountInfo struct {
 	UsableBalance string `json:"usableBalance"`
 }
 
+// Review : it feels a bit weird to have a storage (interface) inside a config.
+//
+//	especially the storage can be initialised by the `*utils.Config` which is also part of the config.
 type CoreConfig struct {
 	Storage   store.Store
 	EnvConfig *utils.Config
 	Keys      *utils.Keys
 	Logger    *zap.Logger
-	Authsha    [sha256.Size]byte
+	Authsha   [sha256.Size]byte
 }
 
 func CheckStrings(elements ...string) error {

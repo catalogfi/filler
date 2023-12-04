@@ -18,9 +18,14 @@ import (
 	"github.com/catalogfi/cobi/pkg/swapper/ethereum"
 	"github.com/catalogfi/orderbook/model"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"go.uber.org/zap"
 )
+
+// review :
+// 1.      this kind of function is very quite common in the code base. I would suggest to change this to more OOP.
+//         i.e. Instead of creating a new client everytime, we can initialise the `client` object and reuse it in
+//         different places. Since both the btc and eth client is safe for concurrent use, we are good.
+// 2.      I personally not a fan for "interface{}", you basically lose all the advantages of static types in go.
 
 // The function `LoadClient` returns a client for a given blockchain chain and its corresponding URLs(set during config).
 func LoadClient(chain model.Chain, config model.Network, iwConfig ...bitcoin.InstantWalletConfig) (interface{}, error) {
@@ -41,6 +46,10 @@ func LoadClient(chain model.Chain, config model.Network, iwConfig ...bitcoin.Ins
 			return nil, fmt.Errorf("failed to create indexer: %v", err)
 		}
 		client := bitcoin.NewClient(indexer, GetParams(chain))
+
+		// review : Don't think using "..." in the parameters here is good, since we only need one iwConfig max.
+		//          Maybe the reason we use "..." in the inputs is trying to remain the same function interface, but
+		//          right now I don't think there's any external repo depending on this.
 		if len(iwConfig) > 0 {
 			return bitcoin.InstantWalletWrapper(client, iwConfig[0]), nil
 		}
@@ -94,6 +103,7 @@ func LoadInitiatorSwap(atomicSwap model.AtomicSwap, initiatorPrivateKey interfac
 	}
 }
 
+// review : this function can be revomed as it's not used anywhere
 func LoadWatcher(atomicSwap model.AtomicSwap, secretHash string, config model.Network, minConfirmations uint64) (swapper.Watcher, error) {
 	client, err := LoadClient(atomicSwap.Chain, config)
 	if err != nil {
@@ -147,6 +157,10 @@ func LoadWatcher(atomicSwap model.AtomicSwap, secretHash string, config model.Ne
 	}
 }
 
+// review : if you look at the code between this and `LoadInitiatorSwap`, they basically the same except creating
+//
+//	 a NewInitiatorSwap/NewRedeemerSwap. I'm thinking we don't actually need to differentiate that. It's the same
+//		atomic swap.
 func LoadRedeemerSwap(atomicSwap model.AtomicSwap, redeemerPrivateKey interface{}, secretHash string, config model.Network, minConfirmations uint64, iwConfig ...bitcoin.InstantWalletConfig) (swapper.RedeemerSwap, error) {
 	client, err := LoadClient(atomicSwap.Chain, config, iwConfig...)
 	if err != nil {
@@ -186,23 +200,16 @@ func LoadRedeemerSwap(atomicSwap model.AtomicSwap, redeemerPrivateKey interface{
 	}
 }
 
-func ParseKey(chain model.Chain, key string) (interface{}, error) {
-	switch chain {
-	case model.Bitcoin:
-		privKeyBytes, err := hex.DecodeString(key)
-		if err != nil {
-			return nil, err
-		}
-		// ignoring public key as we do not need it
-		privKey, _ := btcec.PrivKeyFromBytes(privKeyBytes)
-		return privKey, nil
-	case model.Ethereum:
-		return crypto.HexToECDSA(key)
-	default:
-		return nil, fmt.Errorf("unknown chain: %s", chain)
-	}
-}
-
+// review : it kind feels weired to parse the client when decoding an address. If you look at the two underlying functions
+//
+//	we use, it only asks for the information it needs, no redundant params.
+//	i.e. bitcoin (address in string, chain configuration)
+//	     ethereum (address in string)
+//	so we could update this to not dependent on the blockchain client
+//	" ParseAddress(chain model.Chain, address string) "
+//	Or if we want to also avoid using interface{}
+//	" ParseUtxoAddress(address string, params *chain.Params) "
+//	" ParseEvmAddress(address string) "
 func ParseAddress(client interface{}, address string) (interface{}, error) {
 	switch client := client.(type) {
 	case bitcoin.Client:
@@ -214,6 +221,7 @@ func ParseAddress(client interface{}, address string) (interface{}, error) {
 	}
 }
 
+// review : use the chain.Params() function
 func GetParams(chain model.Chain) *chaincfg.Params {
 	switch chain {
 	case model.Bitcoin:
@@ -229,6 +237,7 @@ func GetParams(chain model.Chain) *chaincfg.Params {
 
 func CheckAddress(chain model.Chain, address string) error {
 	if chain.IsEVM() {
+		// review : use common.IsHexAddress()
 		if address[:2] == "0x" {
 			if len(address) != 42 {
 				return fmt.Errorf("invalid evm (%v) address: %v", chain, address)
@@ -249,6 +258,7 @@ func CheckAddress(chain model.Chain, address string) error {
 	return nil
 }
 
+// review : all function/types below are not used and can be removed.
 func CheckHash(hash string) error {
 	if len(hash) >= 2 && hash[0] == '0' && (hash[1] == 'x' || hash[1] == 'X') {
 		hash = hash[2:]

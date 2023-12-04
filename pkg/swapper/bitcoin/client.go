@@ -141,6 +141,7 @@ func (client *client) Send(to btcutil.Address, amount uint64, from *btcec.Privat
 	}
 
 	for i, utxo := range utxosWihFee {
+		// review : be careful, this will cause error when upgrading to taproot, so better to use `txscipt.NewMultiPrevOutFetcher`
 		fetcher := txscript.NewCannedPrevOutputFetcher(fromScript, int64(utxo.Amount))
 		if err != nil {
 			return "", err
