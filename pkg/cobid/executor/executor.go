@@ -14,11 +14,8 @@ import (
 )
 
 type Executor interface {
-	Start(account uint32, isIw bool)
+	Start(btcWallets map[model.Chain]btcswap.Wallet, ethWallets map[model.Chain]ethswap.Wallet, signer string)
 	Done()
-}
-
-type Config struct {
 }
 
 type executor struct {
@@ -27,6 +24,19 @@ type executor struct {
 	logger    *zap.Logger
 	quit      chan struct{}
 	wg        *sync.WaitGroup
+}
+
+func NewExecutor(orderBook string,
+	store store.Store,
+	logger *zap.Logger,
+	quit chan struct{}) Executor {
+	return &executor{
+		orderBook: orderBook,
+		logger:    logger,
+		quit:      quit,
+		wg:        new(sync.WaitGroup),
+	}
+
 }
 
 /*
