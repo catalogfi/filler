@@ -71,6 +71,8 @@ type Store interface {
 
 	PutSecret(secretHash string, secret *string, orderID uint64) error
 
+	Status(secretHash string) (Status, error)
+
 	UpdateOrderStatus(secretHash string, status Status, err error) error
 
 	UpdateTxHash(secretHash string, event Event, hash string) error
@@ -168,4 +170,10 @@ func (store *store) OrderByID(id uint) (Order, error) {
 	var order Order
 	err := store.db.Where("order_id = ?", id).First(&order).Error
 	return order, err
+}
+
+func (store *store) Status(secretHash string) (Status, error) {
+	var order Order
+	err := store.db.Where("secret_hash = ?", secretHash).First(&order).Error
+	return order.Status, err
 }
