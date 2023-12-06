@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"sync"
 
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
@@ -11,15 +12,21 @@ import (
 )
 
 type Swap struct {
-	network    *chaincfg.Params
-	amount     int64
-	secret     []byte
-	secretHash []byte
-	waitBlock  int64
-	address    btcutil.Address
-	initiator  btcutil.Address
-	redeemer   btcutil.Address
-	script     []byte
+	Network    *chaincfg.Params
+	Amount     int64
+	SecretHash []byte
+	WaitBlock  int64
+	Address    btcutil.Address
+	Initiator  btcutil.Address
+	Redeemer   btcutil.Address
+	Script     []byte
+
+	// Cached results
+	mu             *sync.Mutex
+	initiatedBlock uint64
+	initiatedTx    []string
+	initiatedAddrs []string
+	secret         []byte
 }
 
 func NewSwap(network *chaincfg.Params, initiatorAddr, redeemer btcutil.Address, amount int64, secretHash []byte, waitBlock int64) (Swap, error) {
@@ -33,32 +40,84 @@ func NewSwap(network *chaincfg.Params, initiatorAddr, redeemer btcutil.Address, 
 	}
 
 	return Swap{
-		network:    network,
-		amount:     amount,
-		secretHash: secretHash,
-		waitBlock:  waitBlock,
-		address:    addr,
-		initiator:  initiatorAddr,
-		redeemer:   redeemer,
-		script:     htlc,
+		Network:    network,
+		Amount:     amount,
+		SecretHash: secretHash,
+		WaitBlock:  waitBlock,
+		Address:    addr,
+		Initiator:  initiatorAddr,
+		Redeemer:   redeemer,
+		Script:     htlc,
+
+		mu: new(sync.Mutex),
 	}, nil
+}
+
+func (swap *Swap) IsInitiator(address string) bool {
+	return swap.Initiator.EncodeAddress() == address
+}
+
+func (swap *Swap) IsRedeemer(address string) bool {
+	return swap.Redeemer.EncodeAddress() == address
 }
 
 // Initiated returns if the swap has been initiated. It will also return an uint64 which is the block height of the last
 // confirmed initiated tx. The swap doesn't have an idea about block confirmations. It will let the caller decide if the
 // swap initiation has reached enough confirmation.
 func (swap *Swap) Initiated(ctx context.Context, client btc.IndexerClient) (bool, uint64, error) {
+	swap.mu.Lock()
+	defer swap.mu.Unlock()
 
+	// TODO : this doesn't consider block reorg
+	if len(swap.initiatedTx) != 0 && swap.initiatedBlock != 0 {
+		return true, swap.initiatedBlock, nil
+	}
+
+	// Fetch all utxos
+	utxos, err := client.GetUTXOs(ctx, swap.Address)
+	if err != nil {
+		return false, 0, fmt.Errorf("failed to get UTXOs: %w", err)
+	}
+
+	// Check we have enough confirmed utxos (total Amount >= required Amount)
+	total, blockHeight := int64(0), uint64(0)
+	txs := make([]string, 0, len(utxos))
+	for _, utxo := range utxos {
+		if utxo.Status != nil && utxo.Status.Confirmed {
+			total += utxo.Amount
+			txs = append(txs, utxo.TxID)
+			if utxo.Status.BlockHeight > blockHeight {
+				blockHeight = utxo.Status.BlockHeight
+			}
+		}
+	}
+
+	// Cache the result
+	if total >= swap.Amount {
+		swap.initiatedBlock = blockHeight
+		swap.initiatedTx = txs
+	}
+
+	return total >= swap.Amount, blockHeight, nil
 }
 
 func (swap *Swap) Initiators(ctx context.Context, client btc.IndexerClient) ([]string, error) {
+	swap.mu.Lock()
+	defer swap.mu.Unlock()
+
+	// Return previously cached result
+	// TODO : this doesn't consider block reorg
+	if len(swap.initiatedAddrs) != 0 {
+		return swap.initiatedAddrs, nil
+	}
+
 	// Fetch all utxos
-	utxos, err := client.GetUTXOs(ctx, swap.address)
+	utxos, err := client.GetUTXOs(ctx, swap.Address)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get UTXOs: %w", err)
 	}
 
-	// Check we have enough confirmed utxos (total amount >= required amount)
+	// Check we have enough confirmed utxos (total Amount >= required Amount)
 	total, confirmedBlock := int64(0), uint64(0)
 	txhashes := make([]string, 0, len(utxos))
 	for _, utxo := range utxos {
@@ -68,7 +127,7 @@ func (swap *Swap) Initiators(ctx context.Context, client btc.IndexerClient) ([]s
 			}
 		}
 	}
-	if total >= swap.amount {
+	if total >= swap.Amount {
 		txSendersMap := map[string]bool{}
 		for _, hash := range txhashes {
 			rawTx, err := client.GetTx(ctx, hash)
@@ -91,17 +150,20 @@ func (swap *Swap) Initiators(ctx context.Context, client btc.IndexerClient) ([]s
 }
 
 func (swap *Swap) Redeemed(ctx context.Context, client btc.IndexerClient) (bool, []byte, error) {
+	swap.mu.Lock()
+	defer swap.mu.Unlock()
+
 	if len(swap.secret) != 0 {
 		return true, swap.secret, nil
 	}
 
-	txs, err := client.GetAddressTxs(ctx, swap.address)
+	txs, err := client.GetAddressTxs(ctx, swap.Address)
 	if err != nil {
 		return false, nil, err
 	}
 	for _, tx := range txs {
 		for _, vin := range tx.VINs {
-			if vin.Prevout.ScriptPubKeyAddress == swap.address.EncodeAddress() {
+			if vin.Prevout.ScriptPubKeyAddress == swap.Address.EncodeAddress() {
 				if len(*vin.Witness) == 5 {
 					// witness format
 					// [
@@ -109,7 +171,7 @@ func (swap *Swap) Redeemed(ctx context.Context, client btc.IndexerClient) (bool,
 					//   1 : spender's public key,
 					//   2 : secret,
 					//   3 : []byte{0x1},
-					//   4 : script
+					//   4 : Script
 					// ]
 					secretString := (*vin.Witness)[2]
 					secretBytes := make([]byte, hex.DecodedLen(len(secretString)))
@@ -151,5 +213,5 @@ func (swap *Swap) Expired(ctx context.Context, client btc.IndexerClient) (bool, 
 	if err != nil {
 		return false, err
 	}
-	return current-initiatedBlock+1 >= uint64(swap.waitBlock), nil
+	return current-initiatedBlock+1 >= uint64(swap.WaitBlock), nil
 }

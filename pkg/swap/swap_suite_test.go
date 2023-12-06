@@ -1,4 +1,4 @@
-package swapper_test
+package swap_test
 
 import (
 	"context"
