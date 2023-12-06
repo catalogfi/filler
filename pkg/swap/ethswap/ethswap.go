@@ -39,7 +39,11 @@ func NewSwap(initiator, redeemer, contract common.Address, secretHash common.Has
 	}, nil
 }
 
-func (swap *Swap) Initiated(ctx context.Context, atomicSwap *bindings.AtomicSwap) (bool, error) {
+func (swap *Swap) Initiated(ctx context.Context, client *ethclient.Client) (bool, error) {
+	atomicSwap, err := bindings.NewAtomicSwap(swap.Contract, client)
+	if err != nil {
+		return false, err
+	}
 	details, err := atomicSwap.AtomicSwapOrders(&bind.CallOpts{Context: ctx}, swap.ID)
 	if err != nil {
 		return false, err

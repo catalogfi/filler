@@ -5,23 +5,25 @@ import (
 	"crypto/ecdsa"
 	"math/big"
 	"sync"
+	"time"
 
 	"github.com/catalogfi/cobi/pkg/swap/ethswap/bindings"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
 type Wallet interface {
-	Address() string
+	Address() common.Address
 
 	Balance(ctx context.Context, tokenAddr *common.Address, pending bool) (*big.Int, error)
 
-	Initiate(ctx context.Context, swap Swap) (string, error)
+	Initiate(ctx context.Context, swap *Swap) (string, error)
 
-	Redeem(ctx context.Context, swap Swap, secret []byte) (string, error)
+	Redeem(ctx context.Context, swap *Swap, secret []byte) (string, error)
 
-	Refund(ctx context.Context, swap Swap) (string, error)
+	Refund(ctx context.Context, swap *Swap) (string, error)
 }
 
 type wallet struct {
@@ -32,18 +34,47 @@ type wallet struct {
 	swap   *bindings.AtomicSwap
 	token  *bindings.ERC20
 
-	chainID       *big.Int
-	tokenAddr     common.Address
-	swapAddr      common.Address
-	watchInterval uint64
+	chainID   *big.Int
+	tokenAddr common.Address
+	swapAddr  common.Address
 }
 
-func New() Wallet {
-	return &wallet{}
+func NewWallet(key *ecdsa.PrivateKey, client *ethclient.Client, swapAddr common.Address) (Wallet, error) {
+	atomicSwap, err := bindings.NewAtomicSwap(swapAddr, client)
+	if err != nil {
+		return nil, err
+	}
+	tokenAddr, err := atomicSwap.Token(&bind.CallOpts{})
+	if err != nil {
+		return nil, err
+	}
+	erc20, err := bindings.NewERC20(tokenAddr, client)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	chainID, err := client.ChainID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &wallet{
+		mu:        new(sync.Mutex),
+		key:       key,
+		addr:      crypto.PubkeyToAddress(key.PublicKey),
+		client:    client,
+		swap:      atomicSwap,
+		token:     erc20,
+		chainID:   chainID,
+		tokenAddr: tokenAddr,
+		swapAddr:  swapAddr,
+	}, nil
 }
 
-func (wallet *wallet) Address() string {
-	return wallet.addr.Hex()
+func (wallet *wallet) Address() common.Address {
+	return wallet.addr
 }
 
 func (wallet *wallet) Balance(ctx context.Context, tokenAddr *common.Address, pending bool) (*big.Int, error) {
@@ -67,7 +98,7 @@ func (wallet *wallet) Balance(ctx context.Context, tokenAddr *common.Address, pe
 	}
 }
 
-func (wallet *wallet) Initiate(ctx context.Context, swap Swap) (string, error) {
+func (wallet *wallet) Initiate(ctx context.Context, swap *Swap) (string, error) {
 	allowance, err := wallet.token.Allowance(&bind.CallOpts{}, swap.Initiator, wallet.swapAddr)
 	if err != nil {
 		return "", err
@@ -100,7 +131,7 @@ func (wallet *wallet) Initiate(ctx context.Context, swap Swap) (string, error) {
 	return receipt.TxHash.String(), nil
 }
 
-func (wallet *wallet) Redeem(ctx context.Context, swap Swap, secret []byte) (string, error) {
+func (wallet *wallet) Redeem(ctx context.Context, swap *Swap, secret []byte) (string, error) {
 	transactor, err := bind.NewKeyedTransactorWithChainID(wallet.key, wallet.chainID)
 	if err != nil {
 		return "", err
@@ -117,7 +148,7 @@ func (wallet *wallet) Redeem(ctx context.Context, swap Swap, secret []byte) (str
 	return receipt.TxHash.String(), nil
 }
 
-func (wallet *wallet) Refund(ctx context.Context, swap Swap) (string, error) {
+func (wallet *wallet) Refund(ctx context.Context, swap *Swap) (string, error) {
 	transactor, err := bind.NewKeyedTransactorWithChainID(wallet.key, wallet.chainID)
 	if err != nil {
 		return "", err
