@@ -4,21 +4,18 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"math/big"
+	"math/rand"
 	"os"
-	"strings"
 	"time"
 
-	"github.com/btcsuite/btcd/btcec/v2"
-	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/catalogfi/blockchain/btc"
 	"github.com/catalogfi/blockchain/btc/btctest"
 	"github.com/catalogfi/blockchain/testutil"
 	"github.com/catalogfi/cobi/pkg/swap/btcswap"
 	"github.com/catalogfi/cobi/pkg/swap/ethswap"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/fatih/color"
 
@@ -29,68 +26,62 @@ import (
 var _ = Describe("Swap between different chains", func() {
 	Context("Alice wants to swap 0.01 BTC for Bob's 1 ERC20", func() {
 		It("should not return any error", func(ctx context.Context) {
-			By("Initialize Alice's key and bitcoin client")
-			network := &chaincfg.RegressionNetParams
-			aliceKeyStr := strings.TrimPrefix(os.Getenv("ETH_KEY_2"), "0x")
-			aliceKeyBytes, err := hex.DecodeString(aliceKeyStr)
-			Expect(err).To(BeNil())
-			aliceKey, err := crypto.ToECDSA(aliceKeyBytes)
-			Expect(err).To(BeNil())
-			aliceEthAddr := crypto.PubkeyToAddress(aliceKey.PublicKey)
-			aliceBtcKey, _ := btcec.PrivKeyFromBytes(aliceKeyBytes)
-			aliceBtcAddr, err := btcutil.NewAddressWitnessPubKeyHash(btcutil.Hash160(aliceBtcKey.PubKey().SerializeCompressed()), network)
-			Expect(err).To(BeNil())
-			btcClient := btctest.RegtestIndexer()
-
-			By("Initialize Bob's key and ethereum client")
-			bobKeyStr := strings.TrimPrefix(os.Getenv("ETH_KEY_1"), "0x")
-			bobKeyBytes, err := hex.DecodeString(bobKeyStr)
-			Expect(err).To(BeNil())
-			bobKey, err := crypto.ToECDSA(bobKeyBytes)
-			Expect(err).To(BeNil())
-			bobEthAddr := crypto.PubkeyToAddress(bobKey.PublicKey)
-			bobBtcKey, _ := btcec.PrivKeyFromBytes(bobKeyBytes)
-			bobBtcAddr, err := btcutil.NewAddressWitnessPubKeyHash(btcutil.Hash160(bobBtcKey.PubKey().SerializeCompressed()), network)
-			Expect(err).To(BeNil())
-
-			By("Funding both user's bitcoin address")
-			txhash1, err := testutil.NigiriFaucet(aliceBtcAddr.EncodeAddress())
-			Expect(err).To(BeNil())
-			By(fmt.Sprintf("Funding address1 %v , txid = %v", aliceBtcAddr.EncodeAddress(), txhash1))
-			txhash2, err := testutil.NigiriFaucet(bobBtcAddr.EncodeAddress())
-			Expect(err).To(BeNil())
-			By(fmt.Sprintf("Funding address2 %v , txid = %v", bobBtcAddr.EncodeAddress(), txhash2))
-			time.Sleep(5 * time.Second)
-
+			By("Initialise clients")
 			url := os.Getenv("ETH_URL")
 			ethClient, err := ethclient.Dial(url)
 			Expect(err).To(BeNil())
+			network := &chaincfg.RegressionNetParams
+			btcClient := btctest.RegtestIndexer()
+
+			By("Initialize Alice's wallets")
+			aliceBtcKey, aliceKey, err := ParseKeyFromEnv("ETH_KEY_2")
+			Expect(err).To(BeNil())
+			aliceBtcWallet, err := btcswap.NewWallet(btcswap.OptionsRegression(), btcClient, aliceBtcKey, btc.NewFixFeeEstimator(rand.Intn(18)+2))
+			Expect(err).To(BeNil())
+			aliceEthWallet, err := ethswap.NewWallet(ethswap.OptionsLocalnet(swapAddr), aliceKey, ethClient)
+			Expect(err).To(BeNil())
+
+			By("Initialize Bob's wallets ")
+			bobBtcKey, bobKey, err := ParseKeyFromEnv("ETH_KEY_1")
+			Expect(err).To(BeNil())
+			bobBtcWallet, err := btcswap.NewWallet(btcswap.OptionsRegression(), btcClient, bobBtcKey, btc.NewFixFeeEstimator(rand.Intn(18)+2))
+			Expect(err).To(BeNil())
+			bobEthWallet, err := ethswap.NewWallet(ethswap.OptionsLocalnet(swapAddr), bobKey, ethClient)
+			Expect(err).To(BeNil())
+
+			By("Funding both user's bitcoin address")
+			txhash1, err := testutil.NigiriFaucet(aliceBtcWallet.Address().EncodeAddress())
+			Expect(err).To(BeNil())
+			By(fmt.Sprintf("Funding Alice's address %v , txid = %v", aliceBtcWallet.Address().EncodeAddress(), txhash1))
+			txhash2, err := testutil.NigiriFaucet(bobBtcWallet.Address().EncodeAddress())
+			Expect(err).To(BeNil())
+			By(fmt.Sprintf("Funding Bob's address  %v , txid = %v", bobBtcWallet.Address().EncodeAddress(), txhash2))
+			time.Sleep(5 * time.Second)
 
 			By("Alice constructs her swap on bitcoin side")
 			amountBtc := int64(1e6)
 			secret := testutil.RandomSecret()
 			secretHash := sha256.Sum256(secret)
 			waitBlocks := int64(3)
-			aliceSwap, err := btcswap.NewSwap(network, btcClient, aliceBtcAddr, bobBtcAddr, amountBtc, secretHash[:], waitBlocks)
+			aliceSwap, err := btcswap.NewSwap(network, aliceBtcWallet.Address(), bobBtcWallet.Address(), amountBtc, secretHash[:], waitBlocks)
 			Expect(err).To(BeNil())
 
 			By("Bob constructs his swap on ethereum side")
 			amountErc20 := big.NewInt(1e18)
 			expiry := big.NewInt(6)
-			bobSwap, err := ethswap.NewSwap(bobEthAddr, aliceEthAddr, swapAddr, ethClient, secretHash, amountErc20, expiry)
+			bobSwap, err := ethswap.NewSwap(bobEthWallet.Address(), aliceEthWallet.Address(), swapAddr, secretHash, amountErc20, expiry)
 			Expect(err).To(BeNil())
 
 			By("Check swap status")
-			initiated, _, err := aliceSwap.Initiated(ctx)
+			initiated, _, err := aliceSwap.Initiated(ctx, btcClient)
 			Expect(err).To(BeNil())
 			Expect(initiated).Should(BeFalse())
-			initiated, err = bobSwap.Initiated()
+			initiated, err = bobSwap.Initiated(ctx, ethClient)
 			Expect(err).To(BeNil())
 			Expect(initiated).Should(BeFalse())
 
 			By("Alice initiates the swap")
-			feeRate := 5
-			initiatedTx, err := aliceSwap.Initiate(ctx, aliceBtcKey, feeRate)
+			initiatedTx, err := aliceBtcWallet.Initiate(ctx, aliceSwap)
 			Expect(err).To(BeNil())
 			By(color.GreenString("Alice's swap is initiated in tx %v", initiatedTx))
 			Expect(testutil.NigiriNewBlock()).Should(Succeed())
@@ -99,45 +90,46 @@ var _ = Describe("Swap between different chains", func() {
 			By("Check swap status")
 			latest, err := btcClient.GetTipBlockHeight(ctx)
 			Expect(err).To(BeNil())
-			initiated, included, err := aliceSwap.Initiated(ctx)
+			initiated, included, err := aliceSwap.Initiated(ctx, btcClient)
 			Expect(err).To(BeNil())
 			Expect(initiated).Should(BeTrue())
 			Expect(latest - included + 1).Should(Equal(uint64(1)))
 
 			By("Bob initiates his swap")
-			initiatedTx, err = bobSwap.Initiate(ctx, bobKey)
+			initiatedTx, err = bobEthWallet.Initiate(ctx, bobSwap)
 			Expect(err).To(BeNil())
 			By(color.GreenString("Bob's swap is initiated in tx %v", initiatedTx))
 			time.Sleep(time.Second)
-			initiated, err = bobSwap.Initiated()
+			initiated, err = bobSwap.Initiated(ctx, ethClient)
 			Expect(err).To(BeNil())
 			Expect(initiated).Should(BeTrue())
 
 			By("Both swap should not been redeemed")
-			redeemed, _, err := aliceSwap.Redeemed(ctx)
+			redeemed, _, err := aliceSwap.Redeemed(ctx, btcClient)
 			Expect(err).To(BeNil())
 			Expect(redeemed).Should(BeFalse())
-			redeemed, _, err = bobSwap.Redeemed(ctx, 0)
+			redeemed, err = bobSwap.Redeemed(ctx, ethClient)
 			Expect(err).To(BeNil())
 			Expect(redeemed).Should(BeFalse())
 
 			By("Alice redeems Bob's swap")
-			redeemTx, err := bobSwap.Redeem(ctx, aliceKey, secret)
+			redeemTx, err := aliceEthWallet.Redeem(ctx, bobSwap, secret)
 			Expect(err).To(BeNil())
 			By(color.GreenString("Bob's swap is redeemed in tx %v", redeemTx))
 			time.Sleep(time.Second)
-			redeemed, revealedSecret, err := bobSwap.Redeemed(ctx, 0)
+			redeemed, err = bobSwap.Redeemed(ctx, ethClient)
 			Expect(err).To(BeNil())
 			Expect(redeemed).Should(BeTrue())
+			revealedSecret, err := bobSwap.Secret(ctx, ethClient, 500)
 			Expect(bytes.Equal(revealedSecret, secret))
 
 			By("Bob redeems Alice's swap using the revealed secret")
-			redeemTx, err = aliceSwap.Redeem(ctx, bobBtcKey, revealedSecret, feeRate, bobBtcAddr.EncodeAddress())
+			redeemTx, err = bobBtcWallet.Redeem(ctx, aliceSwap, revealedSecret, aliceBtcWallet.Address().EncodeAddress())
 			Expect(err).To(BeNil())
 			By(color.GreenString("Alice's swap is redeemed in tx %v", redeemTx))
 			Expect(testutil.NigiriNewBlock()).Should(Succeed())
 			time.Sleep(5 * time.Second)
-			redeemed, revealedSecret, err = aliceSwap.Redeemed(ctx)
+			redeemed, revealedSecret, err = aliceSwap.Redeemed(ctx, btcClient)
 			Expect(err).To(BeNil())
 			Expect(redeemed).Should(BeTrue())
 			Expect(bytes.Equal(revealedSecret, secret))
@@ -146,97 +138,64 @@ var _ = Describe("Swap between different chains", func() {
 
 	Context("Alice refund after the swap is expired", func() {
 		It("should refund the money to Alice", func(ctx context.Context) {
-			By("Initialize Alice's key and bitcoin client")
-			network := &chaincfg.RegressionNetParams
-			aliceKeyStr := strings.TrimPrefix(os.Getenv("ETH_KEY_2"), "0x")
-			aliceKeyBytes, err := hex.DecodeString(aliceKeyStr)
-			Expect(err).To(BeNil())
-			aliceKey, err := crypto.ToECDSA(aliceKeyBytes)
-			Expect(err).To(BeNil())
-			aliceEthAddr := crypto.PubkeyToAddress(aliceKey.PublicKey)
-			aliceBtcKey, _ := btcec.PrivKeyFromBytes(aliceKeyBytes)
-			aliceBtcAddr, err := btcutil.NewAddressWitnessPubKeyHash(btcutil.Hash160(aliceBtcKey.PubKey().SerializeCompressed()), network)
-			Expect(err).To(BeNil())
-			btcClient := btctest.RegtestIndexer()
-
-			By("Initialize Bob's key and ethereum client")
-			bobKeyStr := strings.TrimPrefix(os.Getenv("ETH_KEY_1"), "0x")
-			bobKeyBytes, err := hex.DecodeString(bobKeyStr)
-			Expect(err).To(BeNil())
-			bobKey, err := crypto.ToECDSA(bobKeyBytes)
-			Expect(err).To(BeNil())
-			bobEthAddr := crypto.PubkeyToAddress(bobKey.PublicKey)
-			bobBtcKey, _ := btcec.PrivKeyFromBytes(bobKeyBytes)
-			bobBtcAddr, err := btcutil.NewAddressWitnessPubKeyHash(btcutil.Hash160(bobBtcKey.PubKey().SerializeCompressed()), network)
-			Expect(err).To(BeNil())
-
-			By("Funding both user's bitcoin address")
-			txhash1, err := testutil.NigiriFaucet(aliceBtcAddr.EncodeAddress())
-			Expect(err).To(BeNil())
-			By(fmt.Sprintf("Funding address1 %v , txid = %v", aliceBtcAddr.EncodeAddress(), txhash1))
-			txhash2, err := testutil.NigiriFaucet(bobBtcAddr.EncodeAddress())
-			Expect(err).To(BeNil())
-			By(fmt.Sprintf("Funding address2 %v , txid = %v", bobBtcAddr.EncodeAddress(), txhash2))
-			time.Sleep(5 * time.Second)
-
+			By("Initialise clients")
 			url := os.Getenv("ETH_URL")
 			ethClient, err := ethclient.Dial(url)
 			Expect(err).To(BeNil())
+			network := &chaincfg.RegressionNetParams
+			btcClient := btctest.RegtestIndexer()
+
+			By("Initialize Alice's wallets")
+			aliceBtcKey, aliceKey, err := ParseKeyFromEnv("ETH_KEY_2")
+			Expect(err).To(BeNil())
+			aliceBtcWallet, err := btcswap.NewWallet(btcswap.OptionsRegression(), btcClient, aliceBtcKey, btc.NewFixFeeEstimator(rand.Intn(18)+2))
+			Expect(err).To(BeNil())
+			aliceEthWallet, err := ethswap.NewWallet(ethswap.OptionsLocalnet(swapAddr), aliceKey, ethClient)
+			Expect(err).To(BeNil())
+
+			By("Initialize Bob's wallets ")
+			bobBtcKey, bobKey, err := ParseKeyFromEnv("ETH_KEY_1")
+			Expect(err).To(BeNil())
+			bobBtcWallet, err := btcswap.NewWallet(btcswap.OptionsRegression(), btcClient, bobBtcKey, btc.NewFixFeeEstimator(rand.Intn(18)+2))
+			Expect(err).To(BeNil())
+			bobEthWallet, err := ethswap.NewWallet(ethswap.OptionsLocalnet(swapAddr), bobKey, ethClient)
+			Expect(err).To(BeNil())
+
+			By("Funding both user's bitcoin address")
+			txhash1, err := testutil.NigiriFaucet(aliceBtcWallet.Address().EncodeAddress())
+			Expect(err).To(BeNil())
+			By(fmt.Sprintf("Funding Alice's address %v , txid = %v", aliceBtcWallet.Address().EncodeAddress(), txhash1))
+			txhash2, err := testutil.NigiriFaucet(bobBtcWallet.Address().EncodeAddress())
+			Expect(err).To(BeNil())
+			By(fmt.Sprintf("Funding Bob's address  %v , txid = %v", bobBtcWallet.Address().EncodeAddress(), txhash2))
+			time.Sleep(5 * time.Second)
 
 			By("Alice constructs her swap on bitcoin side")
 			amountBtc := int64(1e6)
 			secret := testutil.RandomSecret()
 			secretHash := sha256.Sum256(secret)
 			waitBlocks := int64(3)
-			aliceSwap, err := btcswap.NewSwap(network, btcClient, aliceBtcAddr, bobBtcAddr, amountBtc, secretHash[:], waitBlocks)
+			aliceSwap, err := btcswap.NewSwap(network, aliceBtcWallet.Address(), bobBtcWallet.Address(), amountBtc, secretHash[:], waitBlocks)
 			Expect(err).To(BeNil())
 
 			By("Bob constructs his swap on ethereum side")
 			amountErc20 := big.NewInt(1e18)
-			expiry := big.NewInt(5)
-			bobSwap, err := ethswap.NewSwap(bobEthAddr, aliceEthAddr, swapAddr, ethClient, secretHash, amountErc20, expiry)
+			expiry := big.NewInt(6)
+			bobSwap, err := ethswap.NewSwap(bobEthWallet.Address(), aliceEthWallet.Address(), swapAddr, secretHash, amountErc20, expiry)
 			Expect(err).To(BeNil())
-
-			By("Check swap status")
-			initiated, _, err := aliceSwap.Initiated(ctx)
-			Expect(err).To(BeNil())
-			Expect(initiated).Should(BeFalse())
-			initiated, err = bobSwap.Initiated()
-			Expect(err).To(BeNil())
-			Expect(initiated).Should(BeFalse())
 
 			By("Alice initiates the swap")
-			feeRate := 5
-			initiatedTx, err := aliceSwap.Initiate(ctx, aliceBtcKey, feeRate)
+			initiatedTx, err := aliceBtcWallet.Initiate(ctx, aliceSwap)
 			Expect(err).To(BeNil())
 			By(color.GreenString("Alice's swap is initiated in tx %v", initiatedTx))
 			Expect(testutil.NigiriNewBlock()).Should(Succeed())
 			time.Sleep(5 * time.Second)
 
-			By("Check swap status")
-			latest, err := btcClient.GetTipBlockHeight(ctx)
-			Expect(err).To(BeNil())
-			initiated, included, err := aliceSwap.Initiated(ctx)
-			Expect(err).To(BeNil())
-			Expect(initiated).Should(BeTrue())
-			Expect(latest - included + 1).Should(Equal(uint64(1)))
-
 			By("Bob initiates his swap")
-			initiatedTx, err = bobSwap.Initiate(ctx, bobKey)
+			initiatedTx, err = bobEthWallet.Initiate(ctx, bobSwap)
 			Expect(err).To(BeNil())
 			By(color.GreenString("Bob's swap is initiated in tx %v", initiatedTx))
 			time.Sleep(time.Second)
-			initiated, err = bobSwap.Initiated()
-			Expect(err).To(BeNil())
-			Expect(initiated).Should(BeTrue())
-
-			By("Both swap should not been redeemed")
-			redeemed, _, err := aliceSwap.Redeemed(ctx)
-			Expect(err).To(BeNil())
-			Expect(redeemed).Should(BeFalse())
-			redeemed, _, err = bobSwap.Redeemed(ctx, 0)
-			Expect(err).To(BeNil())
-			Expect(redeemed).Should(BeFalse())
 
 			By("Wait for a few blocks for both swap to expire")
 			for i := int64(0); i < waitBlocks; i++ {
@@ -245,12 +204,14 @@ var _ = Describe("Swap between different chains", func() {
 			time.Sleep(5 * time.Second)
 
 			By("Alice refunds her swap")
-			err = aliceSwap.Refund(ctx, aliceBtcKey, feeRate, aliceBtcAddr.EncodeAddress())
+			refundTx, err := aliceBtcWallet.Refund(ctx, aliceSwap, aliceBtcWallet.Address().EncodeAddress())
 			Expect(err).Should(BeNil())
+			By(color.GreenString("Alice's swap is refunded in tx %v", refundTx))
 
 			By("Bob refunds his swap")
-			err = bobSwap.Refund(ctx, bobKey)
+			refundTx, err = bobEthWallet.Refund(ctx, bobSwap)
 			Expect(err).Should(BeNil())
+			By(color.GreenString("Bob's swap is refunded in tx %v", refundTx))
 		})
 	})
 })
