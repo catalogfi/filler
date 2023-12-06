@@ -125,8 +125,11 @@ func (swap *Swap) Initiators(ctx context.Context, client btc.IndexerClient) ([]s
 			if utxo.Status.BlockHeight > confirmedBlock {
 				confirmedBlock = utxo.Status.BlockHeight
 			}
+			txhashes = append(txhashes, utxo.TxID)
+			total += utxo.Amount
 		}
 	}
+
 	if total >= swap.Amount {
 		txSendersMap := map[string]bool{}
 		for _, hash := range txhashes {
@@ -140,7 +143,7 @@ func (swap *Swap) Initiators(ctx context.Context, client btc.IndexerClient) ([]s
 		}
 
 		// Convert it to a slice
-		txSenders := make([]string, len(txSendersMap))
+		txSenders := make([]string, 0, len(txSendersMap))
 		for sender := range txSendersMap {
 			txSenders = append(txSenders, sender)
 		}
