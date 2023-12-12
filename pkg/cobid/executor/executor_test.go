@@ -33,7 +33,6 @@ var _ = Describe("Executor", func() {
 		Expect(err).To(BeNil())
 		cobiKey, err := crypto.ToECDSA(cobiKeyBytes)
 		Expect(err).To(BeNil())
-		cobiAddr := crypto.PubkeyToAddress(cobiKey.PublicKey)
 		evmclient, err := ethclient.Dial("")
 		Expect(err).To(BeNil())
 		ethWallet, err := ethswap.NewWallet(cobiKey, evmclient, common.HexToAddress("0x"))
@@ -56,9 +55,9 @@ var _ = Describe("Executor", func() {
 		store, err := store.NewStore(db)
 		Expect(err).To(BeNil())
 
-		executor := executor.NewExecutor(orderBookUrl, store, logger, quit)
+		executor := executor.NewExecutor(btcWallet, ethWallet, ethWallet.Address(), executor.RegtestOptions(orderBookUrl), store, logger, quit)
 
-		go executor.Start(btcChainMap, ethChainMap, cobiAddr.String())
+		go executor.Start()
 
 	})
 

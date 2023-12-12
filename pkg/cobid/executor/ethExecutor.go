@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/hex"
 	"math/big"
-	"sync"
 
 	"github.com/catalogfi/cobi/pkg/store"
 	"github.com/catalogfi/cobi/pkg/swap/ethswap"
@@ -13,49 +12,15 @@ import (
 	"go.uber.org/zap"
 )
 
-type ethExecutor struct {
-	ethWallet ethswap.Wallet
-	store     store.Store
-	logger    *zap.Logger
-	quit      chan struct{}
-	wg        *sync.WaitGroup
-}
-
-type EthExecutor interface {
-	Start(account uint32, isIw bool)
-	Done()
-}
-
-func NewEthExecutor(
-	ethWallet ethswap.Wallet,
-	store store.Store,
-	logger *zap.Logger,
-	quit chan struct{},
-	wg *sync.WaitGroup) BTCExecutor {
-	return &ethExecutor{
-		ethWallet: ethWallet,
-		store:     store,
-		logger:    logger,
-		quit:      quit,
-		wg:        wg,
-	}
-
-}
-
-func (b *ethExecutor) Done() {
-	b.quit <- struct{}{}
-}
-
-func (b *ethExecutor) Start() chan SwapMsg {
-	defer b.wg.Done()
-	var swapChan chan SwapMsg
+func (e *executor) StartEthExecutor(ctx context.Context) (swapChan chan SwapMsg) {
+	defer e.wg.Done()
 	go func() {
 		for {
 			select {
 			case swap := <-swapChan:
-				b.executeSwap(swap.Orderid, swap.Swap)
-			case <-b.quit:
-				b.logger.Info("stopping executor")
+				e.executeEthSwap(swap.Orderid, swap.Swap)
+			case <-ctx.Done():
+				e.logger.With(zap.String("ethereum executor", string(e.options.ETHChain))).Info("stopping executor")
 				return
 			}
 		}
@@ -63,10 +28,10 @@ func (b *ethExecutor) Start() chan SwapMsg {
 	return swapChan
 }
 
-func (b *ethExecutor) executeSwap(orderID uint64, swap model.AtomicSwap) {
+func (e *executor) executeEthSwap(orderID uint64, swap model.AtomicSwap) {
 	context := context.Background()
-	logger := b.logger.With(zap.Uint64("order-id", orderID))
-	status, err := b.store.Status(swap.SecretHash)
+	logger := e.logger.With(zap.String("ethereum executor", string(e.options.ETHChain)), zap.Uint64("order-id", orderID))
+	status, err := e.store.Status(swap.SecretHash)
 	if err != nil {
 		logger.Error("order not found", zap.Error(err))
 		return
@@ -99,7 +64,7 @@ func (b *ethExecutor) executeSwap(orderID uint64, swap model.AtomicSwap) {
 		logger.Error("failed to decode initiator address", zap.Error(err))
 		return
 	}
-	walletAddr := b.ethWallet.Address()
+	walletAddr := e.ethWallet.Address()
 
 	if walletAddr == initiatorAddr {
 		switch swap.Status {
@@ -107,23 +72,23 @@ func (b *ethExecutor) executeSwap(orderID uint64, swap model.AtomicSwap) {
 			if status == store.InitiatorInitiated || status == store.InitiatorFailedToInitiate {
 				return
 			}
-			txHash, err := b.ethWallet.Initiate(context, ethSwap)
+			txHash, err := e.ethWallet.Initiate(context, ethSwap)
 			if err != nil {
-				b.store.UpdateOrderStatus(swap.SecretHash, store.InitiatorFailedToInitiate, err)
+				e.store.UpdateOrderStatus(swap.SecretHash, store.InitiatorFailedToInitiate, err)
 			} else {
-				b.store.UpdateOrderStatus(swap.SecretHash, store.InitiatorInitiated, err)
-				b.store.UpdateTxHash(swap.SecretHash, store.Initiated, txHash)
+				e.store.UpdateOrderStatus(swap.SecretHash, store.InitiatorInitiated, err)
+				e.store.UpdateTxHash(swap.SecretHash, store.Initiated, txHash)
 			}
 		case model.Expired:
 			if status == store.InitiatorRefunded || status == store.InitiatorFailedToRefund {
 				return
 			}
-			txHash, err := b.ethWallet.Refund(context, ethSwap)
+			txHash, err := e.ethWallet.Refund(context, ethSwap)
 			if err != nil {
-				b.store.UpdateOrderStatus(swap.SecretHash, store.InitiatorFailedToRefund, err)
+				e.store.UpdateOrderStatus(swap.SecretHash, store.InitiatorFailedToRefund, err)
 			} else {
-				b.store.UpdateOrderStatus(swap.SecretHash, store.InitiatorRefunded, err)
-				b.store.UpdateTxHash(swap.SecretHash, store.Refunded, txHash)
+				e.store.UpdateOrderStatus(swap.SecretHash, store.InitiatorRefunded, err)
+				e.store.UpdateTxHash(swap.SecretHash, store.Refunded, txHash)
 			}
 		}
 	} else if walletAddr == redeemerAddr {
@@ -132,12 +97,12 @@ func (b *ethExecutor) executeSwap(orderID uint64, swap model.AtomicSwap) {
 			if status == store.FollowerRedeemed || status == store.FollowerFailedToRedeem {
 				return
 			}
-			txHash, err := b.ethWallet.Redeem(context, ethSwap, secret)
+			txHash, err := e.ethWallet.Redeem(context, ethSwap, secret)
 			if err != nil {
-				b.store.UpdateOrderStatus(swap.SecretHash, store.FollowerFailedToRedeem, err)
+				e.store.UpdateOrderStatus(swap.SecretHash, store.FollowerFailedToRedeem, err)
 			} else {
-				b.store.UpdateOrderStatus(swap.SecretHash, store.FollowerRedeemed, err)
-				b.store.UpdateTxHash(swap.SecretHash, store.Redeemed, txHash)
+				e.store.UpdateOrderStatus(swap.SecretHash, store.FollowerRedeemed, err)
+				e.store.UpdateTxHash(swap.SecretHash, store.Redeemed, txHash)
 			}
 		}
 	}

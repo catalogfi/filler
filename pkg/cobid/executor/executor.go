@@ -1,6 +1,7 @@
 package executor
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -10,28 +11,41 @@ import (
 	"github.com/catalogfi/cobi/pkg/swap/ethswap"
 	"github.com/catalogfi/orderbook/model"
 	"github.com/catalogfi/orderbook/rest"
+	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"
 )
 
 type Executor interface {
-	Start(btcWallets map[model.Chain]btcswap.Wallet, ethWallets map[model.Chain]ethswap.Wallet, signer string)
-	Done()
+	Start()
+	Stop()
 }
 
 type executor struct {
-	orderBook string
+	btcWallet btcswap.Wallet
+	ethWallet ethswap.Wallet
+	signer    common.Address
+	options   Options
 	store     store.Store
 	logger    *zap.Logger
 	quit      chan struct{}
 	wg        *sync.WaitGroup
 }
 
-func NewExecutor(orderBook string,
+func NewExecutor(
+	btcWallet btcswap.Wallet,
+	ethWallet ethswap.Wallet,
+	signer common.Address,
+	options Options,
 	store store.Store,
 	logger *zap.Logger,
-	quit chan struct{}) Executor {
+	quit chan struct{},
+) Executor {
 	return &executor{
-		orderBook: orderBook,
+		btcWallet: btcWallet,
+		ethWallet: ethWallet,
+		signer:    signer,
+		store:     store,
+		options:   options,
 		logger:    logger,
 		quit:      quit,
 		wg:        new(sync.WaitGroup),
@@ -42,8 +56,13 @@ func NewExecutor(orderBook string,
 /*
 - will gracefully stop all the executors
 */
-func (e *executor) Done() {
+func (e *executor) Stop() {
+	defer func() {
+		close(e.quit)
+
+	}()
 	e.quit <- struct{}{}
+	e.wg.Done()
 }
 
 /*
@@ -52,18 +71,27 @@ the orderbook server
 - btcWallets and ethwallets respectively should be generated using
 only one private, that is used by signer to create or fill the orders
 */
-func (e *executor) Start(btcWallets map[model.Chain]btcswap.Wallet, ethWallets map[model.Chain]ethswap.Wallet, signer string) {
-	obLogger := e.logger.With(zap.String("client", "orderbook"))
-	expSb := time.Second
+func (e *executor) Start() {
+	// to enable blocking stop message
+	e.wg.Add(1)
 
-	execChans, quitChans := e.startChainExecutors(btcWallets, ethWallets)
+	ctx, cancel := context.WithCancel(context.Background())
+	obLogger := e.logger.With(zap.String("client", "orderbook"))
+	expSetBack := time.Second
+
+	// execChans, quitChans := e.startChainExecutors(btcWallets, ethWallets)
+	ethExecChan := e.StartEthExecutor(ctx)
+	e.wg.Add(1)
+
+	btcExecChan := e.StartBtcExecutor(ctx)
+	e.wg.Add(1)
 
 CONNECTIONLOOP:
 	for {
 		e.logger.Info("subcribing to socket")
 		// connect to the websocket and subscribe on the signer's address
-		client := rest.NewWSClient(fmt.Sprintf("wss://%s/", e.orderBook), obLogger)
-		client.Subscribe(fmt.Sprintf("subscribe::%v", signer))
+		client := rest.NewWSClient(fmt.Sprintf("wss://%s/", e.options.Orderbook), obLogger)
+		client.Subscribe(fmt.Sprintf("subscribe::%v", e.signer))
 		respChan := client.Listen()
 	SIGNALOOP:
 		for {
@@ -73,7 +101,7 @@ CONNECTIONLOOP:
 				if !ok {
 					break SIGNALOOP
 				}
-				expSb = time.Second
+				expSetBack = time.Second
 				switch response := resp.(type) {
 				case rest.WebsocketError:
 					break SIGNALOOP
@@ -83,14 +111,26 @@ CONNECTIONLOOP:
 					e.logger.Info("recieved orders from the order book", zap.Int("count", len(orders)))
 					for _, order := range orders {
 						if order.Status == model.Filled {
-							if initiatorExecChan, ok := execChans[order.InitiatorAtomicSwap.Chain]; ok {
-								initiatorExecChan <- SwapMsg{
+							switch order.InitiatorAtomicSwap.Chain {
+							case e.options.ETHChain:
+								ethExecChan <- SwapMsg{
+									Orderid: uint64(order.ID),
+									Swap:    *order.InitiatorAtomicSwap,
+								}
+							case e.options.BTCChain:
+								btcExecChan <- SwapMsg{
 									Orderid: uint64(order.ID),
 									Swap:    *order.InitiatorAtomicSwap,
 								}
 							}
-							if followerExecChan, ok := execChans[order.InitiatorAtomicSwap.Chain]; ok {
-								followerExecChan <- SwapMsg{
+							switch order.FollowerAtomicSwap.Chain {
+							case e.options.ETHChain:
+								ethExecChan <- SwapMsg{
+									Orderid: uint64(order.ID),
+									Swap:    *order.FollowerAtomicSwap,
+								}
+							case e.options.BTCChain:
+								btcExecChan <- SwapMsg{
 									Orderid: uint64(order.ID),
 									Swap:    *order.FollowerAtomicSwap,
 								}
@@ -101,45 +141,18 @@ CONNECTIONLOOP:
 				continue
 			case <-e.quit:
 				e.logger.Info("recieved quit channel signal")
-				for _, quitChan := range quitChans {
-					quitChan <- struct{}{}
-				}
+				cancel()
+				// reducing 1 for itself
+				e.wg.Done()
+				// waiting for executor to complete
 				e.wg.Wait()
 				break CONNECTIONLOOP
 			}
 
 		}
-		time.Sleep(expSb)
-		if expSb < (8 * time.Second) {
-			expSb *= 2
+		time.Sleep(expSetBack)
+		if expSetBack < (8 * time.Second) {
+			expSetBack *= 2
 		}
 	}
-}
-
-func (e *executor) startChainExecutors(btcWallets map[model.Chain]btcswap.Wallet, ethWallets map[model.Chain]ethswap.Wallet) (map[model.Chain]chan SwapMsg, []chan struct{}) {
-	var quitChannels []chan struct{}
-	execChannels := make(map[model.Chain]chan SwapMsg)
-
-	for chain, wallet := range btcWallets {
-		quitChan := make(chan struct{})
-
-		btcExec := NewBtcExecutor(wallet, e.store, e.logger.With(zap.String("chain", string(chain))), quitChan, e.wg)
-		e.wg.Add(1)
-		execChan := btcExec.Start()
-
-		quitChannels = append(quitChannels, quitChan)
-		execChannels[chain] = execChan
-
-	}
-	for chain, wallet := range ethWallets {
-		quitChan := make(chan struct{})
-
-		ethExec := NewEthExecutor(wallet, e.store, e.logger.With(zap.String("chain", string(chain))), quitChan, e.wg)
-		e.wg.Add(1)
-		execChan := ethExec.Start()
-
-		quitChannels = append(quitChannels, quitChan)
-		execChannels[chain] = execChan
-	}
-	return execChannels, quitChannels
 }
