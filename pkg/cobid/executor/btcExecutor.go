@@ -12,46 +12,16 @@ import (
 	"go.uber.org/zap"
 )
 
-// type btcExecutor struct {
-// 	btcWallet btcswap.Wallet
-// 	store     store.Store
-// 	logger    *zap.Logger
-// 	quit      chan struct{}
-// 	wg        *sync.WaitGroup
-// }
-
-// type BTCExecutor interface {
-// 	Start() chan SwapMsg
-// 	Done()
-// }
-
-// func NewBtcExecutor(
-// 	btcWallet btcswap.Wallet,
-// 	store store.Store,
-// 	logger *zap.Logger,
-// 	quit chan struct{},
-// 	wg *sync.WaitGroup) BTCExecutor {
-// 	return &btcExecutor{
-// 		btcWallet: btcWallet,
-// 		store:     store,
-// 		logger:    logger,
-// 		quit:      quit,
-// 		wg:        wg,
-// 	}
-
-// }
-
-//	func (b *btcExecutor) Done() {
-//		b.quit <- struct{}{}
-//	}
 func (b *executor) StartBtcExecutor(ctx context.Context) (swapChan chan SwapMsg) {
-	defer b.wg.Done()
+	b.logger.With(zap.String("ethereum executor", string(b.options.BTCChain))).Info("starting executor")
 	go func() {
+		defer b.chainWg.Done()
 		for {
 			select {
 			case swap := <-swapChan:
 				b.executeBtcSwap(swap.Orderid, swap.Swap)
 			case <-ctx.Done():
+				b.logger.With(zap.String("bitcoin executor", string(b.options.BTCChain))).Info("stopping executor")
 				return
 			}
 		}

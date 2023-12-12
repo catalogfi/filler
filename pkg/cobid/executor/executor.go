@@ -24,17 +24,20 @@ type executor struct {
 	btcWallet btcswap.Wallet
 	ethWallet ethswap.Wallet
 	signer    common.Address
+	client    rest.WSClient
 	options   Options
 	store     store.Store
 	logger    *zap.Logger
 	quit      chan struct{}
-	wg        *sync.WaitGroup
+	chainWg   *sync.WaitGroup
+	execWg    *sync.WaitGroup
 }
 
 func NewExecutor(
 	btcWallet btcswap.Wallet,
 	ethWallet ethswap.Wallet,
 	signer common.Address,
+	client rest.WSClient,
 	options Options,
 	store store.Store,
 	logger *zap.Logger,
@@ -44,11 +47,13 @@ func NewExecutor(
 		btcWallet: btcWallet,
 		ethWallet: ethWallet,
 		signer:    signer,
+		client:    client,
 		store:     store,
 		options:   options,
 		logger:    logger,
 		quit:      quit,
-		wg:        new(sync.WaitGroup),
+		chainWg:   new(sync.WaitGroup),
+		execWg:    new(sync.WaitGroup),
 	}
 
 }
@@ -62,7 +67,7 @@ func (e *executor) Stop() {
 
 	}()
 	e.quit <- struct{}{}
-	e.wg.Done()
+	e.execWg.Wait()
 }
 
 /*
@@ -72,27 +77,26 @@ the orderbook server
 only one private, that is used by signer to create or fill the orders
 */
 func (e *executor) Start() {
+	defer e.execWg.Done()
 	// to enable blocking stop message
-	e.wg.Add(1)
+	e.execWg.Add(1)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	obLogger := e.logger.With(zap.String("client", "orderbook"))
 	expSetBack := time.Second
 
 	// execChans, quitChans := e.startChainExecutors(btcWallets, ethWallets)
 	ethExecChan := e.StartEthExecutor(ctx)
-	e.wg.Add(1)
+	e.chainWg.Add(1)
 
 	btcExecChan := e.StartBtcExecutor(ctx)
-	e.wg.Add(1)
+	e.chainWg.Add(1)
 
 CONNECTIONLOOP:
 	for {
 		e.logger.Info("subcribing to socket")
 		// connect to the websocket and subscribe on the signer's address
-		client := rest.NewWSClient(fmt.Sprintf("wss://%s/", e.options.Orderbook), obLogger)
-		client.Subscribe(fmt.Sprintf("subscribe::%v", e.signer))
-		respChan := client.Listen()
+		e.client.Subscribe(fmt.Sprintf("subscribe::%v", e.signer))
+		respChan := e.client.Listen()
 	SIGNALOOP:
 		for {
 
@@ -142,10 +146,8 @@ CONNECTIONLOOP:
 			case <-e.quit:
 				e.logger.Info("recieved quit channel signal")
 				cancel()
-				// reducing 1 for itself
-				e.wg.Done()
 				// waiting for executor to complete
-				e.wg.Wait()
+				e.chainWg.Wait()
 				break CONNECTIONLOOP
 			}
 

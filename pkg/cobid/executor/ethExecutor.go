@@ -13,8 +13,9 @@ import (
 )
 
 func (e *executor) StartEthExecutor(ctx context.Context) (swapChan chan SwapMsg) {
-	defer e.wg.Done()
+	e.logger.With(zap.String("ethereum executor", string(e.options.ETHChain))).Info("starting executor")
 	go func() {
+		defer e.chainWg.Done()
 		for {
 			select {
 			case swap := <-swapChan:
