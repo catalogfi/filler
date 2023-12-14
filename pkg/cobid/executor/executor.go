@@ -114,29 +114,43 @@ CONNECTIONLOOP:
 					orders := response.Orders
 					e.logger.Info("recieved orders from the order book", zap.Int("count", len(orders)))
 					for _, order := range orders {
+						var execType ExecutorType
+						if order.Maker == e.signer.String() {
+							execType = Initiator
+						} else {
+							execType = Follower
+						}
 						if order.Status == model.Filled {
 							switch order.InitiatorAtomicSwap.Chain {
 							case e.options.ETHChain:
 								ethExecChan <- SwapMsg{
-									Orderid: uint64(order.ID),
-									Swap:    *order.InitiatorAtomicSwap,
+									OrderId:           uint64(order.ID),
+									CounterSwapStatus: model.SwapStatus(order.FollowerAtomicSwap.Status),
+									Type:              execType,
+									Swap:              *order.InitiatorAtomicSwap,
 								}
 							case e.options.BTCChain:
 								btcExecChan <- SwapMsg{
-									Orderid: uint64(order.ID),
-									Swap:    *order.InitiatorAtomicSwap,
+									OrderId:           uint64(order.ID),
+									CounterSwapStatus: model.SwapStatus(order.FollowerAtomicSwap.Status),
+									Type:              execType,
+									Swap:              *order.InitiatorAtomicSwap,
 								}
 							}
 							switch order.FollowerAtomicSwap.Chain {
 							case e.options.ETHChain:
 								ethExecChan <- SwapMsg{
-									Orderid: uint64(order.ID),
-									Swap:    *order.FollowerAtomicSwap,
+									OrderId:           uint64(order.ID),
+									CounterSwapStatus: model.SwapStatus(order.InitiatorAtomicSwap.Status),
+									Type:              execType,
+									Swap:              *order.FollowerAtomicSwap,
 								}
 							case e.options.BTCChain:
 								btcExecChan <- SwapMsg{
-									Orderid: uint64(order.ID),
-									Swap:    *order.FollowerAtomicSwap,
+									OrderId:           uint64(order.ID),
+									CounterSwapStatus: model.SwapStatus(order.InitiatorAtomicSwap.Status),
+									Type:              execType,
+									Swap:              *order.FollowerAtomicSwap,
 								}
 							}
 						}
