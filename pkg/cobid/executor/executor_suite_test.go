@@ -83,7 +83,7 @@ var _ = BeforeSuite(func() {
 	logger, err := zap.NewDevelopment()
 	Expect(err).To(BeNil())
 	ctx, Cancel = context.WithCancel(context.Background())
-	server := NewTestServer(logger)
+	server = NewTestServer(logger)
 	go func() {
 		server.Run(ctx, ":8080")
 	}()
@@ -116,6 +116,7 @@ func NewTestServer(logger *zap.Logger) *TestOrderBookServer {
 	return &TestOrderBookServer{
 		router: gin.Default(),
 		logger: childLogger,
+		Msg:    make(chan interface{}),
 	}
 }
 
@@ -129,19 +130,19 @@ func (s *TestOrderBookServer) Run(ctx context.Context, addr string) error {
 	}))
 
 	s.router.GET("/", s.socket())
-	server := &http.Server{
+	service := &http.Server{
 		Addr:    addr,
 		Handler: s.router,
 	}
 
 	go func() {
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := service.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("listen: %s\n", err)
 		}
 		s.logger.Info("stopped")
 	}()
 	<-ctx.Done()
-	return server.Shutdown(ctx)
+	return service.Shutdown(ctx)
 }
 
 var upgrader = websocket.Upgrader{
@@ -162,22 +163,18 @@ func (s *TestOrderBookServer) socket() gin.HandlerFunc {
 			ws.Close()
 		}()
 
-		for {
-			go func() {
-				for resp := range s.Msg {
-
-					mx.Lock()
-					err = ws.WriteJSON(map[string]interface{}{
-						"type": fmt.Sprintf("%T", resp),
-						"msg":  resp,
-					})
-					mx.Unlock()
-					if err != nil {
-						s.logger.Debug("failed to write message", zap.Error(err))
-						return
-					}
-				}
-			}()
+		for resp := range s.Msg {
+			mx.Lock()
+			err = ws.WriteJSON(map[string]interface{}{
+				"type": fmt.Sprintf("%T", resp),
+				"msg":  resp,
+			})
+			mx.Unlock()
+			if err != nil {
+				s.logger.Debug("failed to write message", zap.Error(err))
+				return
+			}
 		}
+
 	}
 }

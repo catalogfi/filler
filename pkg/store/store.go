@@ -44,8 +44,7 @@ const (
 type Order struct {
 	gorm.Model
 
-	Account    uint32 `gorm:"index:,unique,composite:account_order"`
-	OrderId    uint64
+	OrderId    uint64 `gorm:"index:,unique,composite:account_order"`
 	SecretHash string `gorm:"index:,unique,composite:account_order"`
 	Secret     string
 	Status     Status
@@ -72,6 +71,8 @@ type Store interface {
 	PutSecret(secretHash string, secret *string, orderID uint64) error
 
 	Status(secretHash string) (Status, error)
+
+	Secret(secretHash string) (string, error)
 
 	UpdateOrderStatus(secretHash string, status Status, err error) error
 
@@ -123,21 +124,32 @@ func (store *store) Token(addr common.Address) (string, error) {
 
 func (store *store) PutSecret(secretHash string, secret *string, orderID uint64) error {
 	status := Created
+	s := ""
 	if secret == nil {
 		status = Filled
+	} else {
+		s = *secret
 	}
 
 	order := Order{
 		SecretHash: secretHash,
 		OrderId:    orderID,
 		Status:     status,
+		Secret:     s,
 	}
 	return store.db.Create(&order).Error
+}
+func (store *store) Secret(secretHash string) (string, error) {
+	var order Order
+	if err := store.db.Where("secret_hash = ?", secretHash).First(&order).Error; err != nil {
+		return "", err
+	}
+	return order.Secret, nil
 }
 
 func (store *store) UpdateOrderStatus(secretHash string, status Status, err error) error {
 	if err != nil {
-		return store.db.Where("secret_hash = ?", secretHash).
+		return store.db.Table("orders").Where("secret_hash = ?", secretHash).
 			Updates(map[string]interface{}{
 				"status": status,
 				"error":  err.Error(),
@@ -147,7 +159,7 @@ func (store *store) UpdateOrderStatus(secretHash string, status Status, err erro
 }
 
 func (store *store) UpdateTxHash(secretHash string, event Event, hash string) error {
-	tx := store.db.Where("secret_hash = ?", secretHash)
+	tx := store.db.Table("orders").Where("secret_hash = ?", secretHash)
 	switch event {
 	case Initiated:
 		return tx.Update("initiate_tx_hash", hash).Error

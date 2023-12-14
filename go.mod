@@ -11,6 +11,9 @@ require (
 	github.com/catalogfi/orderbook v0.0.0-20231205113501-feabddaa8d75
 	github.com/ethereum/go-ethereum v1.12.2
 	github.com/fatih/color v1.15.0
+	github.com/gin-contrib/cors v1.4.0
+	github.com/gin-gonic/gin v1.9.1
+	github.com/gorilla/websocket v1.5.0
 	github.com/onsi/ginkgo/v2 v2.11.0
 	github.com/onsi/gomega v1.27.10
 	go.uber.org/zap v1.25.0
@@ -34,9 +37,7 @@ require (
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
 	github.com/getsentry/sentry-go v0.23.0 // indirect
-	github.com/gin-contrib/cors v1.4.0 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
-	github.com/gin-gonic/gin v1.9.1 // indirect
 	github.com/go-logr/logr v1.2.4 // indirect
 	github.com/go-ole/go-ole v1.2.1 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
@@ -48,7 +49,6 @@ require (
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/pprof v0.0.0-20230207041349-798e818bf904 // indirect
 	github.com/google/uuid v1.3.0 // indirect
-	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/holiman/uint256 v1.2.3 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
