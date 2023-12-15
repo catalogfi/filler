@@ -12,6 +12,6 @@ type SwapMsg struct {
 type ExecutorType int
 
 const (
-	Initiator ExecutorType = 0
+	Initiator ExecutorType = iota
 	Follower
 )

@@ -101,11 +101,11 @@ func (b *executor) executeBtcSwap(atomicSwap SwapMsg) {
 			if status == store.FollowerRedeemed || status == store.FollowerFailedToRedeem {
 				return
 			}
+			if atomicSwap.CounterSwapStatus != model.Initiated {
+				return
+			}
 			var secret []byte
 			if atomicSwap.Type == Initiator {
-				if atomicSwap.CounterSwapStatus != model.Initiated {
-					return
-				}
 				secretStr, err := b.store.Secret(atomicSwap.Swap.SecretHash)
 				if err != nil {
 					logger.Error("failed to get secret", zap.Error(err))

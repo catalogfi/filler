@@ -150,12 +150,11 @@ func (store *store) Secret(secretHash string) (string, error) {
 func (store *store) UpdateOrderStatus(secretHash string, status Status, err error) error {
 	if err != nil {
 		return store.db.Table("orders").Where("secret_hash = ?", secretHash).
-			Updates(map[string]interface{}{
-				"status": status,
-				"error":  err.Error(),
-			}).Error
+			Update("status", status).
+			Update("error", err.Error()).
+			Error
 	}
-	return store.db.Where("secret_hash = ?", secretHash).Update("status = ?", status).Error
+	return store.db.Table("orders").Where("secret_hash = ?", secretHash).Update("status", status).Error
 }
 
 func (store *store) UpdateTxHash(secretHash string, event Event, hash string) error {
