@@ -3,11 +3,13 @@ package ethswap
 import (
 	"context"
 	"crypto/ecdsa"
+	"encoding/hex"
 	"math/big"
 	"sync"
 	"time"
 
 	"github.com/catalogfi/cobi/pkg/swap/ethswap/bindings"
+	"github.com/catalogfi/orderbook/rest"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -24,6 +26,8 @@ type Wallet interface {
 	Redeem(ctx context.Context, swap *Swap, secret []byte) (string, error)
 
 	Refund(ctx context.Context, swap *Swap) (string, error)
+
+	SIWEClient(url string) (rest.Client, error)
 }
 
 type wallet struct {
@@ -162,4 +166,16 @@ func (wallet *wallet) Refund(ctx context.Context, swap *Swap) (string, error) {
 		return "", err
 	}
 	return receipt.TxHash.String(), nil
+}
+
+func (wallet *wallet) SIWEClient(url string) (rest.Client, error) {
+	client := rest.NewClient(url, hex.EncodeToString(crypto.FromECDSA(wallet.key)))
+	token, err := client.Login()
+	if err != nil {
+		return nil, err
+	}
+	if err := client.SetJwt(token); err != nil {
+		return nil, err
+	}
+	return client, nil
 }
