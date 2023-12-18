@@ -53,7 +53,7 @@ func (b *executor) executeBtcSwap(atomicSwap SwapMsg) {
 	if btcSwap.IsInitiator(walletAddr) {
 		switch atomicSwap.Swap.Status {
 		case model.NotStarted:
-			if status == store.InitiatorInitiated || status == store.InitiatorFailedToInitiate {
+			if (atomicSwap.Type == Initiator && status >= store.InitiatorInitiated) || (atomicSwap.Type == Follower && status >= store.FollowerInitiated) {
 				return
 			}
 			if atomicSwap.Type == Follower && atomicSwap.CounterSwapStatus != model.Initiated {
@@ -61,45 +61,62 @@ func (b *executor) executeBtcSwap(atomicSwap SwapMsg) {
 			}
 			txHash, err := b.btcWallet.Initiate(context, btcSwap)
 			if err != nil {
-				logger.Error("failed to initiate", zap.Error(err))
-				dbErr := b.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, store.InitiatorFailedToInitiate, err)
+				var failedStatus store.Status
+				if atomicSwap.Type == Initiator {
+					failedStatus = store.InitiatorFailedToInitiate
+				} else {
+					failedStatus = store.FollowerFailedToInitiate
+				}
+				dbErr := b.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, failedStatus, err)
 				if dbErr != nil {
 					logger.Info("failed to update order status", zap.Error(dbErr))
 				}
 				return
 			} else {
-				b.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, store.InitiatorInitiated, err)
+				var successStatus store.Status
+				if atomicSwap.Type == Initiator {
+					successStatus = store.InitiatorInitiated
+				} else {
+					successStatus = store.FollowerInitiated
+				}
+				b.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, successStatus, err)
 				b.store.UpdateTxHash(atomicSwap.Swap.SecretHash, store.Initiated, txHash)
 				logger.Info("initiate tx hash", zap.String("tx-hash", txHash))
 			}
 		case model.Expired:
-			if status == store.InitiatorRefunded || status == store.InitiatorFailedToRefund {
+			if (atomicSwap.Type == Initiator && status >= store.InitiatorRefunded) || (atomicSwap.Type == Follower && status >= store.FollowerRefunded) {
 				return
 			}
 			txHash, err := b.btcWallet.Refund(context, btcSwap, walletAddr)
 			if err != nil {
 				logger.Error("failed to refund", zap.Error(err))
-				dbErr := b.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, store.InitiatorFailedToRefund, err)
+				var failedStatus store.Status
+				if atomicSwap.Type == Initiator {
+					failedStatus = store.InitiatorFailedToRefund
+				} else {
+					failedStatus = store.FollowerFailedToRefund
+				}
+				dbErr := b.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, failedStatus, err)
 				if dbErr != nil {
 					logger.Info("failed to update order status", zap.Error(dbErr))
 				}
 				return
 			} else {
-				dbErr := b.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, store.InitiatorRefunded, err)
-				if dbErr != nil {
-					logger.Info("failed to update order status", zap.Error(dbErr))
+				var successStatus store.Status
+				if atomicSwap.Type == Initiator {
+					successStatus = store.InitiatorRefunded
+				} else {
+					successStatus = store.FollowerRefunded
 				}
-				dbErr = b.store.UpdateTxHash(atomicSwap.Swap.SecretHash, store.Refunded, txHash)
-				if dbErr != nil {
-					logger.Info("failed to update txHash", zap.Error(err))
-				}
+				b.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, successStatus, err)
+				b.store.UpdateTxHash(atomicSwap.Swap.SecretHash, store.Refunded, txHash)
 				logger.Info("refund tx hash", zap.String("tx-hash", txHash))
 			}
 		}
 	} else if btcSwap.IsRedeemer(walletAddr) {
 		switch atomicSwap.Swap.Status {
 		case model.Initiated:
-			if status == store.FollowerRedeemed || status == store.FollowerFailedToRedeem {
+			if (atomicSwap.Type == Initiator && status >= store.InitiatorRedeemed) || (atomicSwap.Type == Follower && status >= store.FollowerRedeemed) {
 				return
 			}
 			if atomicSwap.CounterSwapStatus != model.Initiated {
@@ -127,14 +144,26 @@ func (b *executor) executeBtcSwap(atomicSwap SwapMsg) {
 			txHash, err := b.btcWallet.Redeem(context, btcSwap, secret, walletAddr)
 			if err != nil {
 				logger.Error("failed to redeem", zap.Error(err))
-				dbErr := b.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, store.FollowerFailedToRedeem, err)
+				var failedStatus store.Status
+				if atomicSwap.Type == Initiator {
+					failedStatus = store.InitiatorFailedToRedeem
+				} else {
+					failedStatus = store.FollowerFailedToRedeem
+				}
+				dbErr := b.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, failedStatus, err)
 				if dbErr != nil {
 					logger.Info("failed to update order status", zap.Error(dbErr))
 				}
 				return
 			} else {
 				// TODO : combine these two calls in store
-				b.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, store.FollowerRedeemed, err)
+				var successStatus store.Status
+				if atomicSwap.Type == Initiator {
+					successStatus = store.InitiatorRedeemed
+				} else {
+					successStatus = store.FollowerRedeemed
+				}
+				b.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, successStatus, err)
 				b.store.UpdateTxHash(atomicSwap.Swap.SecretHash, store.Redeemed, txHash)
 				logger.Info("redeem tx hash", zap.String("tx-hash", txHash))
 			}

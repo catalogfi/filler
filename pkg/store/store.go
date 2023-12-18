@@ -19,16 +19,16 @@ const (
 	Created
 	Filled
 	InitiatorInitiated
-	FollowerInitiated
-	InitiatorRedeemed
-	FollowerRedeemed
-	InitiatorRefunded
-	FollowerRefunded
 	InitiatorFailedToInitiate
+	FollowerInitiated
 	FollowerFailedToInitiate
+	InitiatorRedeemed
 	InitiatorFailedToRedeem
+	FollowerRedeemed
 	FollowerFailedToRedeem
+	InitiatorRefunded
 	InitiatorFailedToRefund
+	FollowerRefunded
 	FollowerFailedToRefund
 )
 
