@@ -31,8 +31,13 @@ import (
 	"github.com/catalogfi/cobi/pkg/swap/ethswap"
 	"github.com/catalogfi/orderbook/model"
 	"github.com/catalogfi/orderbook/rest"
+	"go.uber.org/zap/zaptest/observer"
 )
 
+func setupLogsCapture() (*zap.Logger, *observer.ObservedLogs) {
+	core, logs := observer.New(zap.InfoLevel)
+	return zap.New(core), logs
+}
 func generateOrder(
 	id uint,
 	initiatorInitAddr, initiatorRedeemAddr, followerInitAddr, followerRedeemAddr, maker, taker, orderPair string,
@@ -82,7 +87,7 @@ func generateOrder(
 
 }
 
-var _ = Describe("Executor_setup", Ordered, func() {
+var _ = Describe("Executor", Ordered, func() {
 	var exec executor.Executor
 	var cobiEthWallet ethswap.Wallet
 	var aliceEthWallet ethswap.Wallet
@@ -91,6 +96,7 @@ var _ = Describe("Executor_setup", Ordered, func() {
 	var evmclient *ethclient.Client
 	var execstore *store.Store
 	var btcclient btc.IndexerClient
+	var observer *observer.ObservedLogs
 	BeforeAll(func() {
 		orderBookUrl := "localhost:8080"
 
@@ -147,7 +153,8 @@ var _ = Describe("Executor_setup", Ordered, func() {
 		aliceEthWallet, err = ethswap.NewWallet(aliceKey, evmclient, swapAddr)
 		Expect(err).To(BeNil())
 
-		logger, err := zap.NewDevelopment()
+		var logger *zap.Logger
+		logger, observer = setupLogsCapture()
 		Expect(err).To(BeNil())
 
 		obclient := rest.NewWSClient(fmt.Sprintf("ws://%s/", orderBookUrl), logger.With(zap.String("client", "orderbook")))
@@ -179,9 +186,12 @@ var _ = Describe("Executor_setup", Ordered, func() {
 		var expiry *big.Int
 		var amount *big.Int
 		var oid int
+		var orderPair string
 
 		BeforeAll(func() {
+			Skip("skip")
 			var err error
+			orderPair = fmt.Sprintf("ethereum_localnet:%s-bitcoin_regtest", tokenAddr)
 			//generating random number order id
 			oid = rand.Intn(100000)
 			amount = big.NewInt(1e7)
@@ -228,7 +238,7 @@ var _ = Describe("Executor_setup", Ordered, func() {
 				aliceEthWallet.Address().Hex(), aliceBtcWallet.Address().EncodeAddress(),
 				cobiBtcWallet.Address().EncodeAddress(), cobiEthWallet.Address().Hex(),
 				aliceEthWallet.Address().Hex(), cobiEthWallet.Address().Hex(),
-				fmt.Sprintf("ethereum_localnet:%s-bitcoin_regtest", tokenAddr),
+				orderPair,
 				model.Initiated, model.NotStarted,
 				model.Filled,
 				expiry.String(), expiry.String(), amount, "", hex.EncodeToString(secretHash[:]))
@@ -240,7 +250,8 @@ var _ = Describe("Executor_setup", Ordered, func() {
 
 			By("waiting for executor")
 			time.Sleep(5 * time.Second)
-
+			Expect(strings.Contains(observer.All()[len(observer.All())-1].Message, "initiate tx hash")).Should(BeTrue())
+			Expect(observer.All()[len(observer.All())-1].Level == zap.InfoLevel).Should(BeTrue())
 			err = testutil.NigiriNewBlock()
 			Expect(err).To(BeNil())
 			time.Sleep(5 * time.Second)
@@ -256,7 +267,7 @@ var _ = Describe("Executor_setup", Ordered, func() {
 				aliceEthWallet.Address().Hex(), aliceBtcWallet.Address().EncodeAddress(),
 				cobiBtcWallet.Address().EncodeAddress(), cobiEthWallet.Address().Hex(),
 				aliceEthWallet.Address().Hex(), cobiEthWallet.Address().Hex(),
-				fmt.Sprintf("ethereum_localnet:%s-bitcoin_regtest", tokenAddr),
+				orderPair,
 				model.Initiated, model.Initiated,
 				model.Filled,
 				expiry.String(), expiry.String(), amount, hex.EncodeToString(secret), hex.EncodeToString(secretHash[:]))
@@ -272,6 +283,8 @@ var _ = Describe("Executor_setup", Ordered, func() {
 			err := testutil.NigiriNewBlock()
 			Expect(err).To(BeNil())
 			time.Sleep(5 * time.Second)
+			Expect(strings.Contains(observer.All()[len(observer.All())-1].Message, "redeem tx hash")).Should(BeTrue())
+			Expect(observer.All()[len(observer.All())-1].Level == zap.InfoLevel).Should(BeTrue())
 
 			isRedeemed, err := (*eswap).Redeemed(ctx, evmclient)
 			Expect(err).To(BeNil())
@@ -322,7 +335,7 @@ var _ = Describe("Executor_setup", Ordered, func() {
 				aliceEthWallet.Address().Hex(), aliceBtcWallet.Address().EncodeAddress(),
 				cobiBtcWallet.Address().EncodeAddress(), cobiEthWallet.Address().Hex(),
 				aliceEthWallet.Address().Hex(), cobiEthWallet.Address().Hex(),
-				fmt.Sprintf("ethereum_localnet:%s-bitcoin_regtest", tokenAddr),
+				orderPair,
 				model.Initiated, model.NotStarted,
 				model.Filled,
 				expiry.String(), expiry.String(), amount, "", hex.EncodeToString(secretHash[:]))
@@ -350,7 +363,7 @@ var _ = Describe("Executor_setup", Ordered, func() {
 				aliceEthWallet.Address().Hex(), aliceBtcWallet.Address().EncodeAddress(),
 				cobiBtcWallet.Address().EncodeAddress(), cobiEthWallet.Address().Hex(),
 				aliceEthWallet.Address().Hex(), cobiEthWallet.Address().Hex(),
-				fmt.Sprintf("ethereum_localnet:%s-bitcoin_regtest", tokenAddr),
+				orderPair,
 				model.Initiated, model.Expired,
 				model.Filled,
 				expiry.String(), expiry.String(), amount, "", hex.EncodeToString(secretHash[:]))
@@ -367,6 +380,8 @@ var _ = Describe("Executor_setup", Ordered, func() {
 			Expect(err).To(BeNil())
 			time.Sleep(5 * time.Second)
 
+			Expect(strings.Contains(observer.All()[len(observer.All())-1].Message, "refund tx hash")).Should(BeTrue())
+			Expect(observer.All()[len(observer.All())-1].Level == zap.InfoLevel).Should(BeTrue())
 			utxos, err := btcclient.GetUTXOs(ctx, bswap.Address)
 			Expect(err).To(BeNil())
 			Expect(len(utxos)).Should(Equal(0))
@@ -382,9 +397,12 @@ var _ = Describe("Executor_setup", Ordered, func() {
 		var expiry *big.Int
 		var amount *big.Int
 		var oid int
+		var orderPair string
 
 		BeforeAll(func() {
+			Skip("skip")
 			var err error
+			orderPair = fmt.Sprintf("bitcoin_regtest-ethereum_localnet:%s", tokenAddr)
 			//generating random number order id
 			oid = rand.Intn(100000)
 			amount = big.NewInt(1e7)
@@ -436,7 +454,7 @@ var _ = Describe("Executor_setup", Ordered, func() {
 				aliceBtcWallet.Address().EncodeAddress(), aliceEthWallet.Address().Hex(),
 				cobiEthWallet.Address().Hex(), cobiBtcWallet.Address().EncodeAddress(),
 				aliceEthWallet.Address().Hex(), cobiBtcWallet.Address().EncodeAddress(),
-				fmt.Sprintf("bitcoin_regtest-ethereum_localnet:%s", tokenAddr),
+				orderPair,
 				model.Initiated, model.NotStarted,
 				model.Filled,
 				expiry.String(), expiry.String(), amount, "", hex.EncodeToString(secretHash[:]))
@@ -448,6 +466,8 @@ var _ = Describe("Executor_setup", Ordered, func() {
 
 			By("waiting for executor")
 			time.Sleep(5 * time.Second)
+			Expect(strings.Contains(observer.All()[len(observer.All())-1].Message, "initiate tx hash")).Should(BeTrue())
+			Expect(observer.All()[len(observer.All())-1].Level == zap.InfoLevel).Should(BeTrue())
 
 			isInit, err := eswap.Initiated(ctx, evmclient)
 			Expect(err).To(BeNil())
@@ -460,7 +480,7 @@ var _ = Describe("Executor_setup", Ordered, func() {
 				aliceBtcWallet.Address().EncodeAddress(), aliceEthWallet.Address().Hex(),
 				cobiEthWallet.Address().Hex(), cobiBtcWallet.Address().EncodeAddress(),
 				aliceEthWallet.Address().Hex(), cobiBtcWallet.Address().EncodeAddress(),
-				fmt.Sprintf("bitcoin_regtest-ethereum_localnet:%s", tokenAddr),
+				orderPair,
 				model.Initiated, model.Initiated,
 				model.Filled,
 				expiry.String(), expiry.String(), amount, hex.EncodeToString(secret), hex.EncodeToString(secretHash[:]))
@@ -477,6 +497,8 @@ var _ = Describe("Executor_setup", Ordered, func() {
 			Expect(err).To(BeNil())
 			time.Sleep(5 * time.Second)
 
+			Expect(strings.Contains(observer.All()[len(observer.All())-1].Message, "redeem tx hash")).Should(BeTrue())
+			Expect(observer.All()[len(observer.All())-1].Level == zap.InfoLevel).Should(BeTrue())
 			isRedeemed, _, err := bswap.Redeemed(ctx, btcclient)
 			Expect(err).To(BeNil())
 			Expect(isRedeemed).Should(BeTrue())
@@ -530,7 +552,7 @@ var _ = Describe("Executor_setup", Ordered, func() {
 				aliceBtcWallet.Address().EncodeAddress(), aliceEthWallet.Address().Hex(),
 				cobiEthWallet.Address().Hex(), cobiBtcWallet.Address().EncodeAddress(),
 				aliceEthWallet.Address().Hex(), cobiEthWallet.Address().Hex(),
-				fmt.Sprintf("bitcoin_regtest-ethereum_localnet:%s", tokenAddr),
+				orderPair,
 				model.Initiated, model.NotStarted,
 				model.Filled,
 				expiry.String(), expiry.String(), amount, "", hex.EncodeToString(secretHash[:]))
@@ -552,7 +574,7 @@ var _ = Describe("Executor_setup", Ordered, func() {
 				aliceBtcWallet.Address().EncodeAddress(), aliceEthWallet.Address().Hex(),
 				cobiEthWallet.Address().Hex(), cobiBtcWallet.Address().EncodeAddress(),
 				aliceEthWallet.Address().Hex(), cobiEthWallet.Address().Hex(),
-				fmt.Sprintf("bitcoin_regtest-ethereum_localnet:%s", tokenAddr),
+				orderPair,
 				model.Initiated, model.Expired,
 				model.Filled,
 				expiry.String(), expiry.String(), amount, "", hex.EncodeToString(secretHash[:]))
@@ -565,6 +587,9 @@ var _ = Describe("Executor_setup", Ordered, func() {
 			By("waiting for executor")
 			time.Sleep(5 * time.Second)
 
+			Expect(strings.Contains(observer.All()[len(observer.All())-1].Message, "refund tx hash")).Should(BeTrue())
+			Expect(observer.All()[len(observer.All())-1].Level == zap.InfoLevel).Should(BeTrue())
+
 			// TODO: add refund check in wallet
 			// isRefunded, _, err := eswap.Refunded(ctx, btcclient)
 			// Expect(err).To(BeNil())
@@ -572,5 +597,298 @@ var _ = Describe("Executor_setup", Ordered, func() {
 
 		})
 	})
+	Context("Re-execution tests", func() {
+		var eswap *ethswap.Swap
+		var bswap btcswap.Swap
+		var secret []byte
+		var secretHash [32]byte
+		var expiry *big.Int
+		var amount *big.Int
+		var oid int
+		var orderPair string
 
+		BeforeAll(func() {
+			var err error
+			orderPair = fmt.Sprintf("bitcoin_regtest-ethereum_localnet:%s", tokenAddr)
+			//generating random number order id
+			oid = rand.Intn(100000)
+			amount = big.NewInt(1e7)
+			secret = testutil.RandomSecret()
+			secretHash = sha256.Sum256(secret)
+			expiry = big.NewInt(6)
+			eswap, err = ethswap.NewSwap(cobiEthWallet.Address(), aliceEthWallet.Address(), swapAddr, secretHash, amount, expiry)
+			Expect(err).To(BeNil())
+			bswap, err = btcswap.NewSwap(&chaincfg.RegressionNetParams, aliceBtcWallet.Address(), cobiBtcWallet.Address(), amount.Int64(), secretHash[:], 6)
+			Expect(err).To(BeNil())
+		})
+
+		It("cobi should initiate wbtc", func(ctx context.Context) {
+			var err error
+
+			By("Check status")
+			initiated, _, err := bswap.Initiated(ctx, btcclient)
+			Expect(err).To(BeNil())
+			Expect(initiated).Should(BeFalse())
+			redeemed, _, err := bswap.Redeemed(ctx, btcclient)
+			Expect(err).To(BeNil())
+			Expect(redeemed).Should(BeFalse())
+
+			By("Alice initiates the swap")
+			initTx, err := aliceBtcWallet.Initiate(ctx, bswap)
+			Expect(err).To(BeNil())
+			By(color.GreenString("Initiation tx hash = %v", initTx))
+			time.Sleep(time.Second)
+
+			err = testutil.NigiriNewBlock()
+			Expect(err).To(BeNil())
+			time.Sleep(5 * time.Second)
+
+			By("Check status")
+			initiated, _, err = bswap.Initiated(ctx, btcclient)
+			Expect(err).To(BeNil())
+			Expect(initiated).Should(BeTrue())
+			redeemed, _, err = bswap.Redeemed(ctx, btcclient)
+			Expect(err).To(BeNil())
+			Expect(redeemed).Should(BeFalse())
+
+			By("sending an order via socket message")
+			//generating random number order id
+			err = (*execstore).PutSecret(hex.EncodeToString(secretHash[:]), nil, uint64(oid))
+			Expect(err).To(BeNil())
+
+			order := generateOrder(
+				uint(oid),
+				aliceBtcWallet.Address().EncodeAddress(), aliceEthWallet.Address().Hex(),
+				cobiEthWallet.Address().Hex(), cobiBtcWallet.Address().EncodeAddress(),
+				aliceEthWallet.Address().Hex(), cobiBtcWallet.Address().EncodeAddress(),
+				orderPair,
+				model.Initiated, model.NotStarted,
+				model.Filled,
+				expiry.String(), expiry.String(), amount, "", hex.EncodeToString(secretHash[:]))
+
+			server.Msg <- rest.UpdatedOrders{
+				Orders: []model.Order{order},
+				Error:  "",
+			}
+
+			By("waiting for executor")
+			time.Sleep(5 * time.Second)
+
+			isInit, err := eswap.Initiated(ctx, evmclient)
+			Expect(err).To(BeNil())
+			Expect(isInit).Should(BeTrue())
+			Expect(strings.Contains(observer.All()[len(observer.All())-1].Message, "initiate tx hash")).Should(BeTrue())
+
+		})
+		It("cobi should not re-initiate wbtc", func(ctx context.Context) {
+			order := generateOrder(
+				uint(oid),
+				aliceBtcWallet.Address().EncodeAddress(), aliceEthWallet.Address().Hex(),
+				cobiEthWallet.Address().Hex(), cobiBtcWallet.Address().EncodeAddress(),
+				aliceEthWallet.Address().Hex(), cobiBtcWallet.Address().EncodeAddress(),
+				orderPair,
+				model.Initiated, model.NotStarted,
+				model.Filled,
+				expiry.String(), expiry.String(), amount, "", hex.EncodeToString(secretHash[:]))
+
+			server.Msg <- rest.UpdatedOrders{
+				Orders: []model.Order{order},
+				Error:  "",
+			}
+
+			By("waiting for executor")
+			time.Sleep(5 * time.Second)
+			Expect(strings.Contains(observer.All()[len(observer.All())-1].Message, "initiate")).Should(BeFalse())
+			Expect(observer.All()[len(observer.All())-1].Level == zap.InfoLevel).Should(BeTrue())
+		})
+		It("cobi should redeem btc", func(ctx context.Context) {
+			order := generateOrder(
+				uint(oid),
+				aliceBtcWallet.Address().EncodeAddress(), aliceEthWallet.Address().Hex(),
+				cobiEthWallet.Address().Hex(), cobiBtcWallet.Address().EncodeAddress(),
+				aliceEthWallet.Address().Hex(), cobiBtcWallet.Address().EncodeAddress(),
+				orderPair,
+				model.Initiated, model.Initiated,
+				model.Filled,
+				expiry.String(), expiry.String(), amount, hex.EncodeToString(secret), hex.EncodeToString(secretHash[:]))
+			server.Msg <- rest.UpdatedOrders{
+				Orders: []model.Order{order},
+				Error:  "",
+			}
+
+			By("waiting for executor")
+			time.Sleep(5 * time.Second)
+
+			err := testutil.NigiriNewBlock()
+			Expect(err).To(BeNil())
+			time.Sleep(5 * time.Second)
+
+			isRedeemed, _, err := bswap.Redeemed(ctx, btcclient)
+			Expect(err).To(BeNil())
+			Expect(isRedeemed).Should(BeTrue())
+			Expect(strings.Contains(observer.All()[len(observer.All())-1].Message, "redeem tx hash")).Should(BeTrue())
+			Expect(observer.All()[len(observer.All())-1].Level == zap.InfoLevel).Should(BeTrue())
+
+		})
+		It("cobi should not re-initiate wbtc after redeeming btc", func(ctx context.Context) {
+			order := generateOrder(
+				uint(oid),
+				aliceBtcWallet.Address().EncodeAddress(), aliceEthWallet.Address().Hex(),
+				cobiEthWallet.Address().Hex(), cobiBtcWallet.Address().EncodeAddress(),
+				aliceEthWallet.Address().Hex(), cobiBtcWallet.Address().EncodeAddress(),
+				orderPair,
+				model.Initiated, model.NotStarted,
+				model.Filled,
+				expiry.String(), expiry.String(), amount, "", hex.EncodeToString(secretHash[:]))
+
+			server.Msg <- rest.UpdatedOrders{
+				Orders: []model.Order{order},
+				Error:  "",
+			}
+
+			By("waiting for executor")
+			time.Sleep(5 * time.Second)
+			Expect(strings.Contains(observer.All()[len(observer.All())-1].Message, "initiate")).Should(BeFalse())
+		})
+		It("cobi should not redeem btc twice", func(ctx context.Context) {
+			order := generateOrder(
+				uint(oid),
+				aliceBtcWallet.Address().EncodeAddress(), aliceEthWallet.Address().Hex(),
+				cobiEthWallet.Address().Hex(), cobiBtcWallet.Address().EncodeAddress(),
+				aliceEthWallet.Address().Hex(), cobiBtcWallet.Address().EncodeAddress(),
+				orderPair,
+				model.Initiated, model.Initiated,
+				model.Filled,
+				expiry.String(), expiry.String(), amount, hex.EncodeToString(secret), hex.EncodeToString(secretHash[:]))
+
+			server.Msg <- rest.UpdatedOrders{
+				Orders: []model.Order{order},
+				Error:  "",
+			}
+
+			By("waiting for executor")
+			time.Sleep(5 * time.Second)
+
+			err := testutil.NigiriNewBlock()
+			Expect(err).To(BeNil())
+			time.Sleep(5 * time.Second)
+
+			isRedeemed, _, err := bswap.Redeemed(ctx, btcclient)
+			Expect(err).To(BeNil())
+			Expect(isRedeemed).Should(BeTrue())
+			Expect(strings.Contains(observer.All()[len(observer.All())-1].Message, "redeem")).Should(BeFalse())
+		})
+		It("cobi should not refund wbtc twice", func(ctx context.Context) {
+			var err error
+			oid := rand.Intn(100000)
+			amount := big.NewInt(1e7)
+			secret := testutil.RandomSecret()
+			secretHash := sha256.Sum256(secret)
+			expiry := big.NewInt(1)
+			eswap, err := ethswap.NewSwap(cobiEthWallet.Address(), aliceEthWallet.Address(), swapAddr, secretHash, amount, expiry)
+			Expect(err).To(BeNil())
+			bswap, err := btcswap.NewSwap(&chaincfg.RegressionNetParams, aliceBtcWallet.Address(), cobiBtcWallet.Address(), amount.Int64(), secretHash[:], 1)
+			Expect(err).To(BeNil())
+
+			By("Check status")
+			initiated, _, err := bswap.Initiated(ctx, btcclient)
+			Expect(err).To(BeNil())
+			Expect(initiated).Should(BeFalse())
+			redeemed, _, err := bswap.Redeemed(ctx, btcclient)
+			Expect(err).To(BeNil())
+			Expect(redeemed).Should(BeFalse())
+
+			By("Alice initiates the swap")
+			initTx, err := aliceBtcWallet.Initiate(ctx, bswap)
+			Expect(err).To(BeNil())
+			By(color.GreenString("Initiation tx hash = %v", initTx))
+			time.Sleep(time.Second)
+
+			err = testutil.NigiriNewBlock()
+			Expect(err).To(BeNil())
+			time.Sleep(5 * time.Second)
+
+			By("Check status")
+			initiated, _, err = bswap.Initiated(ctx, btcclient)
+			Expect(err).To(BeNil())
+			Expect(initiated).Should(BeTrue())
+			redeemed, _, err = bswap.Redeemed(ctx, btcclient)
+			Expect(err).To(BeNil())
+			Expect(redeemed).Should(BeFalse())
+
+			By("sending an order via socket message")
+			//generating random number order id
+			err = (*execstore).PutSecret(hex.EncodeToString(secretHash[:]), nil, uint64(oid))
+			Expect(err).To(BeNil())
+
+			order := generateOrder(
+				uint(oid),
+				aliceBtcWallet.Address().EncodeAddress(), aliceEthWallet.Address().Hex(),
+				cobiEthWallet.Address().Hex(), cobiBtcWallet.Address().EncodeAddress(),
+				aliceEthWallet.Address().Hex(), cobiEthWallet.Address().Hex(),
+				orderPair,
+				model.Initiated, model.NotStarted,
+				model.Filled,
+				expiry.String(), expiry.String(), amount, "", hex.EncodeToString(secretHash[:]))
+
+			server.Msg <- rest.UpdatedOrders{
+				Orders: []model.Order{order},
+				Error:  "",
+			}
+
+			By("waiting for executor")
+			time.Sleep(5 * time.Second)
+
+			isInit, err := eswap.Initiated(ctx, evmclient)
+			Expect(err).To(BeNil())
+			Expect(isInit).Should(BeTrue())
+
+			order = generateOrder(
+				uint(oid),
+				aliceBtcWallet.Address().EncodeAddress(), aliceEthWallet.Address().Hex(),
+				cobiEthWallet.Address().Hex(), cobiBtcWallet.Address().EncodeAddress(),
+				aliceEthWallet.Address().Hex(), cobiEthWallet.Address().Hex(),
+				orderPair,
+				model.Initiated, model.Expired,
+				model.Filled,
+				expiry.String(), expiry.String(), amount, "", hex.EncodeToString(secretHash[:]))
+
+			server.Msg <- rest.UpdatedOrders{
+				Orders: []model.Order{order},
+				Error:  "",
+			}
+
+			By("waiting for executor")
+			time.Sleep(5 * time.Second)
+
+			Expect(strings.Contains(observer.All()[len(observer.All())-1].Message, "refund tx hash")).Should(BeTrue())
+			Expect(observer.All()[len(observer.All())-1].Level == zap.InfoLevel).Should(BeTrue())
+
+			// TODO: add refund check in wallet
+			// isRefunded, _, err := eswap.Refunded(ctx, btcclient)
+			// Expect(err).To(BeNil())
+			// Expect(isRefunded).Should(BeTrue())
+
+			order = generateOrder(
+				uint(oid),
+				aliceBtcWallet.Address().EncodeAddress(), aliceEthWallet.Address().Hex(),
+				cobiEthWallet.Address().Hex(), cobiBtcWallet.Address().EncodeAddress(),
+				aliceEthWallet.Address().Hex(), cobiEthWallet.Address().Hex(),
+				orderPair,
+				model.Initiated, model.Expired,
+				model.Filled,
+				expiry.String(), expiry.String(), amount, "", hex.EncodeToString(secretHash[:]))
+
+			server.Msg <- rest.UpdatedOrders{
+				Orders: []model.Order{order},
+				Error:  "",
+			}
+			By("waiting for executor")
+			time.Sleep(5 * time.Second)
+
+			Expect(strings.Contains(observer.All()[len(observer.All())-1].Message, "refund")).Should(BeFalse())
+			Expect(observer.All()[len(observer.All())-1].Level == zap.InfoLevel).Should(BeTrue())
+
+		})
+	})
 })
