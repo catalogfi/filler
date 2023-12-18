@@ -11,14 +11,19 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/catalogfi/blockchain/btc"
 	"github.com/catalogfi/blockchain/btc/btctest"
 	"github.com/catalogfi/cobi/pkg/swap/btcswap"
 	"github.com/catalogfi/cobi/pkg/swap/ethswap/bindings"
+	"github.com/catalogfi/orderbook/model"
+	"github.com/catalogfi/orderbook/rest/utils"
+	"github.com/dgrijalva/jwt-go"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -28,6 +33,7 @@ import (
 	"github.com/gorilla/websocket"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/spruceid/siwe-go"
 	"go.uber.org/zap"
 )
 
@@ -130,6 +136,15 @@ func (s *TestOrderBookServer) Run(ctx context.Context, addr string) error {
 	}))
 
 	s.router.GET("/", s.socket())
+	s.router.GET("/nonce", s.nonce())
+	s.router.POST("/verify", s.verify())
+
+	authRoutes := s.router.Group("/")
+	authRoutes.Use(authenticate)
+	{
+		authRoutes.PUT("/orders/:id", s.fillOrder())
+	}
+
 	service := &http.Server{
 		Addr:    addr,
 		Handler: s.router,
@@ -176,5 +191,143 @@ func (s *TestOrderBookServer) socket() gin.HandlerFunc {
 			}
 		}
 
+	}
+}
+
+func (s *TestOrderBookServer) nonce() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		ctx.JSON(http.StatusOK, gin.H{
+			"nonce": siwe.GenerateNonce(),
+		})
+	}
+}
+
+func (s *TestOrderBookServer) verify() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		req := model.VerifySiwe{}
+		if err := ctx.ShouldBindJSON(&req); err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		token, err := Verify(req)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		tokenString, err := token.SignedString([]byte("SECRET"))
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		ctx.JSON(http.StatusOK, gin.H{"token": tokenString})
+	}
+}
+
+type Claims struct {
+	UserWallet string `json:"userWallet"`
+	jwt.StandardClaims
+}
+
+func Verify(req model.VerifySiwe) (*jwt.Token, error) {
+	parsedMessage, err := siwe.ParseMessage(req.Message)
+	if err != nil {
+		return nil, fmt.Errorf("Error parsing message: %w ", err)
+	}
+
+	valid, err := parsedMessage.ValidNow()
+	if err != nil {
+		return nil, fmt.Errorf("Error validating message: %w ", err)
+	}
+	if !valid {
+		return nil, fmt.Errorf("Validating expired Token")
+	}
+
+	fromAddress, err := verifySignature(parsedMessage.String(), req.Signature, parsedMessage.GetAddress(), parsedMessage.GetChainID())
+
+	if err != nil {
+		return nil, fmt.Errorf("Error verifying message: %w ", err)
+	}
+
+	claims := &Claims{
+		UserWallet: strings.ToLower(fromAddress.String()),
+		StandardClaims: jwt.StandardClaims{
+			ExpiresAt: time.Now().Add(time.Hour * 24).Unix(), // Token expires in 24 hours
+			IssuedAt:  time.Now().Unix(),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token, nil
+
+}
+
+func verifySignature(msg string, signature string, owner common.Address, chainId int) (*common.Address, error) {
+
+	sigHash := utils.GetEIP191SigHash(msg)
+	sigBytes, err := hexutil.Decode(signature)
+	if err != nil {
+		return nil, err
+	}
+	if sigBytes[64] != 27 && sigBytes[64] != 28 {
+		return nil, fmt.Errorf("Invalid signature recovery byte")
+	}
+	sigBytes[64] -= 27
+	pubkey, err := crypto.SigToPub(sigHash.Bytes(), sigBytes)
+	if err != nil {
+		return nil, err
+	}
+	addr := crypto.PubkeyToAddress(*pubkey)
+	// if addr != owner {
+	// 	sigBytes[64] += 27
+	// 	return utils.CheckERC1271Sig(sigHash, sigBytes, owner, chainId, a.config)
+	// }
+	return &addr, nil
+
+}
+
+func authenticate(ctx *gin.Context) {
+	tokenString := ctx.GetHeader("Authorization")
+	if tokenString == "" {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "missing authorization token"})
+		ctx.Abort()
+		return
+	}
+
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("invalid signing method")
+		}
+
+		return []byte("SECRET"), nil
+	})
+
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		ctx.Abort()
+		return
+	}
+
+	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		if userWallet, exists := claims["userWallet"]; exists {
+			ctx.Set("userWallet", strings.ToLower(userWallet.(string)))
+		} else {
+			ctx.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token claims"})
+			ctx.Abort()
+			return
+		}
+	} else {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token claims"})
+		ctx.Abort()
+		return
+	}
+
+	ctx.Next()
+}
+
+func (s *TestOrderBookServer) fillOrder() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// mock Handler
+		c.JSON(http.StatusAccepted, gin.H{})
 	}
 }

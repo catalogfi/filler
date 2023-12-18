@@ -122,10 +122,12 @@ CONNECTIONLOOP:
 						fmt.Println("filling order", order.ID)
 						//TODO virtual Balance check
 						if order.Price < e.strategy.price {
+							e.logger.Info("order price is less than the strategy price", zap.Float64("order price", order.Price), zap.Float64("strategy price", e.strategy.price))
 							continue
 						}
 
 						if len(e.strategy.makers) > 0 && !contains(e.strategy.makers, order.Maker) {
+							e.logger.Info("maker is not in the list of makers", zap.String("maker", order.Maker))
 							continue
 						}
 
@@ -137,6 +139,7 @@ CONNECTIONLOOP:
 
 						if (e.strategy.minAmount.Cmp(big.NewInt(0)) != 0 && orderAmount.Cmp(e.strategy.minAmount) < 0) ||
 							(e.strategy.maxAmount.Cmp(big.NewInt(0)) != 0 && orderAmount.Cmp(e.strategy.maxAmount) > 0) {
+							e.logger.Info("order amount is out of range", zap.String("order amount", orderAmount.String()), zap.String("min amount", e.strategy.minAmount.String()), zap.String("max amount", e.strategy.maxAmount.String()))
 							continue
 						}
 
@@ -157,7 +160,7 @@ CONNECTIONLOOP:
 			case <-e.quit:
 				e.logger.Info("recieved quit channel signal")
 				// cancel()
-				// waiting for executor to complete
+				// waiting for filler to complete
 				// e.chainWg.Wait()
 				break CONNECTIONLOOP
 			}
