@@ -32,8 +32,8 @@ func (e *executor) StartEthExecutor(ctx context.Context) chan SwapMsg {
 }
 
 func (e *executor) executeEthSwap(atomicSwap SwapMsg) {
-
-	context := context.Background()
+	context, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	logger := e.logger.With(zap.String("ethereum executor", string(e.options.ETHChain)), zap.Uint64("order-id", atomicSwap.OrderId))
 	logger.Info("executing eth swap")
 	status, err := e.store.Status(atomicSwap.Swap.SecretHash)
@@ -84,6 +84,7 @@ func (e *executor) executeEthSwap(atomicSwap SwapMsg) {
 				}
 				return
 			} else {
+				// TODO : combine these two calls in store
 				e.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, store.InitiatorRefunded, err)
 				e.store.UpdateTxHash(atomicSwap.Swap.SecretHash, store.Refunded, txHash)
 				logger.Info("refund tx hash", zap.String("tx-hash", txHash))

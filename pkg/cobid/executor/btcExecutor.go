@@ -32,7 +32,8 @@ func (b *executor) StartBtcExecutor(ctx context.Context) chan SwapMsg {
 }
 
 func (b *executor) executeBtcSwap(atomicSwap SwapMsg) {
-	context := context.Background()
+	context, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	logger := b.logger.With(zap.String("bitcoin executor", string(b.options.BTCChain)), zap.Uint64("order-id", atomicSwap.OrderId))
 	logger.Info("executing btc swap")
 	status, err := b.store.Status(atomicSwap.Swap.SecretHash)
@@ -132,6 +133,7 @@ func (b *executor) executeBtcSwap(atomicSwap SwapMsg) {
 				}
 				return
 			} else {
+				// TODO : combine these two calls in store
 				b.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, store.FollowerRedeemed, err)
 				b.store.UpdateTxHash(atomicSwap.Swap.SecretHash, store.Redeemed, txHash)
 				logger.Info("redeem tx hash", zap.String("tx-hash", txHash))

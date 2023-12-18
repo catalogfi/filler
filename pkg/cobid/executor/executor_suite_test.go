@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"math/big"
 	"math/rand"
 	"net/http"
 	"os"
@@ -56,24 +57,37 @@ var _ = BeforeSuite(func() {
 	Expect(err).Should(BeNil())
 
 	By("Initialise transactor")
-	keyStr := strings.TrimPrefix(os.Getenv("ETH_KEY_1"), "0x")
-	keyBytes, err := hex.DecodeString(keyStr)
+	keyStr1 := strings.TrimPrefix(os.Getenv("ETH_KEY_1"), "0x")
+	keyBytes1, err := hex.DecodeString(keyStr1)
 	Expect(err).Should(BeNil())
-	key, err := crypto.ToECDSA(keyBytes)
+	key1, err := crypto.ToECDSA(keyBytes1)
 	Expect(err).Should(BeNil())
-	transactor, err := bind.NewKeyedTransactorWithChainID(key, chainID)
+	transactor1, err := bind.NewKeyedTransactorWithChainID(key1, chainID)
+	Expect(err).Should(BeNil())
+
+	By("Initialise transactor")
+	keyStr2 := strings.TrimPrefix(os.Getenv("ETH_KEY_2"), "0x")
+	keyBytes2, err := hex.DecodeString(keyStr2)
+	Expect(err).Should(BeNil())
+	key2, err := crypto.ToECDSA(keyBytes2)
 	Expect(err).Should(BeNil())
 
 	By("Deploy ERC20 contract")
 	var tx *types.Transaction
-	tokenAddr, tx, _, err = bindings.DeployTestERC20(transactor, client)
+	tokenAddr, tx, ERC20, err := bindings.DeployTestERC20(transactor1, client)
+	Expect(err).Should(BeNil())
+	_, err = bind.WaitMined(context.Background(), client, tx)
+	Expect(err).Should(BeNil())
+	By(color.GreenString("ERC20 deployed to %v", tokenAddr.Hex()))
+
+	tx, err = ERC20.Transfer(transactor1, crypto.PubkeyToAddress(key2.PublicKey), big.NewInt(1000000000000000000))
 	Expect(err).Should(BeNil())
 	_, err = bind.WaitMined(context.Background(), client, tx)
 	Expect(err).Should(BeNil())
 	By(color.GreenString("ERC20 deployed to %v", tokenAddr.Hex()))
 
 	By("Deploy atomic swap contract")
-	swapAddr, tx, _, err = bindings.DeployAtomicSwap(transactor, client, tokenAddr)
+	swapAddr, tx, _, err = bindings.DeployAtomicSwap(transactor1, client, tokenAddr)
 	Expect(err).Should(BeNil())
 	_, err = bind.WaitMined(context.Background(), client, tx)
 	Expect(err).Should(BeNil())
