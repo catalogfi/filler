@@ -263,7 +263,11 @@ func (wallet *wallet) Refund(ctx context.Context, swap Swap, target string) (str
 		tx.TxIn[i].Witness = btc.HtlcWitness(swap.Script, wallet.key.PubKey().SerializeCompressed(), sig, nil)
 	}
 
-	return "", wallet.client.SubmitTx(ctx, tx)
+	// Submit the tx
+	if err := wallet.client.SubmitTx(ctx, tx); err != nil {
+		return "", err
+	}
+	return tx.TxHash().String(), nil
 }
 
 func (wallet *wallet) feeRate() (int, error) {
