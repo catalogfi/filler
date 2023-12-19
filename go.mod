@@ -7,7 +7,7 @@ require (
 	github.com/btcsuite/btcd/btcec/v2 v2.3.2
 	github.com/btcsuite/btcd/btcutil v1.1.3
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.2
-	github.com/catalogfi/blockchain v0.0.5
+	github.com/catalogfi/blockchain v0.0.6
 	github.com/ethereum/go-ethereum v1.12.2
 	github.com/fatih/color v1.15.0
 	github.com/onsi/ginkgo/v2 v2.11.0

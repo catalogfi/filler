@@ -43,6 +43,8 @@ github.com/bytedance/sonic v1.8.0 h1:ea0Xadu+sHlu7x5O3gKhRpQ1IKiMrSiHttPF0ybECuA
 github.com/bytedance/sonic v1.8.0/go.mod h1:i736AoUSYt75HyZLoJW9ERYxcy6eaN6h4BZXU064P/U=
 github.com/catalogfi/blockchain v0.0.5 h1:CCyVSPsDQZ0NVFHsCjakI5jAi5jCw8PhtU3+AI26vRM=
 github.com/catalogfi/blockchain v0.0.5/go.mod h1:VGt7MwD5Jcl5tcod2Mwge3csnVCRZHQWBi8swzRyYNs=
+github.com/catalogfi/blockchain v0.0.6 h1:yUkvtZNIefvaVxb8Hf3aneRU4UOedMWkKjAR/IuggSY=
+github.com/catalogfi/blockchain v0.0.6/go.mod h1:VGt7MwD5Jcl5tcod2Mwge3csnVCRZHQWBi8swzRyYNs=
 github.com/catalogfi/guardian v0.0.0-20231019235014-eb9bde721242 h1:UWQl1kZWIhZGsnD3lHnmbVvXNSOaVVjjQmj1TPzxft4=
 github.com/catalogfi/guardian v0.0.0-20231019235014-eb9bde721242/go.mod h1:acLQ/akUdeln9+mvUSEbWLiM0OjC+K05+1drTpi85fA=
 github.com/catalogfi/guardian v0.0.0-20231130055133-e3bd9f480292 h1:+kUvYytfqHV/uG56Xho7PpsCjH1kK02fqlNzYpoj6Kg=
