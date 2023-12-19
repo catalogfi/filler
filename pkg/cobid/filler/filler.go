@@ -58,13 +58,13 @@ func NewFiller(
 /*
 - will gracefully stop all the fillers
 */
-func (e *filler) Stop() {
+func (f *filler) Stop() {
 	defer func() {
-		close(e.quit)
+		close(f.quit)
 
 	}()
-	e.quit <- struct{}{}
-	e.execWg.Wait()
+	f.quit <- struct{}{}
+	f.execWg.Wait()
 }
 
 /*
@@ -73,10 +73,10 @@ the orderbook server
 - btcWallets and ethwallets respectively should be generated using
 only one private, that is used by signer to create or fill the orders
 */
-func (e *filler) Start() {
-	defer e.execWg.Done()
+func (f *filler) Start() {
+	defer f.execWg.Done()
 	// to enable blocking stop message
-	e.execWg.Add(1)
+	f.execWg.Add(1)
 
 	// ctx, cancel := context.WithCancel(context.Background())
 	expSetBack := time.Second
@@ -84,24 +84,24 @@ func (e *filler) Start() {
 CONNECTIONLOOP:
 	for {
 
-		_, fromChain, _, _, err := model.ParseOrderPair(e.strategy.orderPair)
+		_, fromChain, _, _, err := model.ParseOrderPair(f.strategy.orderPair)
 		if err != nil {
-			e.logger.Error("failed parsing order pair", zap.Error(err))
+			f.logger.Error("failed parsing order pair", zap.Error(err))
 			return
 		}
 
-		fromAddress := e.ethWallet.Address().String()
-		toAddress := e.btcWallet.Address().EncodeAddress()
+		fromAddress := f.ethWallet.Address().String()
+		toAddress := f.btcWallet.Address().EncodeAddress()
 
 		if fromChain.IsBTC() {
 			fromAddress, toAddress = toAddress, fromAddress
 		}
 
 		// connect to the websocket and subscribe on the signer's address also subscribe based on strategy
-		e.logger.Info("subcribing to socket")
+		f.logger.Info("subcribing to socket")
 		// connect to the websocket and subscribe on the signer's address
-		e.wSclient.Subscribe(fmt.Sprintf("subscribe::%v", e.strategy.orderPair))
-		respChan := e.wSclient.Listen()
+		f.wSclient.Subscribe(fmt.Sprintf("subscribe::%v", f.strategy.orderPair))
+		respChan := f.wSclient.Listen()
 	SIGNALOOP:
 		for {
 
@@ -117,51 +117,48 @@ CONNECTIONLOOP:
 				case rest.OpenOrders:
 					// fill orders
 					orders := response.Orders
-					e.logger.Info("recieved orders from the order book", zap.Int("count", len(orders)))
+					f.logger.Info("recieved orders from the order book", zap.Int("count", len(orders)))
 					for _, order := range orders {
 						fmt.Println("filling order", order.ID)
 						//TODO virtual Balance check
-						if order.Price < e.strategy.price {
-							e.logger.Info("order price is less than the strategy price", zap.Float64("order price", order.Price), zap.Float64("strategy price", e.strategy.price))
+						if order.Price < f.strategy.price {
+							f.logger.Info("order price is less than the strategy price", zap.Float64("order price", order.Price), zap.Float64("strategy price", f.strategy.price))
 							continue
 						}
 
-						if len(e.strategy.makers) > 0 && !contains(e.strategy.makers, order.Maker) {
-							e.logger.Info("maker is not in the list of makers", zap.String("maker", order.Maker))
+						if len(f.strategy.makers) > 0 && !contains(f.strategy.makers, order.Maker) {
+							f.logger.Info("maker is not in the list of makers", zap.String("maker", order.Maker))
 							continue
 						}
 
 						orderAmount, ok := new(big.Int).SetString(order.FollowerAtomicSwap.Amount, 10)
 						if !ok {
-							e.logger.Error("failed to parse order amount")
+							f.logger.Error("failed to parse order amount")
 							continue
 						}
 
-						if (e.strategy.minAmount.Cmp(big.NewInt(0)) != 0 && orderAmount.Cmp(e.strategy.minAmount) < 0) ||
-							(e.strategy.maxAmount.Cmp(big.NewInt(0)) != 0 && orderAmount.Cmp(e.strategy.maxAmount) > 0) {
-							e.logger.Info("order amount is out of range", zap.String("order amount", orderAmount.String()), zap.String("min amount", e.strategy.minAmount.String()), zap.String("max amount", e.strategy.maxAmount.String()))
+						if (f.strategy.minAmount.Cmp(big.NewInt(0)) != 0 && orderAmount.Cmp(f.strategy.minAmount) < 0) ||
+							(f.strategy.maxAmount.Cmp(big.NewInt(0)) != 0 && orderAmount.Cmp(f.strategy.maxAmount) > 0) {
+							f.logger.Info("order amount is out of range", zap.String("order amount", orderAmount.String()), zap.String("min amount", f.strategy.minAmount.String()), zap.String("max amount", f.strategy.maxAmount.String()))
 							continue
 						}
 
-						if err := e.restClient.FillOrder(order.ID, fromAddress, toAddress); err != nil {
-							e.logger.Error("failed to fill the order ❌", zap.Uint("id", order.ID), zap.Error(err))
+						if err := f.restClient.FillOrder(order.ID, fromAddress, toAddress); err != nil {
+							f.logger.Error("failed to fill the order ❌", zap.Uint("id", order.ID), zap.Error(err))
 							continue
 						}
 
-						if err = e.store.PutSecret(order.SecretHash, nil, uint64(order.ID)); err != nil {
-							e.logger.Error("failed storing secret hash: %v", zap.Error(err))
+						if err = f.store.PutSecret(order.SecretHash, nil, uint64(order.ID)); err != nil {
+							f.logger.Error("failed storing secret hash: %v", zap.Error(err))
 							continue
 						}
-						e.logger.Info("filled order ✅", zap.Uint("id", order.ID))
+						f.logger.Info("filled order ✅", zap.Uint("id", order.ID))
 
 					}
 				}
 				continue
-			case <-e.quit:
-				e.logger.Info("recieved quit channel signal")
-				// cancel()
-				// waiting for filler to complete
-				// e.chainWg.Wait()
+			case <-f.quit:
+				f.logger.Info("recieved quit channel signal")
 				break CONNECTIONLOOP
 			}
 

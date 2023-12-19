@@ -1,4 +1,4 @@
-package filler_test
+package creator_test
 
 import (
 	"context"
@@ -8,7 +8,6 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -38,9 +37,9 @@ import (
 	"go.uber.org/zap"
 )
 
-func TestFiller(t *testing.T) {
+func TestCreator(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Filler Suite")
+	RunSpecs(t, "Creator Suite")
 }
 
 var (
@@ -143,7 +142,7 @@ func (s *TestOrderBookServer) Run(ctx context.Context, addr string) error {
 	authRoutes := s.router.Group("/")
 	authRoutes.Use(authenticate)
 	{
-		authRoutes.PUT("/orders/:id", s.fillOrder())
+		authRoutes.POST("/orders", s.postOrders())
 	}
 
 	service := &http.Server{
@@ -326,17 +325,35 @@ func authenticate(ctx *gin.Context) {
 	ctx.Next()
 }
 
-func (s *TestOrderBookServer) fillOrder() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// mock Handler
-		orderID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-		Expect(err).To(BeNil())
-		Expect(orderID).To(BeNumerically(">", 0))
-		filler, exists := c.Get("userWallet")
-		Expect(exists).To(BeTrue())
-		// check if filler is an etheruem address
-		Expect(len(filler.(string))).To(Equal(42))
+type CreateOrder struct {
+	SendAddress          string `json:"sendAddress" binding:"required"`
+	ReceiveAddress       string `json:"receiveAddress" binding:"required"`
+	OrderPair            string `json:"orderPair" binding:"required"`
+	SendAmount           string `json:"sendAmount" binding:"required"`
+	ReceiveAmount        string `json:"receiveAmount" binding:"required"`
+	SecretHash           string `json:"secretHash" binding:"required"`
+	UserWalletBTCAddress string `json:"userWalletBTCAddress" binding:"required"`
+}
 
-		c.JSON(http.StatusAccepted, gin.H{})
+var CurrentOrderID = 0
+
+func (s *TestOrderBookServer) postOrders() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		_, exists := c.Get("userWallet")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
+			return
+		}
+		req := CreateOrder{}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		CurrentOrderID += 1
+
+		c.JSON(http.StatusCreated, gin.H{
+			"orderId": CurrentOrderID,
+		})
 	}
 }
