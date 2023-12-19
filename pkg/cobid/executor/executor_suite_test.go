@@ -48,6 +48,7 @@ var _ = BeforeSuite(func() {
 	By("Required envs")
 	Expect(os.Getenv("ETH_URL")).ShouldNot(BeEmpty())
 	Expect(os.Getenv("ETH_KEY_1")).ShouldNot(BeEmpty())
+	Expect(os.Getenv("ETH_KEY_2")).ShouldNot(BeEmpty())
 
 	By("Initialise client")
 	url := os.Getenv("ETH_URL")

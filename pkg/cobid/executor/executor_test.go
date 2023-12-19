@@ -107,25 +107,22 @@ var _ = Describe("Executor", Ordered, func() {
 		btcclient = btctest.RegtestIndexer()
 		cobiBtcWallet, err = NewTestWallet(network, btcclient)
 		Expect(err).To(BeNil())
+
+		aliceBtcWallet, err = NewTestWallet(network, btcclient)
+		Expect(err).To(BeNil())
+
 		//this ensure the bitcoin is atually funded before
 		_, err = testutil.NigiriFaucet(cobiBtcWallet.Address().EncodeAddress())
 		Expect(err).To(BeNil())
-		err = testutil.NigiriNewBlock()
+
+		_, err = testutil.NigiriFaucet(aliceBtcWallet.Address().EncodeAddress())
 		Expect(err).To(BeNil())
+
 		time.Sleep(5 * time.Second)
 
 		bobBtcBalance, err := cobiBtcWallet.Balance(context.Background(), true)
 		Expect(err).To(BeNil())
 		Expect(bobBtcBalance).To(BeNumerically("==", 100000000))
-
-		aliceBtcWallet, err = NewTestWallet(network, btcclient)
-		Expect(err).To(BeNil())
-
-		_, err = testutil.NigiriFaucet(aliceBtcWallet.Address().EncodeAddress())
-		Expect(err).To(BeNil())
-		err = testutil.NigiriNewBlock()
-		Expect(err).To(BeNil())
-		time.Sleep(5 * time.Second)
 
 		aliceBtcBalance, err := aliceBtcWallet.Balance(context.Background(), true)
 		Expect(err).To(BeNil())
@@ -159,8 +156,6 @@ var _ = Describe("Executor", Ordered, func() {
 
 		obclient := rest.NewWSClient(fmt.Sprintf("ws://%s/", orderBookUrl), logger.With(zap.String("client", "orderbook")))
 
-		quit := make(chan struct{})
-
 		os.Remove("test.db")
 		db, err := gorm.Open(sqlite.Open("test.db"))
 		Expect(err).To(BeNil())
@@ -169,15 +164,17 @@ var _ = Describe("Executor", Ordered, func() {
 		execstore = &store
 		Expect(err).To(BeNil())
 
-		exec = executor.NewExecutor(cobiBtcWallet, cobiEthWallet, cobiEthWallet.Address(), obclient, executor.RegtestOptions(orderBookUrl), store, logger, quit)
+		exec = executor.NewExecutor(cobiBtcWallet, cobiEthWallet, cobiEthWallet.Address(), obclient, executor.RegtestOptions(orderBookUrl), store, logger)
 
 		go func() {
 			exec.Start()
 		}()
 	})
+
 	AfterAll(func() {
 		exec.Stop()
 	})
+
 	Context("wbtc to btc trade", func() {
 		var eswap *ethswap.Swap
 		var bswap btcswap.Swap
@@ -189,7 +186,6 @@ var _ = Describe("Executor", Ordered, func() {
 		var orderPair string
 
 		BeforeAll(func() {
-			Skip("skip")
 			var err error
 			orderPair = fmt.Sprintf("ethereum_localnet:%s-bitcoin_regtest", tokenAddr)
 			//generating random number order id
@@ -400,7 +396,6 @@ var _ = Describe("Executor", Ordered, func() {
 		var orderPair string
 
 		BeforeAll(func() {
-			Skip("skip")
 			var err error
 			orderPair = fmt.Sprintf("bitcoin_regtest-ethereum_localnet:%s", tokenAddr)
 			//generating random number order id
@@ -474,6 +469,7 @@ var _ = Describe("Executor", Ordered, func() {
 			Expect(isInit).Should(BeTrue())
 
 		})
+
 		It("cobi should redeem btc", func(ctx context.Context) {
 			order := generateOrder(
 				uint(oid),
@@ -504,6 +500,7 @@ var _ = Describe("Executor", Ordered, func() {
 			Expect(isRedeemed).Should(BeTrue())
 
 		})
+
 		It("cobi should refund wbtc", func(ctx context.Context) {
 			var err error
 			oid := rand.Intn(100000)
@@ -597,6 +594,7 @@ var _ = Describe("Executor", Ordered, func() {
 
 		})
 	})
+
 	Context("Re-execution tests", func() {
 		var eswap *ethswap.Swap
 		var bswap btcswap.Swap
@@ -680,6 +678,7 @@ var _ = Describe("Executor", Ordered, func() {
 			Expect(strings.Contains(observer.All()[len(observer.All())-1].Message, "initiate tx hash")).Should(BeTrue())
 
 		})
+
 		It("cobi should not re-initiate wbtc", func(ctx context.Context) {
 			order := generateOrder(
 				uint(oid),
@@ -701,6 +700,7 @@ var _ = Describe("Executor", Ordered, func() {
 			Expect(strings.Contains(observer.All()[len(observer.All())-1].Message, "initiate")).Should(BeFalse())
 			Expect(observer.All()[len(observer.All())-1].Level == zap.InfoLevel).Should(BeTrue())
 		})
+
 		It("cobi should redeem btc", func(ctx context.Context) {
 			order := generateOrder(
 				uint(oid),
@@ -730,6 +730,7 @@ var _ = Describe("Executor", Ordered, func() {
 			Expect(observer.All()[len(observer.All())-1].Level == zap.InfoLevel).Should(BeTrue())
 
 		})
+
 		It("cobi should not re-initiate wbtc after redeeming btc", func(ctx context.Context) {
 			order := generateOrder(
 				uint(oid),
@@ -750,6 +751,7 @@ var _ = Describe("Executor", Ordered, func() {
 			time.Sleep(5 * time.Second)
 			Expect(strings.Contains(observer.All()[len(observer.All())-1].Message, "initiate")).Should(BeFalse())
 		})
+
 		It("cobi should not redeem btc twice", func(ctx context.Context) {
 			order := generateOrder(
 				uint(oid),
@@ -778,6 +780,7 @@ var _ = Describe("Executor", Ordered, func() {
 			Expect(isRedeemed).Should(BeTrue())
 			Expect(strings.Contains(observer.All()[len(observer.All())-1].Message, "redeem")).Should(BeFalse())
 		})
+
 		It("cobi should not refund wbtc twice", func(ctx context.Context) {
 			var err error
 			oid := rand.Intn(100000)

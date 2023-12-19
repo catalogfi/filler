@@ -14,7 +14,7 @@ import (
 )
 
 func (b *executor) StartBtcExecutor(ctx context.Context) chan SwapMsg {
-	b.logger.With(zap.String("ethereum executor", string(b.options.BTCChain))).Info("starting executor")
+	b.logger.With(zap.String("bitcoin executor", string(b.options.BTCChain))).Info("starting executor")
 	swapChan := make(chan SwapMsg)
 	go func() {
 		defer b.chainWg.Done()
@@ -42,7 +42,7 @@ func (b *executor) executeBtcSwap(atomicSwap SwapMsg) {
 		return
 	}
 
-	btcSwap, err := b.getBTCSwap(atomicSwap)
+	btcSwap, err := getBTCSwap(atomicSwap)
 	if err != nil {
 		logger.Error("failed to get btc swap", zap.Error(err))
 		return
@@ -172,7 +172,7 @@ func (b *executor) executeBtcSwap(atomicSwap SwapMsg) {
 
 }
 
-func (b *executor) getBTCSwap(atomicSwap SwapMsg) (btcswap.Swap, error) {
+func getBTCSwap(atomicSwap SwapMsg) (btcswap.Swap, error) {
 	secretHash, err := hex.DecodeString(atomicSwap.Swap.SecretHash)
 	if err != nil {
 		return btcswap.Swap{}, fmt.Errorf("failed to decode secretHash,err:%v", err)

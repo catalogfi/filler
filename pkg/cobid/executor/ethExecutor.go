@@ -42,7 +42,7 @@ func (e *executor) executeEthSwap(atomicSwap SwapMsg) {
 		return
 	}
 
-	ethSwap, err := e.getEthSwap(atomicSwap)
+	ethSwap, err := getEthSwap(atomicSwap)
 	if err != nil {
 		logger.Error("failed to get eth swap", zap.Error(err))
 		return
@@ -173,7 +173,7 @@ func (e *executor) executeEthSwap(atomicSwap SwapMsg) {
 
 }
 
-func (e *executor) getEthSwap(atomicSwap SwapMsg) (ethswap.Swap, error) {
+func getEthSwap(atomicSwap SwapMsg) (ethswap.Swap, error) {
 	waitBlocks, ok := new(big.Int).SetString(atomicSwap.Swap.Timelock, 10)
 	if !ok {
 		return ethswap.Swap{}, fmt.Errorf("failed to decode timelock")
@@ -182,11 +182,19 @@ func (e *executor) getEthSwap(atomicSwap SwapMsg) (ethswap.Swap, error) {
 	if !ok {
 		return ethswap.Swap{}, fmt.Errorf("failed to decode amount")
 	}
-	// todo : check if address is hex
+	if !common.IsHexAddress(atomicSwap.Swap.InitiatorAddress) {
+		return ethswap.Swap{}, fmt.Errorf("failed to decode initiator address")
+	}
 	initiatorAddr := common.HexToAddress(atomicSwap.Swap.InitiatorAddress)
 
+	if !common.IsHexAddress(atomicSwap.Swap.RedeemerAddress) {
+		return ethswap.Swap{}, fmt.Errorf("failed to decode redeemer address")
+	}
 	redeemerAddr := common.HexToAddress(atomicSwap.Swap.RedeemerAddress)
 
+	if !common.IsHexAddress(string(atomicSwap.Swap.Asset)) {
+		return ethswap.Swap{}, fmt.Errorf("failed to decode asset address")
+	}
 	contractAddr := common.HexToAddress(string(atomicSwap.Swap.Asset))
 
 	ethSwap, err := ethswap.NewSwap(initiatorAddr, redeemerAddr, contractAddr, common.HexToHash(atomicSwap.Swap.SecretHash), amount, waitBlocks)

@@ -41,7 +41,6 @@ func NewExecutor(
 	options Options,
 	store store.Store,
 	logger *zap.Logger,
-	quit chan struct{},
 ) Executor {
 	return &executor{
 		btcWallet: btcWallet,
@@ -51,7 +50,7 @@ func NewExecutor(
 		store:     store,
 		options:   options,
 		logger:    logger,
-		quit:      quit,
+		quit:      make(chan struct{}),
 		chainWg:   new(sync.WaitGroup),
 		execWg:    new(sync.WaitGroup),
 	}
