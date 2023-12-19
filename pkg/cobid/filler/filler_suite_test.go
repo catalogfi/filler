@@ -54,6 +54,7 @@ var _ = BeforeSuite(func() {
 	By("Required envs")
 	Expect(os.Getenv("ETH_URL")).ShouldNot(BeEmpty())
 	Expect(os.Getenv("ETH_KEY_1")).ShouldNot(BeEmpty())
+	Expect(os.Getenv("ETH_KEY_2")).ShouldNot(BeEmpty())
 
 	By("Initialise client")
 	url := os.Getenv("ETH_URL")
@@ -62,6 +63,7 @@ var _ = BeforeSuite(func() {
 	chainID, err := client.ChainID(context.Background())
 	Expect(err).Should(BeNil())
 
+	// need to deploy ERC20 and AtomicSwap contracts in order to create ETH wallets
 	By("Initialise transactor")
 	keyStr := strings.TrimPrefix(os.Getenv("ETH_KEY_1"), "0x")
 	keyBytes, err := hex.DecodeString(keyStr)
@@ -91,6 +93,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).To(BeNil())
 	ctx, Cancel = context.WithCancel(context.Background())
 	server = NewTestServer(logger)
+
 	go func() {
 		server.Run(ctx, ":8080")
 	}()
@@ -279,6 +282,7 @@ func verifySignature(msg string, signature string, owner common.Address, chainId
 		return nil, err
 	}
 	addr := crypto.PubkeyToAddress(*pubkey)
+	// AS IN TEST CASES WALLET CANT BE A CONTRACT ADDRESS HENCE COMMENTED IT OUT
 	// if addr != owner {
 	// 	sigBytes[64] += 27
 	// 	return utils.CheckERC1271Sig(sigHash, sigBytes, owner, chainId, a.config)
@@ -336,7 +340,6 @@ func (s *TestOrderBookServer) fillOrder() gin.HandlerFunc {
 		Expect(exists).To(BeTrue())
 		// check if filler is an etheruem address
 		Expect(len(filler.(string))).To(Equal(42))
-
 		c.JSON(http.StatusAccepted, gin.H{})
 	}
 }

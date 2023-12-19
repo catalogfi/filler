@@ -3,8 +3,8 @@ package creator
 import "math/big"
 
 type Strategy struct {
-	MinTimeInterval uint32
-	MaxTimeInterval uint32
+	MinTimeInterval uint32 // minimum time interval in seconds to wait for Next Order Creation
+	MaxTimeInterval uint32 // maximum time interval in seconds to wait for Next Order Creation
 	Amount          *big.Int
 	orderPair       string
 	Fee             float64 //fee(bips) converted to Fee

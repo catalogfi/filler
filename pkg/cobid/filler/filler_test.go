@@ -67,14 +67,6 @@ func generaterderWithDefaults(
 
 }
 
-func GetStore() store.Store {
-	db, err := gorm.Open(sqlite.Open("test.db"))
-	Expect(err).To(BeNil())
-	checkUpStore, err := store.NewStore(db)
-	Expect(err).To(BeNil())
-	return checkUpStore
-}
-
 var _ = Describe("Filler_setup", Ordered, func() {
 	var fill filler.Filler
 	var cobiEthWallet ethswap.Wallet
@@ -82,6 +74,7 @@ var _ = Describe("Filler_setup", Ordered, func() {
 	var aliceBtcWallet btcswap.Wallet
 	var evmclient *ethclient.Client
 	var btcclient btc.IndexerClient
+	var fillstore store.Store
 	var clossureFunc func(FillStrat *filler.Strategy) filler.Filler
 	BeforeAll(func() {
 		orderBookUrl := "localhost:8080"
@@ -98,10 +91,7 @@ var _ = Describe("Filler_setup", Ordered, func() {
 
 		aliceBtcWallet, err = NewTestWallet(network, btcclient)
 		Expect(err).To(BeNil())
-		_, err = testutil.NigiriFaucet(aliceBtcWallet.Address().EncodeAddress())
-		Expect(err).To(BeNil())
-
-		err = testutil.NigiriNewBlock()
+		_, err = testutil.NigiriFaucet(aliceBtcWallet.Address().EncodeAddress()) // fund and mine
 		Expect(err).To(BeNil())
 
 		cobiKeyStr := strings.TrimPrefix(os.Getenv("ETH_KEY_2"), "0x")
@@ -123,13 +113,11 @@ var _ = Describe("Filler_setup", Ordered, func() {
 		obRestClient, err := cobiEthWallet.SIWEClient("http://localhost:8080")
 		Expect(err).To(BeNil())
 
-		quit := make(chan struct{})
-
 		os.Remove("test.db")
 		db, err := gorm.Open(sqlite.Open("test.db"))
 		Expect(err).To(BeNil())
 
-		store, err := store.NewStore(db)
+		fillstore, err = store.NewStore(db)
 		Expect(err).To(BeNil())
 
 		// FillStrat := filler.StrategyWithDefaults(fmt.Sprintf("ethereum_localnet:%s-bitcoin_regtest", tokenAddr))
@@ -139,7 +127,7 @@ var _ = Describe("Filler_setup", Ordered, func() {
 		)
 
 		clossureFunc = func(FillStrat *filler.Strategy) filler.Filler {
-			return filler.NewFiller(cobiBtcWallet, cobiEthWallet, obRestClient, obWSClient, *FillStrat, store, logger, quit)
+			return filler.NewFiller(cobiBtcWallet, cobiEthWallet, obRestClient, obWSClient, *FillStrat, fillstore, logger)
 		}
 
 		fill = clossureFunc(FillStrat)
@@ -148,16 +136,16 @@ var _ = Describe("Filler_setup", Ordered, func() {
 			fill.Start()
 		}()
 	})
+
 	AfterAll(func() {
 		fill.Stop()
 	})
+
 	Context("Fill Orders According to Strategy", func() {
 
 		var amount *big.Int
 
 		BeforeAll(func() {
-			// var err error
-			//generating random number order id
 			amount = big.NewInt(1e7)
 
 		})
@@ -174,7 +162,7 @@ var _ = Describe("Filler_setup", Ordered, func() {
 			}
 
 			time.Sleep(1 * time.Second)
-			Storeorder, err := GetStore().OrderBySecretHash(order.SecretHash)
+			Storeorder, err := fillstore.OrderBySecretHash(order.SecretHash) //read Operation on db
 			Expect(err).To(BeNil())
 			Expect(uint(Storeorder.OrderId)).To(Equal(order.ID))
 		})
@@ -192,7 +180,7 @@ var _ = Describe("Filler_setup", Ordered, func() {
 				Error:  "",
 			}
 
-			_, err := GetStore().OrderBySecretHash(order.SecretHash)
+			_, err := fillstore.OrderBySecretHash(order.SecretHash)
 			Expect(err).ToNot(BeNil())
 
 			// invalid maker
@@ -207,7 +195,7 @@ var _ = Describe("Filler_setup", Ordered, func() {
 				Error:  "",
 			}
 
-			_, err = GetStore().OrderBySecretHash(order.SecretHash)
+			_, err = fillstore.OrderBySecretHash(order.SecretHash)
 			Expect(err).ToNot(BeNil())
 
 			// amount less than minAmount in strategy
@@ -223,7 +211,7 @@ var _ = Describe("Filler_setup", Ordered, func() {
 				Error:  "",
 			}
 
-			_, err = GetStore().OrderBySecretHash(order.SecretHash)
+			_, err = fillstore.OrderBySecretHash(order.SecretHash)
 			Expect(err).ToNot(BeNil())
 
 			// amount greater than minAmount in strategy
@@ -239,7 +227,7 @@ var _ = Describe("Filler_setup", Ordered, func() {
 				Error:  "",
 			}
 
-			_, err = GetStore().OrderBySecretHash(order.SecretHash)
+			_, err = fillstore.OrderBySecretHash(order.SecretHash)
 			Expect(err).ToNot(BeNil())
 
 		})
@@ -265,7 +253,7 @@ var _ = Describe("Filler_setup", Ordered, func() {
 		// 		Error:  "",
 		// 	}
 
-		// 	_, err := GetStore().OrderBySecretHash(order.SecretHash)
+		// 	_, err := fillstore.OrderBySecretHash(order.SecretHash)
 		// 	Expect(err).ToNot(BeNil())
 
 		// 	fill.Stop()

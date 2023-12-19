@@ -5,7 +5,7 @@ import (
 )
 
 type Strategy struct {
-	makers    []string
+	makers    []string 
 	minAmount *big.Int
 	maxAmount *big.Int
 	orderPair string

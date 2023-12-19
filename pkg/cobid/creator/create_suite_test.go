@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -30,7 +29,6 @@ import (
 	"github.com/fatih/color"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/gorilla/websocket"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/spruceid/siwe-go"
@@ -53,6 +51,7 @@ var _ = BeforeSuite(func() {
 	By("Required envs")
 	Expect(os.Getenv("ETH_URL")).ShouldNot(BeEmpty())
 	Expect(os.Getenv("ETH_KEY_1")).ShouldNot(BeEmpty())
+	Expect(os.Getenv("ETH_KEY_2")).ShouldNot(BeEmpty())
 
 	By("Initialise client")
 	url := os.Getenv("ETH_URL")
@@ -61,6 +60,7 @@ var _ = BeforeSuite(func() {
 	chainID, err := client.ChainID(context.Background())
 	Expect(err).Should(BeNil())
 
+	// need to deploy ERC20 and AtomicSwap contracts in order to create ETH wallets
 	By("Initialise transactor")
 	keyStr := strings.TrimPrefix(os.Getenv("ETH_KEY_1"), "0x")
 	keyBytes, err := hex.DecodeString(keyStr)
@@ -90,6 +90,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).To(BeNil())
 	ctx, Cancel = context.WithCancel(context.Background())
 	server = NewTestServer(logger)
+
 	go func() {
 		server.Run(ctx, ":8080")
 	}()
@@ -135,9 +136,8 @@ func (s *TestOrderBookServer) Run(ctx context.Context, addr string) error {
 		AllowCredentials: true,
 	}))
 
-	s.router.GET("/", s.socket())
 	s.router.GET("/nonce", s.nonce())
-	s.router.POST("/verify", s.verify())
+	s.router.POST("/verify", s.verify()) // SIWE VERIFY
 
 	authRoutes := s.router.Group("/")
 	authRoutes.Use(authenticate)
@@ -158,40 +158,6 @@ func (s *TestOrderBookServer) Run(ctx context.Context, addr string) error {
 	}()
 	<-ctx.Done()
 	return service.Shutdown(ctx)
-}
-
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
-}
-
-func (s *TestOrderBookServer) socket() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		mx := new(sync.RWMutex)
-		ws, err := upgrader.Upgrade(c.Writer, c.Request, nil)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("failed to upgrade to websocket %v", err)})
-			return
-		}
-		defer func() {
-			ws.Close()
-		}()
-
-		for resp := range s.Msg {
-			mx.Lock()
-			err = ws.WriteJSON(map[string]interface{}{
-				"type": fmt.Sprintf("%T", resp),
-				"msg":  resp,
-			})
-			mx.Unlock()
-			if err != nil {
-				s.logger.Debug("failed to write message", zap.Error(err))
-				return
-			}
-		}
-
-	}
 }
 
 func (s *TestOrderBookServer) nonce() gin.HandlerFunc {
@@ -278,6 +244,7 @@ func verifySignature(msg string, signature string, owner common.Address, chainId
 		return nil, err
 	}
 	addr := crypto.PubkeyToAddress(*pubkey)
+	// AS IN TEST CASES WALLET CANT BE A CONTRACT ADDRESS HENCE COMMENTED IT OUT
 	// if addr != owner {
 	// 	sigBytes[64] += 27
 	// 	return utils.CheckERC1271Sig(sigHash, sigBytes, owner, chainId, a.config)
@@ -337,19 +304,15 @@ type CreateOrder struct {
 
 var CurrentOrderID = 0
 
+// mock handler
 func (s *TestOrderBookServer) postOrders() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		_, exists := c.Get("userWallet")
-		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
-			return
-		}
-		req := CreateOrder{}
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
 
+		_, exists := c.Get("userWallet")
+		Expect(exists).To(BeTrue())
+		req := CreateOrder{}
+		err := c.ShouldBindJSON(&req)
+		Expect(err).To(BeNil())
 		CurrentOrderID += 1
 
 		c.JSON(http.StatusCreated, gin.H{
