@@ -24,8 +24,11 @@ var (
 )
 
 var _ = BeforeSuite(func() {
-	By("Initialise client")
+	By("Required envs")
 	Expect(os.Getenv("ETH_URL")).ShouldNot(BeEmpty())
+	Expect(os.Getenv("ETH_KEY_1")).ShouldNot(BeEmpty())
+
+	By("Initialise client")
 	url := os.Getenv("ETH_URL")
 	client, err := ethclient.Dial(url)
 	Expect(err).Should(BeNil())

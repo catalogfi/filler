@@ -1,12 +1,14 @@
-package swapper_test
+package swap_test
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"encoding/hex"
 	"os"
 	"strings"
 	"testing"
 
+	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/catalogfi/cobi/pkg/swap/ethswap/bindings"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -24,8 +26,12 @@ var (
 )
 
 var _ = BeforeSuite(func() {
-	By("Initialise client")
+	By("Required envs")
 	Expect(os.Getenv("ETH_URL")).ShouldNot(BeEmpty())
+	Expect(os.Getenv("ETH_KEY_1")).ShouldNot(BeEmpty())
+	Expect(os.Getenv("BTC_INDEXER_ELECTRS_REGNET")).ShouldNot(BeEmpty())
+
+	By("Initialise client")
 	url := os.Getenv("ETH_URL")
 	client, err := ethclient.Dial(url)
 	Expect(err).Should(BeNil())
@@ -60,4 +66,21 @@ var _ = BeforeSuite(func() {
 func TestSwapper(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Swapper Suite")
+}
+
+func ParseKeyFromEnv(name string) (*btcec.PrivateKey, *ecdsa.PrivateKey, error) {
+	keyStr := strings.TrimPrefix(os.Getenv(name), "0x")
+	keyBytes, err := hex.DecodeString(keyStr)
+	if err != nil {
+		return nil, nil, err
+	}
+	ecdsaKey, err := crypto.ToECDSA(keyBytes)
+	if err != nil {
+		return nil, nil, err
+	}
+	btcKey, _ := btcec.PrivKeyFromBytes(keyBytes)
+	if err != nil {
+		return nil, nil, err
+	}
+	return btcKey, ecdsaKey, nil
 }

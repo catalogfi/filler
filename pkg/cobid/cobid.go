@@ -1,7 +1,8 @@
 package cobid
 
 type cobi struct {
-	bot
+	creator
+	filler
 	executor
 	server
 }
