@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func (b *executor) StartBtcExecutor(ctx context.Context) chan SwapMsg {
+func (b *executor) startBtcExecutor(ctx context.Context) chan SwapMsg {
 	b.logger.With(zap.String("bitcoin executor", string(b.options.BTCChain))).Info("starting executor")
 	swapChan := make(chan SwapMsg)
 	go func() {
@@ -42,7 +42,7 @@ func (b *executor) executeBtcSwap(atomicSwap SwapMsg) {
 		return
 	}
 
-	btcSwap, err := getBTCSwap(atomicSwap)
+	btcSwap, err := ParseBtcSwap(atomicSwap)
 	if err != nil {
 		logger.Error("failed to get btc swap", zap.Error(err))
 		return
@@ -172,7 +172,7 @@ func (b *executor) executeBtcSwap(atomicSwap SwapMsg) {
 
 }
 
-func getBTCSwap(atomicSwap SwapMsg) (btcswap.Swap, error) {
+func ParseBtcSwap(atomicSwap SwapMsg) (btcswap.Swap, error) {
 	secretHash, err := hex.DecodeString(atomicSwap.Swap.SecretHash)
 	if err != nil {
 		return btcswap.Swap{}, fmt.Errorf("failed to decode secretHash,err:%v", err)

@@ -84,10 +84,10 @@ func (e *executor) Start() {
 	expSetBack := time.Second
 
 	// execChans, quitChans := e.startChainExecutors(btcWallets, ethWallets)
-	ethExecChan := e.StartEthExecutor(ctx)
+	ethExecChan := e.startEthExecutor(ctx)
 	e.chainWg.Add(1)
 
-	btcExecChan := e.StartBtcExecutor(ctx)
+	btcExecChan := e.startBtcExecutor(ctx)
 	e.chainWg.Add(1)
 
 CONNECTIONLOOP:
@@ -157,7 +157,7 @@ CONNECTIONLOOP:
 				}
 				continue
 			case <-e.quit:
-				e.logger.Info("recieved quit channel signal")
+				e.logger.Info("received quit channel signal")
 				cancel()
 				// waiting for executor to complete
 				e.chainWg.Wait()

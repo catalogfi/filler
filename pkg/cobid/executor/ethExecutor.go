@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func (e *executor) StartEthExecutor(ctx context.Context) chan SwapMsg {
+func (e *executor) startEthExecutor(ctx context.Context) chan SwapMsg {
 	e.logger.With(zap.String("ethereum executor", string(e.options.ETHChain))).Info("starting executor")
 	swapChan := make(chan SwapMsg)
 	go func() {
@@ -42,7 +42,7 @@ func (e *executor) executeEthSwap(atomicSwap SwapMsg) {
 		return
 	}
 
-	ethSwap, err := getEthSwap(atomicSwap)
+	ethSwap, err := ParseEthSwap(atomicSwap)
 	if err != nil {
 		logger.Error("failed to get eth swap", zap.Error(err))
 		return
@@ -173,7 +173,7 @@ func (e *executor) executeEthSwap(atomicSwap SwapMsg) {
 
 }
 
-func getEthSwap(atomicSwap SwapMsg) (ethswap.Swap, error) {
+func ParseEthSwap(atomicSwap SwapMsg) (ethswap.Swap, error) {
 	waitBlocks, ok := new(big.Int).SetString(atomicSwap.Swap.Timelock, 10)
 	if !ok {
 		return ethswap.Swap{}, fmt.Errorf("failed to decode timelock")
