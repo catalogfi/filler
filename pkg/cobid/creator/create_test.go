@@ -123,10 +123,9 @@ var _ = Describe("Creator_setup", Ordered, func() {
 
 		create = clossureFunc(CreateStrat)
 
-		go func() {
-			err := create.Start()
-			Expect(err).To(BeNil())
-		}()
+		err = create.Start()
+		Expect(err).To(BeNil())
+
 	})
 
 	AfterAll(func() {

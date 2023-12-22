@@ -164,9 +164,8 @@ var _ = Describe("Filler_setup", Ordered, func() {
 
 		fill = clossureFunc(FillStrat)
 
-		go func() {
-			fill.Start()
-		}()
+		err = fill.Start()
+		Expect(err).To(BeNil())
 	})
 
 	AfterAll(func() {

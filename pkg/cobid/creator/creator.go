@@ -78,18 +78,11 @@ func NewCreator(
 - will gracefully stop all the creators
 */
 func (c *creator) Stop() {
-	defer func() {
-		close(c.quit)
-
-	}()
-	c.quit <- struct{}{}
-	c.execWg.Wait()
+	close(c.quit)
+	defer c.execWg.Wait()
 }
 
 func (c *creator) Start() error {
-	// to enable blocking stop message
-	c.execWg.Add(1)
-	defer c.execWg.Done()
 
 	// ctx, cancel := context.WithCancel(context.Background())
 	expSetBack := time.Second
@@ -112,66 +105,75 @@ func (c *creator) Start() error {
 		return fmt.Errorf("Invalid time interval Supplied: MinTimeInterval should be less than MaxTimeInterval")
 	}
 
-CONNECTIONLOOP:
-	for {
-
-		// If JWT expires, login again
-		jwt, err := c.restClient.Login()
-		if err != nil {
-			c.logger.Error("failed logging in", zap.Error(err))
-
-			time.Sleep(expSetBack) // Wait for expSetBack before retrying
-			continue
-		}
-		if err := c.restClient.SetJwt(jwt); err != nil {
-			c.logger.Error("failed setting jwt", zap.Error(err))
-			continue
-		}
-
-		c.logger.Info("Starting Auto Creator")
+	// running Core logic in go-routine in order to make Start() function non-blocking
+	go func() {
+		defer c.execWg.Done()
+		c.execWg.Add(1)
 
 		for {
 
-			randTimeInterval := rand.Int63n(timeInterval)
+			// If JWT expires, login again
+			jwt, err := c.restClient.Login()
 			if err != nil {
-				c.logger.Error("failed generating random time interval", zap.Error(err))
-				break
-			}
-			randTimeInterval += int64(c.strategy.MinTimeInterval)
+				c.logger.Error("failed logging in", zap.Error(err))
 
-			secret := [32]byte{}
-			_, err = cryptoRand.Read(secret[:])
-			if err != nil {
-				c.logger.Error("failed generating random secret", zap.Error(err))
-				break
-			}
-			secretHash := sha256.Sum256(secret[:])
-			secretStr := hex.EncodeToString(secret[:])
-
-			// TODO: virtual Balance Checks After InstantWallet
-			id, err := c.restClient.CreateOrder(fromAddress, toAddress, c.strategy.orderPair, c.strategy.Amount.String(), receiveAmount.String(), hex.EncodeToString(secretHash[:]))
-			if err != nil {
-				c.logger.Error("failed creating order", zap.Error(err))
-				break
-			}
-
-			if err := c.store.PutSecret(hex.EncodeToString(secretHash[:]), &secretStr, uint64(id)); err != nil {
-				c.logger.Error("failed storing secret", zap.Error(err))
-				break
-			}
-
-			select {
-			case <-time.After(time.Duration(randTimeInterval) * time.Second):
+				time.Sleep(expSetBack) // Wait for expSetBack before retrying
 				continue
-			case <-c.quit:
-				break CONNECTIONLOOP
+			}
+			if err := c.restClient.SetJwt(jwt); err != nil {
+				c.logger.Error("failed setting jwt", zap.Error(err))
+				continue
+			}
+
+			c.logger.Info("Starting Auto Creator")
+
+			for {
+
+				randTimeInterval := rand.Int63n(timeInterval)
+				if err != nil {
+					c.logger.Error("failed generating random time interval", zap.Error(err))
+					break
+				}
+				randTimeInterval += int64(c.strategy.MinTimeInterval)
+
+				secret := [32]byte{}
+				_, err = cryptoRand.Read(secret[:])
+				if err != nil {
+					c.logger.Error("failed generating random secret", zap.Error(err))
+					break
+				}
+				secretHash := sha256.Sum256(secret[:])
+				secretStr := hex.EncodeToString(secret[:])
+
+				// TODO: virtual Balance Checks After InstantWallet
+				id, err := c.restClient.CreateOrder(fromAddress, toAddress, c.strategy.orderPair, c.strategy.Amount.String(), receiveAmount.String(), hex.EncodeToString(secretHash[:]))
+				if err != nil {
+					c.logger.Error("failed creating order", zap.Error(err))
+					break
+				}
+
+				if err := c.store.PutSecret(hex.EncodeToString(secretHash[:]), &secretStr, uint64(id)); err != nil {
+					c.logger.Error("failed storing secret", zap.Error(err))
+					break
+				}
+
+				select {
+				case <-time.After(time.Duration(randTimeInterval) * time.Second):
+					continue
+				case _, ok := <-c.quit:
+					if !ok {
+						c.logger.Info("received quit channel signal")
+						return
+					}
+				}
+			}
+
+			time.Sleep(expSetBack)
+			if expSetBack < (8 * time.Second) {
+				expSetBack *= 2
 			}
 		}
+	}()
 
-		time.Sleep(expSetBack)
-		if expSetBack < (8 * time.Second) {
-			expSetBack *= 2
-		}
-	}
 	return nil
 }
