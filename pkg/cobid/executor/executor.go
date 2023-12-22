@@ -93,7 +93,7 @@ func (e *executor) Start() {
 
 CONNECTIONLOOP:
 	for {
-		e.logger.Info("subcribing to socket")
+		e.logger.Info("subscribing to socket")
 		// connect to the websocket and subscribe on the signer's address
 		e.client.Subscribe(fmt.Sprintf("subscribe::%v", e.signer))
 		respChan := e.client.Listen()
@@ -112,7 +112,7 @@ CONNECTIONLOOP:
 				case rest.UpdatedOrders:
 					// execute orders
 					orders := response.Orders
-					e.logger.Info("recieved orders from the order book", zap.Int("count", len(orders)))
+					e.logger.Info("received orders from the order book", zap.Int("count", len(orders)))
 					for _, order := range orders {
 						var execType ExecutorType
 						if order.Maker == e.signer.String() {
@@ -158,7 +158,7 @@ CONNECTIONLOOP:
 				}
 				continue
 			case <-e.quit:
-				e.logger.Info("recieved quit channel signal")
+				e.logger.Info("received quit channel signal")
 				cancel()
 				// waiting for executor to complete
 				e.chainWg.Wait()

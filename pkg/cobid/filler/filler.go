@@ -7,22 +7,20 @@ import (
 	"time"
 
 	"github.com/catalogfi/cobi/pkg/store"
-	"github.com/catalogfi/cobi/pkg/swap/btcswap"
-	"github.com/catalogfi/cobi/pkg/swap/ethswap"
 	"github.com/catalogfi/orderbook/model"
 	"github.com/catalogfi/orderbook/rest"
+	obStore "github.com/catalogfi/orderbook/store"
 	"go.uber.org/zap"
 )
 
 type Filler interface {
-	Start()
+	Start() error
 	Stop()
 }
 
-// add strategies
 type filler struct {
-	btcWallet  btcswap.Wallet
-	ethWallet  ethswap.Wallet
+	btcAddress string
+	ethAddress string
 	restClient rest.Client
 	wSclient   rest.WSClient
 	strategy   Strategy
@@ -33,18 +31,39 @@ type filler struct {
 }
 
 func NewFiller(
-	btcWallet btcswap.Wallet,
-	ethWallet ethswap.Wallet,
+	btcAddress string,
+	ethAddress string,
 	restClient rest.Client,
 	wSclient rest.WSClient,
 	strategy Strategy,
 	store store.Store,
 	logger *zap.Logger,
 
-) Filler {
+) (Filler, error) {
+	toChain, fromChain, _, _, err := model.ParseOrderPair(strategy.orderPair)
+	if err != nil {
+		return nil, err
+	}
+
+	if fromChain.IsBTC() {
+		if err := obStore.CheckAddress(fromChain, btcAddress); err != nil {
+			return nil, err
+		}
+		if err := obStore.CheckAddress(toChain, ethAddress); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := obStore.CheckAddress(toChain, btcAddress); err != nil {
+			return nil, err
+		}
+		if err := obStore.CheckAddress(fromChain, ethAddress); err != nil {
+			return nil, err
+		}
+	}
+
 	return &filler{
-		btcWallet:  btcWallet,
-		ethWallet:  ethWallet,
+		btcAddress: btcAddress,
+		ethAddress: ethAddress,
 		restClient: restClient,
 		wSclient:   wSclient,
 		strategy:   strategy,
@@ -52,7 +71,7 @@ func NewFiller(
 		logger:     logger,
 		quit:       make(chan struct{}),
 		execWg:     new(sync.WaitGroup),
-	}
+	}, nil
 }
 
 /*
@@ -67,13 +86,7 @@ func (f *filler) Stop() {
 	f.execWg.Wait()
 }
 
-/*
-- signer is the ethereum public address used to authenticate with
-the orderbook server
-- btcWallets and ethwallets respectively should be generated using
-only one private, that is used by signer to create or fill the orders
-*/
-func (f *filler) Start() {
+func (f *filler) Start() error {
 	defer f.execWg.Done()
 	// to enable blocking stop message
 	f.execWg.Add(1)
@@ -83,97 +96,102 @@ func (f *filler) Start() {
 
 	_, fromChain, _, _, err := model.ParseOrderPair(f.strategy.orderPair)
 	if err != nil {
-		f.logger.Error("failed parsing order pair", zap.Error(err))
-		return
+		return err
 	}
 
-	fromAddress := f.ethWallet.Address().String()
-	toAddress := f.btcWallet.Address().EncodeAddress()
+	fromAddress := f.ethAddress
+	toAddress := f.btcAddress
 
 	if fromChain.IsBTC() {
 		fromAddress, toAddress = toAddress, fromAddress
 	}
 
-	CONNECTIONLOOP:
+CONNECTIONLOOP:
+	for {
+
+		// If JWT expires, login again
+		jwt, err := f.restClient.Login()
+		if err != nil {
+			f.logger.Error("failed logging in", zap.Error(err))
+
+			time.Sleep(expSetBack) // Wait for expSetBack before retrying
+			continue
+		}
+
+		if err := f.restClient.SetJwt(jwt); err != nil {
+			f.logger.Error("failed setting jwt", zap.Error(err))
+			continue
+		}
+
+		// connect to the websocket and subscribe on the signer's address also subscribe based on strategy
+		f.logger.Info("subscribing to socket")
+		// connect to the websocket and subscribe on the signer's address
+		f.wSclient.Subscribe(fmt.Sprintf("subscribe::%v", f.strategy.orderPair))
+		respChan := f.wSclient.Listen()
+	SIGNALOOP:
 		for {
 
-			// If JWT expires, login again
-			jwt, err := f.restClient.Login()
-			if err != nil {
-				f.logger.Error("failed logging in", zap.Error(err))
-				return
-			}
-			f.restClient.SetJwt(jwt)
-
-			// connect to the websocket and subscribe on the signer's address also subscribe based on strategy
-			f.logger.Info("subcribing to socket")
-			// connect to the websocket and subscribe on the signer's address
-			f.wSclient.Subscribe(fmt.Sprintf("subscribe::%v", f.strategy.orderPair))
-			respChan := f.wSclient.Listen()
-		SIGNALOOP:
-			for {
-
-				select {
-				case resp, ok := <-respChan:
-					if !ok {
-						break SIGNALOOP
-					}
-					expSetBack = time.Second
-					switch response := resp.(type) {
-					case rest.WebsocketError:
-						break SIGNALOOP
-					case rest.OpenOrders:
-						// fill orders
-						orders := response.Orders
-						f.logger.Info("recieved orders from the order book", zap.Int("count", len(orders)))
-						for _, order := range orders {
-							if order.Price < f.strategy.price {
-								f.logger.Info("order price is less than the strategy price", zap.Float64("order price", order.Price), zap.Float64("strategy price", f.strategy.price))
-								continue
-							}
-
-							if len(f.strategy.makers) > 0 && !contains(f.strategy.makers, order.Maker) {
-								f.logger.Info("maker is not in the list of makers", zap.String("maker", order.Maker))
-								continue
-							}
-
-							orderAmount, ok := new(big.Int).SetString(order.FollowerAtomicSwap.Amount, 10)
-							if !ok {
-								f.logger.Error("failed to parse order amount")
-								continue
-							}
-
-							if (f.strategy.minAmount.Cmp(big.NewInt(0)) != 0 && orderAmount.Cmp(f.strategy.minAmount) < 0) ||
-								(f.strategy.maxAmount.Cmp(big.NewInt(0)) != 0 && orderAmount.Cmp(f.strategy.maxAmount) > 0) {
-								f.logger.Info("order amount is out of range", zap.String("order amount", orderAmount.String()), zap.String("min amount", f.strategy.minAmount.String()), zap.String("max amount", f.strategy.maxAmount.String()))
-								continue
-							}
-
-							if err := f.restClient.FillOrder(order.ID, fromAddress, toAddress); err != nil {
-								f.logger.Error("failed to fill the order ❌", zap.Uint("id", order.ID), zap.Error(err))
-								continue
-							}
-
-							if err = f.store.PutSecret(order.SecretHash, nil, uint64(order.ID)); err != nil {
-								f.logger.Error("failed storing secret hash: %v", zap.Error(err))
-								continue
-							}
-							f.logger.Info("filled order ✅", zap.Uint("id", order.ID))
-
-						}
-					}
-					continue
-				case <-f.quit:
-					f.logger.Info("recieved quit channel signal")
-					break CONNECTIONLOOP
+			select {
+			case resp, ok := <-respChan:
+				if !ok {
+					break SIGNALOOP
 				}
+				expSetBack = time.Second
+				switch response := resp.(type) {
+				case rest.WebsocketError:
+					break SIGNALOOP
+				case rest.OpenOrders:
+					// fill orders
+					orders := response.Orders
+					f.logger.Info("received orders from the order book", zap.Int("count", len(orders)))
+					for _, order := range orders {
+						if order.Price < f.strategy.price {
+							f.logger.Info("order price is less than the strategy price", zap.Float64("order price", order.Price), zap.Float64("strategy price", f.strategy.price))
+							continue
+						}
 
+						if len(f.strategy.makers) > 0 && !contains(f.strategy.makers, order.Maker) {
+							f.logger.Info("maker is not in the list of makers", zap.String("maker", order.Maker))
+							continue
+						}
+
+						orderAmount, ok := new(big.Int).SetString(order.FollowerAtomicSwap.Amount, 10)
+						if !ok {
+							f.logger.Error("failed to parse order amount")
+							continue
+						}
+
+						if (f.strategy.minAmount.Cmp(big.NewInt(0)) != 0 && orderAmount.Cmp(f.strategy.minAmount) < 0) ||
+							(f.strategy.maxAmount.Cmp(big.NewInt(0)) != 0 && orderAmount.Cmp(f.strategy.maxAmount) > 0) {
+							f.logger.Info("order amount is out of range", zap.String("order amount", orderAmount.String()), zap.String("min amount", f.strategy.minAmount.String()), zap.String("max amount", f.strategy.maxAmount.String()))
+							continue
+						}
+
+						if err := f.restClient.FillOrder(order.ID, fromAddress, toAddress); err != nil {
+							f.logger.Error("failed to fill the order ❌", zap.Uint("id", order.ID), zap.Error(err))
+							continue
+						}
+
+						if err = f.store.PutSecret(order.SecretHash, nil, uint64(order.ID)); err != nil {
+							f.logger.Error("failed storing secret hash: %v", zap.Error(err))
+							continue
+						}
+						f.logger.Info("filled order ✅", zap.Uint("id", order.ID))
+
+					}
+				}
+			case <-f.quit:
+				f.logger.Info("received quit channel signal")
+				break CONNECTIONLOOP
 			}
-			time.Sleep(expSetBack)
-			if expSetBack < (8 * time.Second) {
-				expSetBack *= 2
-			}
+
 		}
+		time.Sleep(expSetBack)
+		if expSetBack < (8 * time.Second) {
+			expSetBack *= 2
+		}
+	}
+	return nil
 }
 
 func contains(slice []string, item string) bool {

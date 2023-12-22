@@ -1,29 +1,30 @@
 package creator
 
 import (
-	"crypto/rand"
+	cryptoRand "crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"math/big"
+	"math/rand"
 	"sync"
 	"time"
 
 	"github.com/catalogfi/cobi/pkg/store"
-	"github.com/catalogfi/cobi/pkg/swap/btcswap"
-	"github.com/catalogfi/cobi/pkg/swap/ethswap"
 	"github.com/catalogfi/orderbook/model"
 	"github.com/catalogfi/orderbook/rest"
+	obStore "github.com/catalogfi/orderbook/store"
 	"go.uber.org/zap"
 )
 
 type Creator interface {
-	Start()
+	Start() error
 	Stop()
 }
 
 type creator struct {
-	btcWallet  btcswap.Wallet
-	ethWallet  ethswap.Wallet
+	btcAddress string
+	ethAddress string
 	restClient rest.Client
 	strategy   Strategy
 	store      store.Store
@@ -33,23 +34,44 @@ type creator struct {
 }
 
 func NewCreator(
-	btcWallet btcswap.Wallet,
-	ethWallet ethswap.Wallet,
+	btcAddress string,
+	ethAddress string,
 	restClient rest.Client,
 	strategy Strategy,
 	store store.Store,
 	logger *zap.Logger,
-) Creator {
+) (Creator, error) {
+	fromChain, toChain, _, _, err := model.ParseOrderPair(strategy.orderPair)
+	if err != nil {
+		return nil, err
+	}
+
+	if fromChain.IsBTC() {
+		if err := obStore.CheckAddress(fromChain, btcAddress); err != nil {
+			return nil, err
+		}
+		if err := obStore.CheckAddress(toChain, ethAddress); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := obStore.CheckAddress(toChain, btcAddress); err != nil {
+			return nil, err
+		}
+		if err := obStore.CheckAddress(fromChain, ethAddress); err != nil {
+			return nil, err
+		}
+	}
+
 	return &creator{
-		btcWallet:  btcWallet,
-		ethWallet:  ethWallet,
+		btcAddress: btcAddress,
+		ethAddress: ethAddress,
 		restClient: restClient,
 		strategy:   strategy,
 		store:      store,
 		logger:     logger,
 		quit:       make(chan struct{}),
 		execWg:     new(sync.WaitGroup),
-	}
+	}, nil
 }
 
 /*
@@ -64,27 +86,20 @@ func (c *creator) Stop() {
 	c.execWg.Wait()
 }
 
-/*
-- signer is the ethereum public address used to authenticate with
-the orderbook server
-- btcWallets and ethwallets respectively should be generated using
-only one private, that is used by signer to create or fill the orders
-*/
-func (c *creator) Start() {
-	defer c.execWg.Done()
+func (c *creator) Start() error {
 	// to enable blocking stop message
 	c.execWg.Add(1)
+	defer c.execWg.Done()
 
 	// ctx, cancel := context.WithCancel(context.Background())
 	expSetBack := time.Second
 	fromChain, _, _, _, err := model.ParseOrderPair(c.strategy.orderPair)
 	if err != nil {
-		c.logger.Error("failed parsing order pair", zap.Error(err))
-		return
+		return err
 	}
 
-	fromAddress := c.ethWallet.Address().String()
-	toAddress := c.btcWallet.Address().EncodeAddress()
+	fromAddress := c.ethAddress
+	toAddress := c.btcAddress
 
 	if fromChain.IsBTC() {
 		fromAddress, toAddress = toAddress, fromAddress
@@ -92,62 +107,71 @@ func (c *creator) Start() {
 
 	receiveAmount := big.NewInt(c.strategy.Amount.Int64() * int64(10000-c.strategy.Fee) / 10000)
 
-	CONNECTIONLOOP:
+	timeInterval := int64(c.strategy.MaxTimeInterval) - int64(c.strategy.MinTimeInterval)
+	if timeInterval < 0 {
+		return fmt.Errorf("Invalid time interval Supplied: MinTimeInterval should be less than MaxTimeInterval")
+	}
+
+CONNECTIONLOOP:
+	for {
+
+		// If JWT expires, login again
+		jwt, err := c.restClient.Login()
+		if err != nil {
+			c.logger.Error("failed logging in", zap.Error(err))
+
+			time.Sleep(expSetBack) // Wait for expSetBack before retrying
+			continue
+		}
+		if err := c.restClient.SetJwt(jwt); err != nil {
+			c.logger.Error("failed setting jwt", zap.Error(err))
+			continue
+		}
+
+		c.logger.Info("Starting Auto Creator")
+
 		for {
 
-			// If JWT expires, login again
-			jwt, err := c.restClient.Login()
+			randTimeInterval := rand.Int63n(timeInterval)
 			if err != nil {
-				c.logger.Error("failed logging in", zap.Error(err))
-				return
+				c.logger.Error("failed generating random time interval", zap.Error(err))
+				break
 			}
-			c.restClient.SetJwt(jwt)
+			randTimeInterval += int64(c.strategy.MinTimeInterval)
 
-			c.logger.Info("Starting Auto Creator")
+			secret := [32]byte{}
+			_, err = cryptoRand.Read(secret[:])
+			if err != nil {
+				c.logger.Error("failed generating random secret", zap.Error(err))
+				break
+			}
+			secretHash := sha256.Sum256(secret[:])
+			secretStr := hex.EncodeToString(secret[:])
 
-		CREATELOOP:
-			for {
-
-				randTimeInterval, err := rand.Int(rand.Reader, big.NewInt(int64(c.strategy.MaxTimeInterval-c.strategy.MinTimeInterval)))
-				if err != nil {
-					c.logger.Error("failed generating random time interval", zap.Error(err))
-					break CREATELOOP
-				}
-				randTimeInterval.Add(randTimeInterval, big.NewInt(int64(c.strategy.MinTimeInterval)))
-
-				secret := [32]byte{}
-				_, err = rand.Read(secret[:])
-				if err != nil {
-					c.logger.Error("failed generating random secret", zap.Error(err))
-					break CREATELOOP
-				}
-				secretHash := sha256.Sum256(secret[:])
-
-				id, err := c.restClient.CreateOrder(fromAddress, toAddress, c.strategy.orderPair, c.strategy.Amount.String(), receiveAmount.String(), hex.EncodeToString(secretHash[:]))
-				if err != nil {
-					c.logger.Error("failed creating order", zap.Error(err))
-					break CREATELOOP
-				}
-
-				secretStr := hex.EncodeToString(secret[:])
-
-				if err := c.store.PutSecret(hex.EncodeToString(secretHash[:]), &secretStr, uint64(id)); err != nil {
-					c.logger.Error("failed storing secret", zap.Error(err))
-					break CREATELOOP
-				}
-				sleepTimer := time.NewTimer(time.Duration(randTimeInterval.Int64()) * time.Second)
-
-				select {
-				case <-sleepTimer.C:
-					continue
-				case <-c.quit:
-					break CONNECTIONLOOP
-				}
+			// TODO: virtual Balance Checks After InstantWallet
+			id, err := c.restClient.CreateOrder(fromAddress, toAddress, c.strategy.orderPair, c.strategy.Amount.String(), receiveAmount.String(), hex.EncodeToString(secretHash[:]))
+			if err != nil {
+				c.logger.Error("failed creating order", zap.Error(err))
+				break
 			}
 
-			time.Sleep(expSetBack)
-			if expSetBack < (8 * time.Second) {
-				expSetBack *= 2
+			if err := c.store.PutSecret(hex.EncodeToString(secretHash[:]), &secretStr, uint64(id)); err != nil {
+				c.logger.Error("failed storing secret", zap.Error(err))
+				break
+			}
+
+			select {
+			case <-time.After(time.Duration(randTimeInterval) * time.Second):
+				continue
+			case <-c.quit:
+				break CONNECTIONLOOP
 			}
 		}
+
+		time.Sleep(expSetBack)
+		if expSetBack < (8 * time.Second) {
+			expSetBack *= 2
+		}
+	}
+	return nil
 }

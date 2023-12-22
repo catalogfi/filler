@@ -1,20 +1,25 @@
 package filler_test
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"math/rand"
+	"net/http"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/spruceid/siwe-go"
 	"go.uber.org/zap"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -109,8 +114,33 @@ var _ = Describe("Filler_setup", Ordered, func() {
 		logger, err := zap.NewDevelopment()
 		Expect(err).To(BeNil())
 
+		// prepare clients
 		obWSClient := rest.NewWSClient(fmt.Sprintf("ws://%s/", orderBookUrl), logger.With(zap.String("wSclient", "orderbook")))
-		obRestClient, err := cobiEthWallet.SIWEClient("http://localhost:8080")
+		siweMessage, err := rest.CreateEip4361TestMessage(cobiEthWallet.Address().Hex(), siwe.GenerateNonce())
+		Expect(err).To(BeNil())
+		Signature, err := cobiEthWallet.SignMessage(siweMessage.String())
+		Expect(err).To(BeNil())
+
+		// authenticate with Rest client
+		var buf bytes.Buffer
+		err = json.NewEncoder(&buf).Encode(model.VerifySiwe{
+			Message:   siweMessage.String(),
+			Signature: hexutil.Encode(Signature),
+		})
+		Expect(err).To(BeNil())
+
+		resp, err := http.Post(fmt.Sprintf("%s/verify", "http://"+orderBookUrl), "application/json", &buf)
+		Expect(err).To(BeNil())
+		defer resp.Body.Close()
+
+		var VerifyPayload struct {
+			Token string `json:"token"`
+		}
+
+		err = json.NewDecoder(resp.Body).Decode(&VerifyPayload)
+		Expect(err).To(BeNil())
+		obRestClient := rest.NewClient("http://"+orderBookUrl, cobiKeyStr)
+		err = obRestClient.SetJwt(VerifyPayload.Token)
 		Expect(err).To(BeNil())
 
 		os.Remove("test.db")
@@ -127,7 +157,9 @@ var _ = Describe("Filler_setup", Ordered, func() {
 		)
 
 		clossureFunc = func(FillStrat *filler.Strategy) filler.Filler {
-			return filler.NewFiller(cobiBtcWallet, cobiEthWallet, obRestClient, obWSClient, *FillStrat, fillstore, logger)
+			filler, err := filler.NewFiller(cobiBtcWallet.Address().EncodeAddress(), cobiEthWallet.Address().String(), obRestClient, obWSClient, *FillStrat, fillstore, logger)
+			Expect(err).To(BeNil())
+			return filler
 		}
 
 		fill = clossureFunc(FillStrat)

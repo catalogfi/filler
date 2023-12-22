@@ -1,18 +1,23 @@
 package creator_test
 
 import (
+	"bytes"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math/big"
+	"net/http"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/spruceid/siwe-go"
 	"go.uber.org/zap"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -24,6 +29,8 @@ import (
 	"github.com/catalogfi/cobi/pkg/store"
 	"github.com/catalogfi/cobi/pkg/swap/btcswap"
 	"github.com/catalogfi/cobi/pkg/swap/ethswap"
+	"github.com/catalogfi/orderbook/model"
+	"github.com/catalogfi/orderbook/rest"
 )
 
 var _ = Describe("Creator_setup", Ordered, func() {
@@ -36,6 +43,7 @@ var _ = Describe("Creator_setup", Ordered, func() {
 	var clossureFunc func(CreateStrat *creator.Strategy) creator.Creator
 	var createStore store.Store
 	BeforeAll(func() {
+		orderBookUrl := "localhost:8080"
 
 		var err error
 
@@ -67,8 +75,31 @@ var _ = Describe("Creator_setup", Ordered, func() {
 		logger, err := zap.NewDevelopment()
 		Expect(err).To(BeNil())
 
-		// creates a client with passing privateKey to rest.Client and Authenticates with server
-		obRestClient, err := cobiEthWallet.SIWEClient("http://localhost:8080")
+		siweMessage, err := rest.CreateEip4361TestMessage(cobiEthWallet.Address().Hex(), siwe.GenerateNonce())
+		Expect(err).To(BeNil())
+		Signature, err := cobiEthWallet.SignMessage(siweMessage.String())
+		Expect(err).To(BeNil())
+
+		// authenticate with Rest client
+		var buf bytes.Buffer
+		err = json.NewEncoder(&buf).Encode(model.VerifySiwe{
+			Message:   siweMessage.String(),
+			Signature: hexutil.Encode(Signature),
+		})
+		Expect(err).To(BeNil())
+
+		resp, err := http.Post(fmt.Sprintf("%s/verify", "http://"+orderBookUrl), "application/json", &buf)
+		Expect(err).To(BeNil())
+		defer resp.Body.Close()
+
+		var VerifyPayload struct {
+			Token string `json:"token"`
+		}
+
+		err = json.NewDecoder(resp.Body).Decode(&VerifyPayload)
+		Expect(err).To(BeNil())
+		obRestClient := rest.NewClient("http://"+orderBookUrl, cobiKeyStr)
+		err = obRestClient.SetJwt(VerifyPayload.Token)
 		Expect(err).To(BeNil())
 
 		os.Remove("test.db")
@@ -84,13 +115,17 @@ var _ = Describe("Creator_setup", Ordered, func() {
 		)
 
 		clossureFunc = func(CreateStrat *creator.Strategy) creator.Creator {
-			return creator.NewCreator(cobiBtcWallet, cobiEthWallet, obRestClient, *CreateStrat, createStore, logger)
+			// fmt.Println("addresses" + cobiBtcWallet.Address().EncodeAddress() + " " + cobiEthWallet.Address().String())
+			creator, err := creator.NewCreator(cobiBtcWallet.Address().EncodeAddress(), cobiEthWallet.Address().String(), obRestClient, *CreateStrat, createStore, logger)
+			Expect(err).To(BeNil())
+			return creator
 		}
 
 		create = clossureFunc(CreateStrat)
 
 		go func() {
-			create.Start()
+			err := create.Start()
+			Expect(err).To(BeNil())
 		}()
 	})
 
