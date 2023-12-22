@@ -79,12 +79,11 @@ func NewCreator(
 */
 func (c *creator) Stop() {
 	close(c.quit)
-	defer c.execWg.Wait()
+	c.execWg.Wait()
 }
 
 func (c *creator) Start() error {
 
-	// ctx, cancel := context.WithCancel(context.Background())
 	expSetBack := time.Second
 	fromChain, _, _, _, err := model.ParseOrderPair(c.strategy.orderPair)
 	if err != nil {
@@ -106,9 +105,9 @@ func (c *creator) Start() error {
 	}
 
 	// running Core logic in go-routine in order to make Start() function non-blocking
+	c.execWg.Add(1)
 	go func() {
 		defer c.execWg.Done()
-		c.execWg.Add(1)
 
 		for {
 
@@ -160,11 +159,9 @@ func (c *creator) Start() error {
 				select {
 				case <-time.After(time.Duration(randTimeInterval) * time.Second):
 					continue
-				case _, ok := <-c.quit:
-					if !ok {
-						c.logger.Info("received quit channel signal")
-						return
-					}
+				case <-c.quit:
+					c.logger.Info("received quit channel signal")
+					return
 				}
 			}
 

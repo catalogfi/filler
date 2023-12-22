@@ -79,12 +79,11 @@ func NewFiller(
 */
 func (f *filler) Stop() {
 	close(f.quit)
-	defer f.execWg.Wait()
+	f.execWg.Wait()
 }
 
 func (f *filler) Start() error {
 
-	// ctx, cancel := context.WithCancel(context.Background())
 	expSetBack := time.Second
 
 	_, fromChain, _, _, err := model.ParseOrderPair(f.strategy.orderPair)
@@ -100,9 +99,9 @@ func (f *filler) Start() error {
 	}
 
 	// running Core logic in go-routine in order to make Start() function non-blocking
+	f.execWg.Add(1)
 	go func() {
 		defer f.execWg.Done()
-		f.execWg.Add(1)
 		for {
 
 			// If JWT expires, login again
@@ -176,11 +175,9 @@ func (f *filler) Start() error {
 
 						}
 					}
-				case _, ok := <-f.quit:
-					if !ok {
-						f.logger.Info("received quit channel signal")
-						return
-					}
+				case <-f.quit:
+					f.logger.Info("received quit channel signal")
+					return
 				}
 
 			}
