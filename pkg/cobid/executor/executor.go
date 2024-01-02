@@ -97,12 +97,14 @@ func (e *executor) Start() {
 				OrderId: uint64(OrderId),
 				Type:    execType,
 				Swap:    *swap,
+				Action:  action,
 			}
 		case e.options.ETHChain:
 			ethExecChan <- SwapMsg{
 				OrderId: uint64(OrderId),
 				Type:    execType,
 				Swap:    *swap,
+				Action:  action,
 			}
 		}
 	}
@@ -155,14 +157,12 @@ CONNECTIONLOOP:
 									continue
 								}
 
-								fmt.Println("Touched__This", order.InitiatorAtomicSwap.Status, order.FollowerAtomicSwap.Status, status)
 								if order.InitiatorAtomicSwap.Status == model.Initiated &&
 									order.FollowerAtomicSwap.Status == model.NotStarted && status < store.FollowerInitiated {
 									distributeSwap(order.ID, order.FollowerAtomicSwap, Follower, Initiate)
 								} else if order.InitiatorAtomicSwap.Status == model.Initiated &&
 									order.FollowerAtomicSwap.Status == model.Redeemed && status < store.FollowerRedeemed {
 									distributeSwap(order.ID, order.InitiatorAtomicSwap, Follower, Redeem)
-									fmt.Println("FailedtoTouchedThis")
 								} else if order.FollowerAtomicSwap.Status == model.Expired && status < store.FollowerFailedToRefund {
 									distributeSwap(order.ID, order.FollowerAtomicSwap, Follower, Refund)
 								}

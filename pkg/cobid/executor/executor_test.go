@@ -115,7 +115,7 @@ var _ = Describe("Executor", Ordered, func() {
 		// this ensure the bitcoin is atually funded before
 		_, err = testutil.NigiriFaucet(cobiBtcWallet.Address().EncodeAddress())
 		Expect(err).To(BeNil())
- 
+
 		_, err = testutil.NigiriFaucet(aliceBtcWallet.Address().EncodeAddress())
 		Expect(err).To(BeNil())
 
@@ -266,7 +266,7 @@ var _ = Describe("Executor", Ordered, func() {
 				cobiBtcWallet.Address().EncodeAddress(), cobiEthWallet.Address().Hex(),
 				aliceEthWallet.Address().Hex(), cobiEthWallet.Address().Hex(),
 				orderPair,
-				model.Initiated, model.Initiated,
+				model.Initiated, model.Redeemed,
 				model.Filled,
 				expiry.String(), expiry.String(), amount, hex.EncodeToString(secret), hex.EncodeToString(secretHash[:]))
 
@@ -479,7 +479,7 @@ var _ = Describe("Executor", Ordered, func() {
 				cobiEthWallet.Address().Hex(), cobiBtcWallet.Address().EncodeAddress(),
 				aliceEthWallet.Address().Hex(), cobiBtcWallet.Address().EncodeAddress(),
 				orderPair,
-				model.Initiated, model.Initiated,
+				model.Initiated, model.Redeemed,
 				model.Filled,
 				expiry.String(), expiry.String(), amount, hex.EncodeToString(secret), hex.EncodeToString(secretHash[:]))
 
@@ -710,7 +710,7 @@ var _ = Describe("Executor", Ordered, func() {
 				cobiEthWallet.Address().Hex(), cobiBtcWallet.Address().EncodeAddress(),
 				aliceEthWallet.Address().Hex(), cobiBtcWallet.Address().EncodeAddress(),
 				orderPair,
-				model.Initiated, model.Initiated,
+				model.Initiated, model.Redeemed,
 				model.Filled,
 				expiry.String(), expiry.String(), amount, hex.EncodeToString(secret), hex.EncodeToString(secretHash[:]))
 			server.Msg <- rest.UpdatedOrders{
