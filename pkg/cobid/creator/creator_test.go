@@ -40,7 +40,6 @@ var _ = Describe("Creator_setup", Ordered, func() {
 			Expect(err).To(BeNil())
 			orderPair := fmt.Sprintf("ethereum_localnet:%s-bitcoin_regtest", crypto.PubkeyToAddress(swapKey.PublicKey))
 
-			By()
 			sty := creator.NewStrategy(6, 12, new(big.Int).SetInt64(1e6), orderPair, 10)
 			orderBookUrl := "localhost:8080"
 			cobiKeyStr := strings.TrimPrefix(os.Getenv("ETH_KEY_2"), "0x")
