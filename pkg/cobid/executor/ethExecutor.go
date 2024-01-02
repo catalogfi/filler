@@ -8,7 +8,6 @@ import (
 
 	"github.com/catalogfi/cobi/pkg/store"
 	"github.com/catalogfi/cobi/pkg/swap/ethswap"
-	"github.com/catalogfi/orderbook/model"
 	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"
 )
@@ -36,138 +35,112 @@ func (e *executor) executeEthSwap(atomicSwap SwapMsg) {
 	defer cancel()
 	logger := e.logger.With(zap.String("ethereum executor", string(e.options.ETHChain)), zap.Uint64("order-id", atomicSwap.OrderId))
 	logger.Info("executing eth swap")
-	status, err := e.store.Status(atomicSwap.Swap.SecretHash)
-	if err != nil {
-		logger.Error("order not found", zap.Error(err))
-		return
-	}
 
 	ethSwap, err := ParseEthSwap(atomicSwap)
 	if err != nil {
 		logger.Error("failed to get eth swap", zap.Error(err))
 		return
 	}
-	walletAddr := e.ethWallet.Address()
 
-	if walletAddr == ethSwap.Initiator {
-		switch atomicSwap.Swap.Status {
-		case model.NotStarted:
-			if (atomicSwap.Type == Initiator && status >= store.InitiatorInitiated) || (atomicSwap.Type == Follower && status >= store.FollowerInitiated) {
-				return
-			}
-			if atomicSwap.Type == Follower && atomicSwap.CounterSwapStatus != model.Initiated {
-				return
-			}
-			txHash, err := e.ethWallet.Initiate(context, &ethSwap)
-			if err != nil {
-				logger.Error("failed to initiate", zap.Error(err))
-				var failedStatus store.Status
-				if atomicSwap.Type == Initiator {
-					failedStatus = store.InitiatorFailedToInitiate
-				} else {
-					failedStatus = store.FollowerFailedToInitiate
-				}
-				dbErr := e.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, failedStatus, err)
-				if dbErr != nil {
-					logger.Info("failed to update order status", zap.Error(dbErr))
-				}
-				return
+	switch atomicSwap.Action {
+	case Initiate:
+		txHash, err := e.ethWallet.Initiate(context, &ethSwap)
+		if err != nil {
+			logger.Error("failed to initiate", zap.Error(err))
+			var failedStatus store.Status
+			if atomicSwap.Type == Initiator {
+				failedStatus = store.InitiatorFailedToInitiate
 			} else {
-				var successStatus store.Status
-				if atomicSwap.Type == Initiator {
-					successStatus = store.InitiatorInitiated
-				} else {
-					successStatus = store.FollowerInitiated
-				}
-				e.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, successStatus, err)
-				e.store.UpdateTxHash(atomicSwap.Swap.SecretHash, store.Initiated, txHash)
-				logger.Info("initiate tx hash", zap.String("tx-hash", txHash))
+				failedStatus = store.FollowerFailedToInitiate
 			}
-		case model.Expired:
-			if (atomicSwap.Type == Initiator && status >= store.InitiatorRefunded) || (atomicSwap.Type == Follower && status >= store.FollowerRefunded) {
-				return
+			dbErr := e.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, failedStatus, err)
+			if dbErr != nil {
+				logger.Info("failed to update order status", zap.Error(dbErr))
 			}
-			txHash, err := e.ethWallet.Refund(context, &ethSwap)
-			if err != nil {
-				logger.Error("failed to refund", zap.Error(err))
-				var failedStatus store.Status
-				if atomicSwap.Type == Initiator {
-					failedStatus = store.InitiatorFailedToRefund
-				} else {
-					failedStatus = store.FollowerFailedToRefund
-				}
-				dbErr := e.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, failedStatus, err)
-				if dbErr != nil {
-					logger.Info("failed to update order status", zap.Error(dbErr))
-				}
-				return
+			return
+		} else {
+			var successStatus store.Status
+			if atomicSwap.Type == Initiator {
+				successStatus = store.InitiatorInitiated
 			} else {
-				// TODO : combine these two calls in store
-				var successStatus store.Status
-				if atomicSwap.Type == Initiator {
-					successStatus = store.InitiatorRefunded
-				} else {
-					successStatus = store.FollowerRefunded
-				}
-				e.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, successStatus, err)
-				e.store.UpdateTxHash(atomicSwap.Swap.SecretHash, store.Refunded, txHash)
-				logger.Info("refund tx hash", zap.String("tx-hash", txHash))
+				successStatus = store.FollowerInitiated
+			}
+			e.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, successStatus, err)
+			e.store.UpdateTxHash(atomicSwap.Swap.SecretHash, store.Initiated, txHash)
+			logger.Info("initiate tx hash", zap.String("tx-hash", txHash))
+		}
+	case Redeem:
+		var secret []byte
+		if atomicSwap.Type == Initiator {
+
+			secretStr, err := e.store.Secret(atomicSwap.Swap.SecretHash)
+			if err != nil {
+				logger.Error("failed to get secret", zap.Error(err))
+				return
+			}
+			secret, err = hex.DecodeString(secretStr)
+			if err != nil {
+				logger.Error("failed to decode secret", zap.Error(err))
+				return
+			}
+		} else {
+			secret, err = hex.DecodeString(atomicSwap.Swap.Secret)
+			if err != nil {
+				logger.Error("failed to decode secret", zap.Error(err))
+				return
 			}
 		}
-	} else if walletAddr == ethSwap.Redeemer {
-		switch atomicSwap.Swap.Status {
-		case model.Initiated:
-			if (atomicSwap.Type == Initiator && status >= store.InitiatorRedeemed) || (atomicSwap.Type == Follower && status >= store.FollowerRedeemed) {
-				return
-			}
-			if atomicSwap.CounterSwapStatus != model.Initiated {
-				return
-			}
-			var secret []byte
+		txHash, err := e.ethWallet.Redeem(context, &ethSwap, secret)
+		if err != nil {
+			logger.Error("failed to redeem", zap.Error(err))
+			var failedStatus store.Status
 			if atomicSwap.Type == Initiator {
-
-				secretStr, err := e.store.Secret(atomicSwap.Swap.SecretHash)
-				if err != nil {
-					logger.Error("failed to get secret", zap.Error(err))
-					return
-				}
-				secret, err = hex.DecodeString(secretStr)
-				if err != nil {
-					logger.Error("failed to decode secret", zap.Error(err))
-					return
-				}
+				failedStatus = store.InitiatorFailedToRedeem
 			} else {
-				secret, err = hex.DecodeString(atomicSwap.Swap.Secret)
-				if err != nil {
-					logger.Error("failed to decode secret", zap.Error(err))
-					return
-				}
+				failedStatus = store.FollowerFailedToRedeem
 			}
-			txHash, err := e.ethWallet.Redeem(context, &ethSwap, secret)
-			if err != nil {
-				logger.Error("failed to redeem", zap.Error(err))
-				var failedStatus store.Status
-				if atomicSwap.Type == Initiator {
-					failedStatus = store.InitiatorFailedToRedeem
-				} else {
-					failedStatus = store.FollowerFailedToRedeem
-				}
-				dbErr := e.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, failedStatus, err)
-				if dbErr != nil {
-					logger.Info("failed to update order status", zap.Error(dbErr))
-				}
-				return
+			dbErr := e.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, failedStatus, err)
+			if dbErr != nil {
+				logger.Info("failed to update order status", zap.Error(dbErr))
+			}
+			return
+		} else {
+			var successStatus store.Status
+			if atomicSwap.Type == Initiator {
+				successStatus = store.InitiatorRedeemed
 			} else {
-				var successStatus store.Status
-				if atomicSwap.Type == Initiator {
-					successStatus = store.InitiatorRedeemed
-				} else {
-					successStatus = store.FollowerRedeemed
-				}
-				e.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, successStatus, err)
-				e.store.UpdateTxHash(atomicSwap.Swap.SecretHash, store.Redeemed, txHash)
-				logger.Info("redeem tx hash", zap.String("tx-hash", txHash))
+				successStatus = store.FollowerRedeemed
 			}
+			e.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, successStatus, err)
+			e.store.UpdateTxHash(atomicSwap.Swap.SecretHash, store.Redeemed, txHash)
+			logger.Info("redeem tx hash", zap.String("tx-hash", txHash))
+		}
+	case Refund:
+		txHash, err := e.ethWallet.Refund(context, &ethSwap)
+		if err != nil {
+			logger.Error("failed to refund", zap.Error(err))
+			var failedStatus store.Status
+			if atomicSwap.Type == Initiator {
+				failedStatus = store.InitiatorFailedToRefund
+			} else {
+				failedStatus = store.FollowerFailedToRefund
+			}
+			dbErr := e.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, failedStatus, err)
+			if dbErr != nil {
+				logger.Info("failed to update order status", zap.Error(dbErr))
+			}
+			return
+		} else {
+			// TODO : combine these two calls in store
+			var successStatus store.Status
+			if atomicSwap.Type == Initiator {
+				successStatus = store.InitiatorRefunded
+			} else {
+				successStatus = store.FollowerRefunded
+			}
+			e.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, successStatus, err)
+			e.store.UpdateTxHash(atomicSwap.Swap.SecretHash, store.Refunded, txHash)
+			logger.Info("refund tx hash", zap.String("tx-hash", txHash))
 		}
 	}
 
