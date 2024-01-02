@@ -96,7 +96,7 @@ var _ = Describe("Executor_setup", Ordered, func() {
 
 		var err error
 
-		//btc wallet setup
+		// btc wallet setup
 		network := &chaincfg.RegressionNetParams
 		btcclient = btctest.RegtestIndexer()
 		cobiBtcWallet, err = NewTestWallet(network, btcclient)
@@ -112,7 +112,7 @@ var _ = Describe("Executor_setup", Ordered, func() {
 		err = testutil.NigiriNewBlock()
 		Expect(err).To(BeNil())
 
-		//eth wallet setup
+		// eth wallet setup
 		aliceKeyStr := strings.TrimPrefix(os.Getenv("ETH_KEY_1"), "0x")
 		aliceKeyBytes, err := hex.DecodeString(aliceKeyStr)
 		Expect(err).To(BeNil())
@@ -128,10 +128,11 @@ var _ = Describe("Executor_setup", Ordered, func() {
 		evmclient, err = ethclient.Dial(os.Getenv("ETH_URL"))
 		Expect(err).To(BeNil())
 
-		cobiEthWallet, err = ethswap.NewWallet(cobiKey, evmclient, swapAddr)
+		walletOptions := ethswap.OptionsLocalnet(swapAddr)
+		cobiEthWallet, err = ethswap.NewWallet(walletOptions, cobiKey, evmclient)
 		Expect(err).To(BeNil())
 
-		aliceEthWallet, err = ethswap.NewWallet(aliceKey, evmclient, swapAddr)
+		aliceEthWallet, err = ethswap.NewWallet(walletOptions, aliceKey, evmclient)
 		Expect(err).To(BeNil())
 
 		logger, err := zap.NewDevelopment()
@@ -169,7 +170,7 @@ var _ = Describe("Executor_setup", Ordered, func() {
 
 		BeforeAll(func() {
 			var err error
-			//generating random number order id
+			// generating random number order id
 			oid = rand.Intn(100000)
 			amount = big.NewInt(1e7)
 			secret = testutil.RandomSecret()
@@ -206,7 +207,7 @@ var _ = Describe("Executor_setup", Ordered, func() {
 			Expect(redeemed).Should(BeFalse())
 
 			By("sending an order via socket message")
-			//generating random number order id
+			// generating random number order id
 			err = (*execstore).PutSecret(hex.EncodeToString(secretHash[:]), nil, uint64(oid))
 			Expect(err).To(BeNil())
 

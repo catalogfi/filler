@@ -35,7 +35,7 @@ type wallet struct {
 	address      btcutil.Address
 }
 
-func New(opts Options, client btc.IndexerClient, key *btcec.PrivateKey, estimator btc.FeeEstimator) (Wallet, error) {
+func NewWallet(opts Options, client btc.IndexerClient, key *btcec.PrivateKey, estimator btc.FeeEstimator) (Wallet, error) {
 	addr, err := btcutil.NewAddressWitnessPubKeyHash(btcutil.Hash160(key.PubKey().SerializeCompressed()), opts.Network)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get wallet address")
@@ -263,7 +263,11 @@ func (wallet *wallet) Refund(ctx context.Context, swap Swap, target string) (str
 		tx.TxIn[i].Witness = btc.HtlcWitness(swap.Script, wallet.key.PubKey().SerializeCompressed(), sig, nil)
 	}
 
-	return "", wallet.client.SubmitTx(ctx, tx)
+	// Submit the tx
+	if err := wallet.client.SubmitTx(ctx, tx); err != nil {
+		return "", err
+	}
+	return tx.TxHash().String(), nil
 }
 
 func (wallet *wallet) feeRate() (int, error) {

@@ -81,7 +81,7 @@ var _ = Describe("Filler_setup", Ordered, func() {
 
 		var err error
 
-		//btc wallet setup
+		// btc wallet setup
 		network := &chaincfg.RegressionNetParams
 		btcclient = btctest.RegtestIndexer()
 		cobiBtcWallet, err = NewTestWallet(network, btcclient)
@@ -103,7 +103,8 @@ var _ = Describe("Filler_setup", Ordered, func() {
 		evmclient, err = ethclient.Dial(os.Getenv("ETH_URL"))
 		Expect(err).To(BeNil())
 
-		cobiEthWallet, err = ethswap.NewWallet(cobiKey, evmclient, swapAddr)
+		walletOption := ethswap.OptionsLocalnet(swapAddr)
+		cobiEthWallet, err = ethswap.NewWallet(walletOption, cobiKey, evmclient)
 		Expect(err).To(BeNil())
 
 		logger, err := zap.NewDevelopment()
@@ -167,7 +168,7 @@ var _ = Describe("Filler_setup", Ordered, func() {
 			}
 
 			time.Sleep(1 * time.Second)
-			Storeorder, err := fillstore.OrderBySecretHash(order.SecretHash) //read Operation on db
+			Storeorder, err := fillstore.OrderBySecretHash(order.SecretHash) // read Operation on db
 			Expect(err).To(BeNil())
 			Expect(uint(Storeorder.OrderId)).To(Equal(order.ID))
 		})

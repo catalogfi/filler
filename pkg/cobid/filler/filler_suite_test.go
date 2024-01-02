@@ -112,7 +112,7 @@ func NewTestWallet(network *chaincfg.Params, client btc.IndexerClient) (btcswap.
 	opts := btcswap.OptionsRegression()
 	fee := rand.Intn(18) + 2
 	feeEstimator := btc.NewFixFeeEstimator(fee)
-	return btcswap.New(opts, client, key, feeEstimator)
+	return btcswap.NewWallet(opts, client, key, feeEstimator)
 }
 
 type TestOrderBookServer struct {

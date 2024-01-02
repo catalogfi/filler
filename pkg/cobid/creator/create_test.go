@@ -41,7 +41,7 @@ var _ = Describe("Creator_setup", Ordered, func() {
 
 		var err error
 
-		//btc wallet setup
+		// btc wallet setup
 		network := &chaincfg.RegressionNetParams
 		btcclient = btctest.RegtestIndexer()
 		cobiBtcWallet, err = NewTestWallet(network, btcclient)
@@ -63,7 +63,8 @@ var _ = Describe("Creator_setup", Ordered, func() {
 		evmclient, err = ethclient.Dial(os.Getenv("ETH_URL"))
 		Expect(err).To(BeNil())
 
-		cobiEthWallet, err = ethswap.NewWallet(cobiKey, evmclient, swapAddr)
+		walletOptions := ethswap.OptionsLocalnet(swapAddr)
+		cobiEthWallet, err = ethswap.NewWallet(walletOptions, cobiKey, evmclient)
 		Expect(err).To(BeNil())
 
 		logger, err := zap.NewDevelopment()
