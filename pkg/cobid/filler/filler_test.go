@@ -10,22 +10,20 @@ import (
 	"strings"
 	"time"
 
+	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/zap"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	"github.com/catalogfi/blockchain/btc"
-	"github.com/catalogfi/blockchain/btc/btctest"
 	"github.com/catalogfi/blockchain/testutil"
 	"github.com/catalogfi/cobi/pkg/cobid/filler"
 	"github.com/catalogfi/cobi/pkg/store"
-	"github.com/catalogfi/cobi/pkg/swap/btcswap"
-	"github.com/catalogfi/cobi/pkg/swap/ethswap"
 	"github.com/catalogfi/orderbook/model"
 	"github.com/catalogfi/orderbook/rest"
 )
@@ -69,48 +67,19 @@ func generaterderWithDefaults(
 
 var _ = Describe("Filler_setup", Ordered, func() {
 	var fill filler.Filler
-	var cobiEthWallet ethswap.Wallet
-	var cobiBtcWallet btcswap.Wallet
-	var aliceBtcWallet btcswap.Wallet
-	var evmclient *ethclient.Client
-	var btcclient btc.IndexerClient
 	var fillstore store.Store
 	var clossureFunc func(FillStrat *filler.Strategy) filler.Filler
+	var tokenAddr common.Address
 	BeforeAll(func() {
 		orderBookUrl := "localhost:8080"
 
 		var err error
 
-		// btc wallet setup
-		network := &chaincfg.RegressionNetParams
-		btcclient = btctest.RegtestIndexer()
-		cobiBtcWallet, err = NewTestWallet(network, btcclient)
-		Expect(err).To(BeNil())
-		_, err = testutil.NigiriFaucet(cobiBtcWallet.Address().EncodeAddress())
-		Expect(err).To(BeNil())
-
-		aliceBtcWallet, err = NewTestWallet(network, btcclient)
-		Expect(err).To(BeNil())
-		_, err = testutil.NigiriFaucet(aliceBtcWallet.Address().EncodeAddress()) // fund and mine
-		Expect(err).To(BeNil())
-
-		cobiKeyStr := strings.TrimPrefix(os.Getenv("ETH_KEY_2"), "0x")
-		cobiKeyBytes, err := hex.DecodeString(cobiKeyStr)
-		Expect(err).To(BeNil())
-		cobiKey, err := crypto.ToECDSA(cobiKeyBytes)
-		Expect(err).To(BeNil())
-
-		evmclient, err = ethclient.Dial(os.Getenv("ETH_URL"))
-		Expect(err).To(BeNil())
-
-		walletOption := ethswap.OptionsLocalnet(swapAddr)
-		cobiEthWallet, err = ethswap.NewWallet(walletOption, cobiKey, evmclient)
-		Expect(err).To(BeNil())
-
 		logger, err := zap.NewDevelopment()
 		Expect(err).To(BeNil())
 
 		// prepare clients
+		cobiKeyStr := strings.TrimPrefix(os.Getenv("ETH_KEY_2"), "0x")
 		obWSClient := rest.NewWSClient(fmt.Sprintf("ws://%s/", orderBookUrl), logger.With(zap.String("wSclient", "orderbook")))
 		obRestClient := rest.NewClient("http://"+orderBookUrl, cobiKeyStr)
 		jwt, err := obRestClient.Login()
@@ -125,14 +94,26 @@ var _ = Describe("Filler_setup", Ordered, func() {
 		fillstore, err = store.NewStore(db)
 		Expect(err).To(BeNil())
 
+		swapKey, err := crypto.GenerateKey()
+		Expect(err).To(BeNil())
+
+		tokenAddr = crypto.PubkeyToAddress(swapKey.PublicKey)
+
 		// FillStrat := filler.StrategyWithDefaults(fmt.Sprintf("ethereum_localnet:%s-bitcoin_regtest", tokenAddr))
 		FillStrat := filler.NewStrategy(
 			[]string{"0xa31Fe4c53BFe658A4B98EF81B88F4F1bAffE62f8"}, big.NewInt(1e6), big.NewInt(1e8),
 			fmt.Sprintf("ethereum_localnet:%s-bitcoin_regtest", tokenAddr), float64(10000)/float64(10000-100),
 		)
 
+		ethKey, err := crypto.GenerateKey()
+		Expect(err).To(BeNil())
+		btcKey, err := btcec.NewPrivateKey()
+		Expect(err).To(BeNil())
+		addr, err := btcutil.NewAddressWitnessPubKeyHash(btcutil.Hash160(btcKey.PubKey().SerializeCompressed()), &chaincfg.RegressionNetParams)
+		Expect(err).To(BeNil())
+
 		clossureFunc = func(FillStrat *filler.Strategy) filler.Filler {
-			filler, err := filler.NewFiller(cobiBtcWallet.Address().EncodeAddress(), cobiEthWallet.Address().String(), obRestClient, obWSClient, *FillStrat, fillstore, logger)
+			filler, err := filler.NewFiller(addr.EncodeAddress(), crypto.PubkeyToAddress(ethKey.PublicKey).Hex(), obRestClient, obWSClient, *FillStrat, fillstore, logger)
 			Expect(err).To(BeNil())
 			return filler
 		}
