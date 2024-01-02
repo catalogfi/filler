@@ -7,18 +7,21 @@ import (
 )
 
 type Options struct {
-	ChainID   *big.Int
-	TokenAddr common.Address
-	SwapAddr  common.Address
-	BlockStep uint64
+	ChainID  *big.Int
+	SwapAddr common.Address
 }
 
-func OptionsMainnet(tokenAddr, swapAddr common.Address) Options {
+func OptionsMainnet(swapAddr common.Address) Options {
 	return Options{
-		ChainID:   big.NewInt(1),
-		TokenAddr: common.Address{},
-		SwapAddr:  common.Address{},
-		BlockStep: 1000,
+		ChainID:  big.NewInt(1),
+		SwapAddr: swapAddr,
+	}
+}
+
+func OptionsLocalnet(swapAddr common.Address) Options {
+	return Options{
+		ChainID:  big.NewInt(1337),
+		SwapAddr: swapAddr,
 	}
 }
 
@@ -27,17 +30,7 @@ func (opts Options) WithChainID(id *big.Int) Options {
 	return opts
 }
 
-func (opts Options) WithTokenAddr(tokenAddr common.Address) Options {
-	opts.TokenAddr = tokenAddr
-	return opts
-}
-
 func (opts Options) WithSwapAddr(swapAddr common.Address) Options {
 	opts.SwapAddr = swapAddr
-	return opts
-}
-
-func (opts Options) WithBlockStep(step uint64) Options {
-	opts.BlockStep = step
 	return opts
 }

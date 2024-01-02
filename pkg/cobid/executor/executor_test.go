@@ -102,7 +102,7 @@ var _ = Describe("Executor", Ordered, func() {
 
 		var err error
 
-		//btc wallet setup
+		// btc wallet setup
 		network := &chaincfg.RegressionNetParams
 		btcclient = btctest.RegtestIndexer()
 		cobiBtcWallet, err = NewTestWallet(network, btcclient)
@@ -111,7 +111,7 @@ var _ = Describe("Executor", Ordered, func() {
 		aliceBtcWallet, err = NewTestWallet(network, btcclient)
 		Expect(err).To(BeNil())
 
-		//this ensure the bitcoin is atually funded before
+		// this ensure the bitcoin is atually funded before
 		_, err = testutil.NigiriFaucet(cobiBtcWallet.Address().EncodeAddress())
 		Expect(err).To(BeNil())
 
@@ -128,7 +128,7 @@ var _ = Describe("Executor", Ordered, func() {
 		Expect(err).To(BeNil())
 		Expect(aliceBtcBalance).To(BeNumerically("==", 100000000))
 
-		//eth wallet setup
+		// eth wallet setup
 		aliceKeyStr := strings.TrimPrefix(os.Getenv("ETH_KEY_1"), "0x")
 		aliceKeyBytes, err := hex.DecodeString(aliceKeyStr)
 		Expect(err).To(BeNil())
@@ -144,10 +144,11 @@ var _ = Describe("Executor", Ordered, func() {
 		evmclient, err = ethclient.Dial(os.Getenv("ETH_URL"))
 		Expect(err).To(BeNil())
 
-		cobiEthWallet, err = ethswap.NewWallet(cobiKey, evmclient, swapAddr)
+		walletOptions := ethswap.OptionsLocalnet(swapAddr)
+		cobiEthWallet, err = ethswap.NewWallet(walletOptions, cobiKey, evmclient)
 		Expect(err).To(BeNil())
 
-		aliceEthWallet, err = ethswap.NewWallet(aliceKey, evmclient, swapAddr)
+		aliceEthWallet, err = ethswap.NewWallet(walletOptions, aliceKey, evmclient)
 		Expect(err).To(BeNil())
 
 		var logger *zap.Logger
@@ -188,7 +189,7 @@ var _ = Describe("Executor", Ordered, func() {
 		BeforeAll(func() {
 			var err error
 			orderPair = fmt.Sprintf("ethereum_localnet:%s-bitcoin_regtest", tokenAddr)
-			//generating random number order id
+			// generating random number order id
 			oid = rand.Intn(100000)
 			amount = big.NewInt(1e7)
 			secret = testutil.RandomSecret()
@@ -225,7 +226,7 @@ var _ = Describe("Executor", Ordered, func() {
 			Expect(redeemed).Should(BeFalse())
 
 			By("sending an order via socket message")
-			//generating random number order id
+			// generating random number order id
 			err = (*execstore).PutSecret(hex.EncodeToString(secretHash[:]), nil, uint64(oid))
 			Expect(err).To(BeNil())
 
@@ -398,7 +399,7 @@ var _ = Describe("Executor", Ordered, func() {
 		BeforeAll(func() {
 			var err error
 			orderPair = fmt.Sprintf("bitcoin_regtest-ethereum_localnet:%s", tokenAddr)
-			//generating random number order id
+			// generating random number order id
 			oid = rand.Intn(100000)
 			amount = big.NewInt(1e7)
 			secret = testutil.RandomSecret()
@@ -440,7 +441,7 @@ var _ = Describe("Executor", Ordered, func() {
 			Expect(redeemed).Should(BeFalse())
 
 			By("sending an order via socket message")
-			//generating random number order id
+			// generating random number order id
 			err = (*execstore).PutSecret(hex.EncodeToString(secretHash[:]), nil, uint64(oid))
 			Expect(err).To(BeNil())
 
@@ -540,7 +541,7 @@ var _ = Describe("Executor", Ordered, func() {
 			Expect(redeemed).Should(BeFalse())
 
 			By("sending an order via socket message")
-			//generating random number order id
+			// generating random number order id
 			err = (*execstore).PutSecret(hex.EncodeToString(secretHash[:]), nil, uint64(oid))
 			Expect(err).To(BeNil())
 
@@ -608,7 +609,7 @@ var _ = Describe("Executor", Ordered, func() {
 		BeforeAll(func() {
 			var err error
 			orderPair = fmt.Sprintf("bitcoin_regtest-ethereum_localnet:%s", tokenAddr)
-			//generating random number order id
+			// generating random number order id
 			oid = rand.Intn(100000)
 			amount = big.NewInt(1e7)
 			secret = testutil.RandomSecret()
@@ -650,7 +651,7 @@ var _ = Describe("Executor", Ordered, func() {
 			Expect(redeemed).Should(BeFalse())
 
 			By("sending an order via socket message")
-			//generating random number order id
+			// generating random number order id
 			err = (*execstore).PutSecret(hex.EncodeToString(secretHash[:]), nil, uint64(oid))
 			Expect(err).To(BeNil())
 
@@ -820,7 +821,7 @@ var _ = Describe("Executor", Ordered, func() {
 			Expect(redeemed).Should(BeFalse())
 
 			By("sending an order via socket message")
-			//generating random number order id
+			// generating random number order id
 			err = (*execstore).PutSecret(hex.EncodeToString(secretHash[:]), nil, uint64(oid))
 			Expect(err).To(BeNil())
 

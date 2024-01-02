@@ -35,7 +35,7 @@ type wallet struct {
 	address      btcutil.Address
 }
 
-func New(opts Options, client btc.IndexerClient, key *btcec.PrivateKey, estimator btc.FeeEstimator) (Wallet, error) {
+func NewWallet(opts Options, client btc.IndexerClient, key *btcec.PrivateKey, estimator btc.FeeEstimator) (Wallet, error) {
 	addr, err := btcutil.NewAddressWitnessPubKeyHash(btcutil.Hash160(key.PubKey().SerializeCompressed()), opts.Network)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get wallet address")

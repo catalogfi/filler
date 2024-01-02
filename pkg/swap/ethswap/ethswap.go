@@ -98,8 +98,9 @@ func (swap *Swap) Secret(ctx context.Context, client *ethclient.Client, step uin
 	if step == 0 {
 		step = 500
 	}
-	if latest.Cmp(details.Expiry) == 1 {
-		latest = details.Expiry
+	expiry := big.NewInt(0).Add(details.InitiatedAt, details.Expiry)
+	if latest.Cmp(expiry) == 1 {
+		latest = expiry
 	}
 
 	for start.Cmp(latest) == -1 {
