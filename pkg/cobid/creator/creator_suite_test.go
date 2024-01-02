@@ -2,31 +2,19 @@ package creator_test
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"log"
-	"math/rand"
 	"net/http"
-	"os"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/catalogfi/blockchain/btc"
-	"github.com/catalogfi/blockchain/btc/btctest"
-	"github.com/catalogfi/cobi/pkg/swap/btcswap"
-	"github.com/catalogfi/cobi/pkg/swap/ethswap/bindings"
 	"github.com/catalogfi/orderbook/model"
 	"github.com/catalogfi/orderbook/rest/utils"
 	"github.com/dgrijalva/jwt-go"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/fatih/color"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	. "github.com/onsi/ginkgo/v2"
@@ -48,43 +36,6 @@ var (
 )
 
 var _ = BeforeSuite(func() {
-	By("Required envs")
-	Expect(os.Getenv("ETH_URL")).ShouldNot(BeEmpty())
-	Expect(os.Getenv("ETH_KEY_1")).ShouldNot(BeEmpty())
-	Expect(os.Getenv("ETH_KEY_2")).ShouldNot(BeEmpty())
-
-	By("Initialise client")
-	url := os.Getenv("ETH_URL")
-	client, err := ethclient.Dial(url)
-	Expect(err).Should(BeNil())
-	chainID, err := client.ChainID(context.Background())
-	Expect(err).Should(BeNil())
-
-	// need to deploy ERC20 and AtomicSwap contracts in order to create ETH wallets
-	By("Initialise transactor")
-	keyStr := strings.TrimPrefix(os.Getenv("ETH_KEY_1"), "0x")
-	keyBytes, err := hex.DecodeString(keyStr)
-	Expect(err).Should(BeNil())
-	key, err := crypto.ToECDSA(keyBytes)
-	Expect(err).Should(BeNil())
-	transactor, err := bind.NewKeyedTransactorWithChainID(key, chainID)
-	Expect(err).Should(BeNil())
-
-	By("Deploy ERC20 contract")
-	var tx *types.Transaction
-	tokenAddr, tx, _, err = bindings.DeployTestERC20(transactor, client)
-	Expect(err).Should(BeNil())
-	_, err = bind.WaitMined(context.Background(), client, tx)
-	Expect(err).Should(BeNil())
-	By(color.GreenString("ERC20 deployed to %v", tokenAddr.Hex()))
-
-	By("Deploy atomic swap contract")
-	swapAddr, tx, _, err = bindings.DeployAtomicSwap(transactor, client, tokenAddr)
-	Expect(err).Should(BeNil())
-	_, err = bind.WaitMined(context.Background(), client, tx)
-	Expect(err).Should(BeNil())
-	By(color.GreenString("Atomic swap deployed to %v", swapAddr.Hex()))
-
 	var ctx context.Context
 	logger, err := zap.NewDevelopment()
 	Expect(err).To(BeNil())
@@ -100,17 +51,6 @@ var _ = AfterSuite(func() {
 	Cancel()
 	fmt.Println("Server Stopped")
 })
-
-func NewTestWallet(network *chaincfg.Params, client btc.IndexerClient) (btcswap.Wallet, error) {
-	key, _, err := btctest.NewBtcKey(network)
-	if err != nil {
-		return nil, err
-	}
-	opts := btcswap.OptionsRegression()
-	fee := rand.Intn(18) + 2
-	feeEstimator := btc.NewFixFeeEstimator(fee)
-	return btcswap.NewWallet(opts, client, key, feeEstimator)
-}
 
 type TestOrderBookServer struct {
 	router *gin.Engine

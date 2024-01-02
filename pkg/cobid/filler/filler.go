@@ -22,7 +22,7 @@ type filler struct {
 	btcAddress string
 	ethAddress string
 	restClient rest.Client
-	wSclient   rest.WSClient
+	wsClient   rest.WSClient
 	strategy   Strategy
 	store      store.Store
 	logger     *zap.Logger
@@ -34,7 +34,7 @@ func NewFiller(
 	btcAddress string,
 	ethAddress string,
 	restClient rest.Client,
-	wSclient rest.WSClient,
+	wsClient rest.WSClient,
 	strategy Strategy,
 	store store.Store,
 	logger *zap.Logger,
@@ -65,7 +65,7 @@ func NewFiller(
 		btcAddress: btcAddress,
 		ethAddress: ethAddress,
 		restClient: restClient,
-		wSclient:   wSclient,
+		wsClient:   wsClient,
 		strategy:   strategy,
 		store:      store,
 		logger:     logger,

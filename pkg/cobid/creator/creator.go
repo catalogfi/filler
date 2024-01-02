@@ -4,16 +4,14 @@ import (
 	cryptoRand "crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
 	"math/big"
-	"math/rand"
 	"sync"
 	"time"
 
 	"github.com/catalogfi/cobi/pkg/store"
+	"github.com/catalogfi/cobi/pkg/util"
 	"github.com/catalogfi/orderbook/model"
 	"github.com/catalogfi/orderbook/rest"
-	obStore "github.com/catalogfi/orderbook/store"
 	"go.uber.org/zap"
 )
 
@@ -26,18 +24,18 @@ type creator struct {
 	btcAddress string
 	ethAddress string
 	restClient rest.Client
-	strategy   Strategy
+	strategy   *Strategy
 	store      store.Store
 	logger     *zap.Logger
 	quit       chan struct{}
-	execWg     *sync.WaitGroup // Waitgroup to wait for all execution to finish
+	execWg     *sync.WaitGroup
 }
 
 func NewCreator(
 	btcAddress string,
 	ethAddress string,
 	restClient rest.Client,
-	strategy Strategy,
+	strategy *Strategy,
 	store store.Store,
 	logger *zap.Logger,
 ) (Creator, error) {
@@ -47,17 +45,17 @@ func NewCreator(
 	}
 
 	if fromChain.IsBTC() {
-		if err := obStore.CheckAddress(fromChain, btcAddress); err != nil {
+		if err := util.ValidateAddress(fromChain, btcAddress); err != nil {
 			return nil, err
 		}
-		if err := obStore.CheckAddress(toChain, ethAddress); err != nil {
+		if err := util.ValidateAddress(toChain, ethAddress); err != nil {
 			return nil, err
 		}
 	} else {
-		if err := obStore.CheckAddress(toChain, btcAddress); err != nil {
+		if err := util.ValidateAddress(toChain, btcAddress); err != nil {
 			return nil, err
 		}
-		if err := obStore.CheckAddress(fromChain, ethAddress); err != nil {
+		if err := util.ValidateAddress(fromChain, ethAddress); err != nil {
 			return nil, err
 		}
 	}
@@ -76,6 +74,7 @@ func NewCreator(
 
 /*
 - will gracefully stop all the creators
+- This cannot be called multiple times.
 */
 func (c *creator) Stop() {
 	close(c.quit)
@@ -83,39 +82,31 @@ func (c *creator) Stop() {
 }
 
 func (c *creator) Start() error {
-
-	expSetBack := time.Second
+	// Get addresses for sender and receiver
 	fromChain, _, _, _, err := model.ParseOrderPair(c.strategy.orderPair)
 	if err != nil {
 		return err
 	}
-
 	fromAddress := c.ethAddress
 	toAddress := c.btcAddress
-
 	if fromChain.IsBTC() {
 		fromAddress, toAddress = toAddress, fromAddress
 	}
 
 	receiveAmount := big.NewInt(c.strategy.Amount.Int64() * int64(10000-c.strategy.Fee) / 10000)
 
-	timeInterval := int64(c.strategy.MaxTimeInterval) - int64(c.strategy.MinTimeInterval)
-	if timeInterval < 0 {
-		return fmt.Errorf("Invalid time interval Supplied: MinTimeInterval should be less than MaxTimeInterval")
-	}
-
 	// running Core logic in go-routine in order to make Start() function non-blocking
 	c.execWg.Add(1)
 	go func() {
 		defer c.execWg.Done()
 
+		expSetBack := time.Second
 		for {
 
 			// If JWT expires, login again
 			jwt, err := c.restClient.Login()
 			if err != nil {
 				c.logger.Error("failed logging in", zap.Error(err))
-
 				time.Sleep(expSetBack) // Wait for expSetBack before retrying
 				continue
 			}
@@ -127,14 +118,6 @@ func (c *creator) Start() error {
 			c.logger.Info("Starting Auto Creator")
 
 			for {
-
-				randTimeInterval := rand.Int63n(timeInterval)
-				if err != nil {
-					c.logger.Error("failed generating random time interval", zap.Error(err))
-					break
-				}
-				randTimeInterval += int64(c.strategy.MinTimeInterval)
-
 				secret := [32]byte{}
 				_, err = cryptoRand.Read(secret[:])
 				if err != nil {
@@ -157,7 +140,7 @@ func (c *creator) Start() error {
 				}
 
 				select {
-				case <-time.After(time.Duration(randTimeInterval) * time.Second):
+				case <-time.After(c.strategy.TimeInterval()):
 					continue
 				case <-c.quit:
 					c.logger.Info("received quit channel signal")

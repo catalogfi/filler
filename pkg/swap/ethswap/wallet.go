@@ -25,8 +25,6 @@ type Wallet interface {
 	Redeem(ctx context.Context, swap *Swap, secret []byte) (string, error)
 
 	Refund(ctx context.Context, swap *Swap) (string, error)
-
-	SignMessage(message string) ([]byte, error)
 }
 
 type wallet struct {
@@ -163,22 +161,4 @@ func (wallet *wallet) Refund(ctx context.Context, swap *Swap) (string, error) {
 		return "", err
 	}
 	return receipt.TxHash.String(), nil
-}
-
-func (wallet *wallet) SignMessage(message string) ([]byte, error) {
-
-	sign := ToEIP191SignedMessageHash([]byte(message))
-	signature, err := crypto.Sign(sign.Bytes(), wallet.key)
-
-	if err != nil {
-		return nil, err
-	}
-
-	signature[64] += 27
-	return signature, nil
-}
-
-func ToEIP191SignedMessageHash(data []byte) common.Hash {
-	msg := fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(data), data)
-	return crypto.Keccak256Hash([]byte(msg))
 }
