@@ -75,7 +75,7 @@ func NewFiller(
 }
 
 /*
-- will gracefully stop all the fillers
+- will gracefully stop the filler
 */
 func (f *filler) Stop() {
 	close(f.quit)
@@ -83,14 +83,10 @@ func (f *filler) Stop() {
 }
 
 func (f *filler) Start() error {
-
-	expSetBack := time.Second
-
 	_, fromChain, _, _, err := model.ParseOrderPair(f.strategy.orderPair)
 	if err != nil {
 		return err
 	}
-
 	fromAddress := f.ethAddress
 	toAddress := f.btcAddress
 
@@ -102,6 +98,8 @@ func (f *filler) Start() error {
 	f.execWg.Add(1)
 	go func() {
 		defer f.execWg.Done()
+
+		expSetBack := time.Second
 		for {
 
 			// If JWT expires, login again
@@ -121,8 +119,8 @@ func (f *filler) Start() error {
 			// connect to the websocket and subscribe on the signer's address also subscribe based on strategy
 			f.logger.Info("subscribing to socket")
 			// connect to the websocket and subscribe on the signer's address
-			f.wSclient.Subscribe(fmt.Sprintf("subscribe::%v", f.strategy.orderPair))
-			respChan := f.wSclient.Listen()
+			f.wsClient.Subscribe(fmt.Sprintf("subscribe::%v", f.strategy.orderPair))
+			respChan := f.wsClient.Listen()
 		SIGNALOOP:
 			for {
 
