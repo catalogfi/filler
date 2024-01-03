@@ -163,7 +163,7 @@ CONNECTIONLOOP:
 								} else if order.InitiatorAtomicSwap.Status == model.Initiated &&
 									order.FollowerAtomicSwap.Status == model.Redeemed && status < store.FollowerRedeemed {
 									distributeSwap(order.ID, order.InitiatorAtomicSwap, Follower, Redeem)
-								} else if order.FollowerAtomicSwap.Status == model.Expired && status < store.FollowerFailedToRefund {
+								} else if order.FollowerAtomicSwap.Status == model.Expired && status < store.FollowerRefunded {
 									distributeSwap(order.ID, order.FollowerAtomicSwap, Follower, Refund)
 								}
 							}

@@ -65,8 +65,14 @@ func (e *executor) executeEthSwap(atomicSwap SwapMsg) {
 			} else {
 				successStatus = store.FollowerInitiated
 			}
-			e.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, successStatus, err)
-			e.store.UpdateTxHash(atomicSwap.Swap.SecretHash, store.Initiated, txHash)
+			if err := e.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, successStatus, err); err != nil {
+				logger.Info("failed to update order status", zap.Error(err))
+				return
+			}
+			if err := e.store.UpdateTxHash(atomicSwap.Swap.SecretHash, store.Initiated, txHash); err != nil {
+				logger.Info("failed to update tx hash", zap.Error(err))
+				return
+			}
 			logger.Info("initiate tx hash", zap.String("tx-hash", txHash))
 		}
 	case Redeem:
@@ -111,8 +117,14 @@ func (e *executor) executeEthSwap(atomicSwap SwapMsg) {
 			} else {
 				successStatus = store.FollowerRedeemed
 			}
-			e.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, successStatus, err)
-			e.store.UpdateTxHash(atomicSwap.Swap.SecretHash, store.Redeemed, txHash)
+			if err := e.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, successStatus, err); err != nil {
+				logger.Info("failed to update order status", zap.Error(err))
+				return
+			}
+			if err := e.store.UpdateTxHash(atomicSwap.Swap.SecretHash, store.Redeemed, txHash); err != nil {
+				logger.Info("failed to update tx hash", zap.Error(err))
+				return
+			}
 			logger.Info("redeem tx hash", zap.String("tx-hash", txHash))
 		}
 	case Refund:
@@ -138,8 +150,14 @@ func (e *executor) executeEthSwap(atomicSwap SwapMsg) {
 			} else {
 				successStatus = store.FollowerRefunded
 			}
-			e.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, successStatus, err)
-			e.store.UpdateTxHash(atomicSwap.Swap.SecretHash, store.Refunded, txHash)
+			if err := e.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, successStatus, err); err != nil {
+				logger.Info("failed to update order status", zap.Error(err))
+				return
+			}
+			if err := e.store.UpdateTxHash(atomicSwap.Swap.SecretHash, store.Refunded, txHash); err != nil {
+				logger.Info("failed to update tx hash", zap.Error(err))
+				return
+			}
 			logger.Info("refund tx hash", zap.String("tx-hash", txHash))
 		}
 	}

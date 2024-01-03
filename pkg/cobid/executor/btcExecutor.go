@@ -67,8 +67,14 @@ func (b *executor) executeBtcSwap(atomicSwap SwapMsg) {
 			} else {
 				successStatus = store.FollowerInitiated
 			}
-			b.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, successStatus, err)
-			b.store.UpdateTxHash(atomicSwap.Swap.SecretHash, store.Initiated, txHash)
+			if err := b.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, successStatus, err); err != nil {
+				logger.Info("failed to update order status", zap.Error(err))
+				return
+			}
+			if err := b.store.UpdateTxHash(atomicSwap.Swap.SecretHash, store.Initiated, txHash); err != nil {
+				logger.Info("failed to update tx hash", zap.Error(err))
+				return
+			}
 			logger.Info("initiate tx hash", zap.String("tx-hash", txHash))
 		}
 	case Redeem:
@@ -113,8 +119,14 @@ func (b *executor) executeBtcSwap(atomicSwap SwapMsg) {
 			} else {
 				successStatus = store.FollowerRedeemed
 			}
-			b.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, successStatus, err)
-			b.store.UpdateTxHash(atomicSwap.Swap.SecretHash, store.Redeemed, txHash)
+			if err := b.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, successStatus, err); err != nil {
+				logger.Info("failed to update order status", zap.Error(err))
+				return
+			}
+			if err := b.store.UpdateTxHash(atomicSwap.Swap.SecretHash, store.Redeemed, txHash); err != nil {
+				logger.Info("failed to update tx hash", zap.Error(err))
+				return
+			}
 			logger.Info("redeem tx hash", zap.String("tx-hash", txHash))
 		}
 	case Refund:
@@ -139,132 +151,17 @@ func (b *executor) executeBtcSwap(atomicSwap SwapMsg) {
 			} else {
 				successStatus = store.FollowerRefunded
 			}
-			b.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, successStatus, err)
-			b.store.UpdateTxHash(atomicSwap.Swap.SecretHash, store.Refunded, txHash)
+			if err := b.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, successStatus, err); err != nil {
+				logger.Info("failed to update order status", zap.Error(err))
+				return
+			}
+			if err := b.store.UpdateTxHash(atomicSwap.Swap.SecretHash, store.Refunded, txHash); err != nil {
+				logger.Info("failed to update tx hash", zap.Error(err))
+				return
+			}
 			logger.Info("refund tx hash", zap.String("tx-hash", txHash))
 		}
 	}
-
-	// if btcSwap.IsInitiator(walletAddr) {
-	// 	switch atomicSwap.Swap.Status {
-	// 	case model.NotStarted:
-	// 		if (atomicSwap.Type == Initiator && status >= store.InitiatorInitiated) || (atomicSwap.Type == Follower && status >= store.FollowerInitiated) {
-	// 			return
-	// 		}
-	// 		if atomicSwap.Type == Follower && atomicSwap.CounterSwapStatus != model.Initiated {
-	// 			return
-	// 		}
-	// 		txHash, err := b.btcWallet.Initiate(context, btcSwap)
-	// 		if err != nil {
-	// 			var failedStatus store.Status
-	// 			if atomicSwap.Type == Initiator {
-	// 				failedStatus = store.InitiatorFailedToInitiate
-	// 			} else {
-	// 				failedStatus = store.FollowerFailedToInitiate
-	// 			}
-	// 			dbErr := b.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, failedStatus, err)
-	// 			if dbErr != nil {
-	// 				logger.Info("failed to update order status", zap.Error(dbErr))
-	// 			}
-	// 			return
-	// 		} else {
-	// 			var successStatus store.Status
-	// 			if atomicSwap.Type == Initiator {
-	// 				successStatus = store.InitiatorInitiated
-	// 			} else {
-	// 				successStatus = store.FollowerInitiated
-	// 			}
-	// 			b.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, successStatus, err)
-	// 			b.store.UpdateTxHash(atomicSwap.Swap.SecretHash, store.Initiated, txHash)
-	// 			logger.Info("initiate tx hash", zap.String("tx-hash", txHash))
-	// 		}
-	// 	case model.Expired:
-	// 		if (atomicSwap.Type == Initiator && status >= store.InitiatorRefunded) || (atomicSwap.Type == Follower && status >= store.FollowerRefunded) {
-	// 			return
-	// 		}
-	// 		txHash, err := b.btcWallet.Refund(context, btcSwap, walletAddr)
-	// 		if err != nil {
-	// 			logger.Error("failed to refund", zap.Error(err))
-	// 			var failedStatus store.Status
-	// 			if atomicSwap.Type == Initiator {
-	// 				failedStatus = store.InitiatorFailedToRefund
-	// 			} else {
-	// 				failedStatus = store.FollowerFailedToRefund
-	// 			}
-	// 			dbErr := b.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, failedStatus, err)
-	// 			if dbErr != nil {
-	// 				logger.Info("failed to update order status", zap.Error(dbErr))
-	// 			}
-	// 			return
-	// 		} else {
-	// 			var successStatus store.Status
-	// 			if atomicSwap.Type == Initiator {
-	// 				successStatus = store.InitiatorRefunded
-	// 			} else {
-	// 				successStatus = store.FollowerRefunded
-	// 			}
-	// 			b.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, successStatus, err)
-	// 			b.store.UpdateTxHash(atomicSwap.Swap.SecretHash, store.Refunded, txHash)
-	// 			logger.Info("refund tx hash", zap.String("tx-hash", txHash))
-	// 		}
-	// 	}
-	// } else if btcSwap.IsRedeemer(walletAddr) {
-	// 	switch atomicSwap.Swap.Status {
-	// 	case model.Initiated:
-	// 		if (atomicSwap.Type == Initiator && status >= store.InitiatorRedeemed) || (atomicSwap.Type == Follower && status >= store.FollowerRedeemed) {
-	// 			return
-	// 		}
-	// 		if atomicSwap.CounterSwapStatus != model.Initiated {
-	// 			return
-	// 		}
-	// 		var secret []byte
-	// 		if atomicSwap.Type == Initiator {
-	// 			secretStr, err := b.store.Secret(atomicSwap.Swap.SecretHash)
-	// 			if err != nil {
-	// 				logger.Error("failed to get secret", zap.Error(err))
-	// 				return
-	// 			}
-	// 			secret, err = hex.DecodeString(secretStr)
-	// 			if err != nil {
-	// 				logger.Error("failed to decode secret", zap.Error(err))
-	// 				return
-	// 			}
-	// 		} else {
-	// 			secret, err = hex.DecodeString(atomicSwap.Swap.Secret)
-	// 			if err != nil {
-	// 				logger.Error("failed to decode secret", zap.Error(err))
-	// 				return
-	// 			}
-	// 		}
-	// 		txHash, err := b.btcWallet.Redeem(context, btcSwap, secret, walletAddr)
-	// 		if err != nil {
-	// 			logger.Error("failed to redeem", zap.Error(err))
-	// 			var failedStatus store.Status
-	// 			if atomicSwap.Type == Initiator {
-	// 				failedStatus = store.InitiatorFailedToRedeem
-	// 			} else {
-	// 				failedStatus = store.FollowerFailedToRedeem
-	// 			}
-	// 			dbErr := b.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, failedStatus, err)
-	// 			if dbErr != nil {
-	// 				logger.Info("failed to update order status", zap.Error(dbErr))
-	// 			}
-	// 			return
-	// 		} else {
-	// 			// TODO : combine these two calls in store
-	// 			var successStatus store.Status
-	// 			if atomicSwap.Type == Initiator {
-	// 				successStatus = store.InitiatorRedeemed
-	// 			} else {
-	// 				successStatus = store.FollowerRedeemed
-	// 			}
-	// 			b.store.UpdateOrderStatus(atomicSwap.Swap.SecretHash, successStatus, err)
-	// 			b.store.UpdateTxHash(atomicSwap.Swap.SecretHash, store.Redeemed, txHash)
-	// 			logger.Info("redeem tx hash", zap.String("tx-hash", txHash))
-	// 		}
-	// 	}
-	// }
-
 }
 
 func ParseBtcSwap(atomicSwap SwapMsg) (btcswap.Swap, error) {
