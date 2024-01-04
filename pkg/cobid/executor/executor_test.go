@@ -111,6 +111,7 @@ var _ = Describe("Executor", Ordered, func() {
 		aliceBtcWallet, err = NewTestWallet(network, btcclient)
 		Expect(err).To(BeNil())
 
+		fmt.Println("wallet address ", cobiBtcWallet.Address())
 		// this ensure the bitcoin is atually funded before
 		_, err = testutil.NigiriFaucet(cobiBtcWallet.Address().EncodeAddress())
 		Expect(err).To(BeNil())
@@ -265,7 +266,7 @@ var _ = Describe("Executor", Ordered, func() {
 				cobiBtcWallet.Address().EncodeAddress(), cobiEthWallet.Address().Hex(),
 				aliceEthWallet.Address().Hex(), cobiEthWallet.Address().Hex(),
 				orderPair,
-				model.Initiated, model.Initiated,
+				model.Initiated, model.Redeemed,
 				model.Filled,
 				expiry.String(), expiry.String(), amount, hex.EncodeToString(secret), hex.EncodeToString(secretHash[:]))
 
@@ -279,7 +280,7 @@ var _ = Describe("Executor", Ordered, func() {
 
 			err := testutil.NigiriNewBlock()
 			Expect(err).To(BeNil())
-			time.Sleep(5 * time.Second)
+			time.Sleep(10 * time.Second)
 			Expect(strings.Contains(observer.All()[len(observer.All())-1].Message, "redeem tx hash")).Should(BeTrue())
 			Expect(observer.All()[len(observer.All())-1].Level == zap.InfoLevel).Should(BeTrue())
 
@@ -478,7 +479,7 @@ var _ = Describe("Executor", Ordered, func() {
 				cobiEthWallet.Address().Hex(), cobiBtcWallet.Address().EncodeAddress(),
 				aliceEthWallet.Address().Hex(), cobiBtcWallet.Address().EncodeAddress(),
 				orderPair,
-				model.Initiated, model.Initiated,
+				model.Initiated, model.Redeemed,
 				model.Filled,
 				expiry.String(), expiry.String(), amount, hex.EncodeToString(secret), hex.EncodeToString(secretHash[:]))
 
@@ -709,7 +710,7 @@ var _ = Describe("Executor", Ordered, func() {
 				cobiEthWallet.Address().Hex(), cobiBtcWallet.Address().EncodeAddress(),
 				aliceEthWallet.Address().Hex(), cobiBtcWallet.Address().EncodeAddress(),
 				orderPair,
-				model.Initiated, model.Initiated,
+				model.Initiated, model.Redeemed,
 				model.Filled,
 				expiry.String(), expiry.String(), amount, hex.EncodeToString(secret), hex.EncodeToString(secretHash[:]))
 			server.Msg <- rest.UpdatedOrders{

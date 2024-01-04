@@ -90,6 +90,25 @@ func (e *executor) Start() {
 	btcExecChan := e.startBtcExecutor(ctx)
 	e.chainWg.Add(1)
 
+	distributeSwap := func(OrderId uint, swap *model.AtomicSwap, execType ExecutorType, action ExecuteAction) {
+		switch swap.Chain {
+		case e.options.BTCChain:
+			btcExecChan <- SwapMsg{
+				OrderId: uint64(OrderId),
+				Type:    execType,
+				Swap:    *swap,
+				Action:  action,
+			}
+		case e.options.ETHChain:
+			ethExecChan <- SwapMsg{
+				OrderId: uint64(OrderId),
+				Type:    execType,
+				Swap:    *swap,
+				Action:  action,
+			}
+		}
+	}
+
 CONNECTIONLOOP:
 	for {
 		e.logger.Info("subcribing to socket")
@@ -112,44 +131,40 @@ CONNECTIONLOOP:
 					// execute orders
 					orders := response.Orders
 					e.logger.Info("recieved orders from the order book", zap.Int("count", len(orders)))
+
 					for _, order := range orders {
-						var execType ExecutorType
-						if order.Maker == e.signer.String() {
-							execType = Initiator
-						} else {
-							execType = Follower
-						}
 						if order.Status == model.Filled {
-							switch order.InitiatorAtomicSwap.Chain {
-							case e.options.ETHChain:
-								ethExecChan <- SwapMsg{
-									OrderId:           uint64(order.ID),
-									CounterSwapStatus: model.SwapStatus(order.FollowerAtomicSwap.Status),
-									Type:              execType,
-									Swap:              *order.InitiatorAtomicSwap,
+							if order.Maker == e.signer.String() {
+
+								status, err := e.store.Status(order.InitiatorAtomicSwap.SecretHash)
+								if err != nil {
+									e.logger.Error("order not found", zap.Error(err))
+									continue
 								}
-							case e.options.BTCChain:
-								btcExecChan <- SwapMsg{
-									OrderId:           uint64(order.ID),
-									CounterSwapStatus: model.SwapStatus(order.FollowerAtomicSwap.Status),
-									Type:              execType,
-									Swap:              *order.InitiatorAtomicSwap,
+								if order.InitiatorAtomicSwap.Status == model.NotStarted && status < store.InitiatorInitiated {
+									distributeSwap(order.ID, order.InitiatorAtomicSwap, Initiator, Initiate)
+								} else if order.InitiatorAtomicSwap.Status == model.Initiated &&
+									order.FollowerAtomicSwap.Status == model.Initiated && status < store.InitiatorRedeemed {
+									distributeSwap(order.ID, order.FollowerAtomicSwap, Initiator, Redeem)
+								} else if order.InitiatorAtomicSwap.Status == model.Expired && status < store.InitiatorRefunded {
+									distributeSwap(order.ID, order.InitiatorAtomicSwap, Initiator, Refund)
 								}
-							}
-							switch order.FollowerAtomicSwap.Chain {
-							case e.options.ETHChain:
-								ethExecChan <- SwapMsg{
-									OrderId:           uint64(order.ID),
-									CounterSwapStatus: model.SwapStatus(order.InitiatorAtomicSwap.Status),
-									Type:              execType,
-									Swap:              *order.FollowerAtomicSwap,
+							} else {
+
+								status, err := e.store.Status(order.FollowerAtomicSwap.SecretHash)
+								if err != nil {
+									e.logger.Error("order not found", zap.Error(err))
+									continue
 								}
-							case e.options.BTCChain:
-								btcExecChan <- SwapMsg{
-									OrderId:           uint64(order.ID),
-									CounterSwapStatus: model.SwapStatus(order.InitiatorAtomicSwap.Status),
-									Type:              execType,
-									Swap:              *order.FollowerAtomicSwap,
+
+								if order.InitiatorAtomicSwap.Status == model.Initiated &&
+									order.FollowerAtomicSwap.Status == model.NotStarted && status < store.FollowerInitiated {
+									distributeSwap(order.ID, order.FollowerAtomicSwap, Follower, Initiate)
+								} else if order.InitiatorAtomicSwap.Status == model.Initiated &&
+									order.FollowerAtomicSwap.Status == model.Redeemed && status < store.FollowerRedeemed {
+									distributeSwap(order.ID, order.InitiatorAtomicSwap, Follower, Redeem)
+								} else if order.FollowerAtomicSwap.Status == model.Expired && status < store.FollowerRefunded {
+									distributeSwap(order.ID, order.FollowerAtomicSwap, Follower, Refund)
 								}
 							}
 						}
