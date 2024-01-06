@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"strconv"
 	"sync"
 
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/catalogfi/blockchain/btc"
+	"github.com/catalogfi/orderbook/model"
 )
 
 type Swap struct {
@@ -51,6 +53,31 @@ func NewSwap(network *chaincfg.Params, initiatorAddr, redeemer btcutil.Address, 
 
 		mu: new(sync.Mutex),
 	}, nil
+}
+
+func FromAtomicSwap(swap *model.AtomicSwap) (Swap, error) {
+	secretHash, err := hex.DecodeString(swap.SecretHash)
+	if err != nil {
+		return Swap{}, fmt.Errorf("failed to decode secretHash, err : %v", err)
+	}
+	waitBlocks, err := strconv.ParseInt(swap.Timelock, 10, 64)
+	if err != nil {
+		return Swap{}, fmt.Errorf("failed to decode timelock, err : %v", err)
+	}
+	amount, err := strconv.ParseInt(swap.Amount, 10, 64)
+	if err != nil {
+		return Swap{}, fmt.Errorf("failed to decode amount, err : %v", err)
+
+	}
+	initiatorAddr, err := btcutil.DecodeAddress(swap.InitiatorAddress, swap.Chain.Params())
+	if err != nil {
+		return Swap{}, fmt.Errorf("failed to decode initiator address, err : %v", err)
+	}
+	redeemerAddr, err := btcutil.DecodeAddress(swap.RedeemerAddress, swap.Chain.Params())
+	if err != nil {
+		return Swap{}, fmt.Errorf("failed to decode redeemer address, err : %v", err)
+	}
+	return NewSwap(swap.Chain.Params(), initiatorAddr, redeemerAddr, amount, secretHash, waitBlocks)
 }
 
 func (swap *Swap) IsInitiator(address string) bool {

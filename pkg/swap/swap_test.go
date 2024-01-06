@@ -69,8 +69,7 @@ var _ = Describe("Swap between different chains", func() {
 			By("Bob constructs his swap on ethereum side")
 			amountErc20 := big.NewInt(1e18)
 			expiry := big.NewInt(6)
-			bobSwap, err := ethswap.NewSwap(bobEthWallet.Address(), aliceEthWallet.Address(), swapAddr, secretHash, amountErc20, expiry)
-			Expect(err).To(BeNil())
+			bobSwap := ethswap.NewSwap(bobEthWallet.Address(), aliceEthWallet.Address(), swapAddr, secretHash, amountErc20, expiry)
 
 			By("Check swap status")
 			initiated, _, err := aliceSwap.Initiated(ctx, btcClient)
@@ -181,8 +180,7 @@ var _ = Describe("Swap between different chains", func() {
 			By("Bob constructs his swap on ethereum side")
 			amountErc20 := big.NewInt(1e18)
 			expiry := big.NewInt(6)
-			bobSwap, err := ethswap.NewSwap(bobEthWallet.Address(), aliceEthWallet.Address(), swapAddr, secretHash, amountErc20, expiry)
-			Expect(err).To(BeNil())
+			bobSwap := ethswap.NewSwap(bobEthWallet.Address(), aliceEthWallet.Address(), swapAddr, secretHash, amountErc20, expiry)
 
 			By("Alice initiates the swap")
 			initiatedTx, err := aliceBtcWallet.Initiate(ctx, aliceSwap)

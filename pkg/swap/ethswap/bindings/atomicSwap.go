@@ -812,4 +812,3 @@ func (_AtomicSwap *AtomicSwapFilterer) ParseRefunded(log types.Log) (*AtomicSwap
 	event.Raw = log
 	return event, nil
 }
-

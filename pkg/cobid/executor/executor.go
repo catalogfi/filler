@@ -1,188 +1,174 @@
 package executor
 
 import (
-	"context"
+	"encoding/hex"
 	"fmt"
 	"sync"
 	"time"
 
-	"github.com/catalogfi/cobi/pkg/store"
-	"github.com/catalogfi/cobi/pkg/swap/btcswap"
-	"github.com/catalogfi/cobi/pkg/swap/ethswap"
 	"github.com/catalogfi/orderbook/model"
 	"github.com/catalogfi/orderbook/rest"
-	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"
 )
 
+type Action string
+
+var (
+	ActionInitiate Action = "initiate"
+	ActionRedeem   Action = "redeem"
+	ActionRefund   Action = "refund"
+)
+
+type ActionItem struct {
+	Action Action
+	Swap   *model.AtomicSwap
+}
+
 type Executor interface {
+
+	// Chain indicates which chain the executor is operating on.
+	Chain() model.Chain
+
+	// Execute the atomic swap with the given action.
+	Execute(action Action, swap *model.AtomicSwap)
+}
+
+// Executors contains a collection of Executor and will distribute task to different executors accordingly.
+type Executors interface {
+
+	// Starts listening orders and processing the swaps depending on status.
 	Start()
+
+	// Stop the Executors
 	Stop()
 }
 
-type executor struct {
-	btcWallet btcswap.Wallet
-	ethWallet ethswap.Wallet
-	signer    common.Address
-	client    rest.WSClient
-	options   Options
-	store     store.Store
-	logger    *zap.Logger
-	quit      chan struct{}
-	chainWg   *sync.WaitGroup
-	execWg    *sync.WaitGroup
+type executors struct {
+	logger  *zap.Logger
+	exes    map[model.Chain]Executor
+	address string
+	client  rest.WSClient
+	store   Store
+	quit    chan struct{}
+	wg      *sync.WaitGroup
 }
 
-func NewExecutor(
-	btcWallet btcswap.Wallet,
-	ethWallet ethswap.Wallet,
-	signer common.Address,
-	client rest.WSClient,
-	options Options,
-	store store.Store,
-	logger *zap.Logger,
-) Executor {
-	return &executor{
-		btcWallet: btcWallet,
-		ethWallet: ethWallet,
-		signer:    signer,
-		client:    client,
-		store:     store,
-		options:   options,
-		logger:    logger,
-		quit:      make(chan struct{}),
-		chainWg:   new(sync.WaitGroup),
-		execWg:    new(sync.WaitGroup),
+func New(logger *zap.Logger, exes []Executor, address string, client rest.WSClient, store Store) Executors {
+	exeMap := map[model.Chain]Executor{}
+	for _, exe := range exes {
+		exeMap[exe.Chain()] = exe
 	}
-
-}
-
-/*
-- will gracefully stop all the executors
-*/
-func (e *executor) Stop() {
-	defer func() {
-		close(e.quit)
-
-	}()
-	e.quit <- struct{}{}
-	e.execWg.Wait()
-}
-
-/*
-- signer is the ethereum public address used to authenticate with
-the orderbook server
-- btcWallets and ethwallets respectively should be generated using
-only one private, that is used by signer to create or fill the orders
-*/
-func (e *executor) Start() {
-	defer e.execWg.Done()
-	// to enable blocking stop message
-	e.execWg.Add(1)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	expSetBack := time.Second
-
-	// execChans, quitChans := e.startChainExecutors(btcWallets, ethWallets)
-	ethExecChan := e.startEthExecutor(ctx)
-	e.chainWg.Add(1)
-
-	btcExecChan := e.startBtcExecutor(ctx)
-	e.chainWg.Add(1)
-
-	distributeSwap := func(OrderId uint, swap *model.AtomicSwap, execType ExecutorType, action ExecuteAction) {
-		switch swap.Chain {
-		case e.options.BTCChain:
-			btcExecChan <- SwapMsg{
-				OrderId: uint64(OrderId),
-				Type:    execType,
-				Swap:    *swap,
-				Action:  action,
-			}
-		case e.options.ETHChain:
-			ethExecChan <- SwapMsg{
-				OrderId: uint64(OrderId),
-				Type:    execType,
-				Swap:    *swap,
-				Action:  action,
-			}
-		}
+	return executors{
+		logger:  logger,
+		exes:    exeMap,
+		address: address,
+		client:  client,
+		store:   store,
+		quit:    make(chan struct{}, 1),
+		wg:      new(sync.WaitGroup),
 	}
+}
 
-CONNECTIONLOOP:
-	for {
-		e.logger.Info("subcribing to socket")
-		// connect to the websocket and subscribe on the signer's address
-		e.client.Subscribe(fmt.Sprintf("subscribe::%v", e.signer))
-		respChan := e.client.Listen()
-	SIGNALOOP:
+func (exe executors) Start() {
+	exe.wg.Add(1)
+	go func() {
+		defer exe.wg.Done()
+
 		for {
+			exe.logger.Info(fmt.Sprintf("subscribing to orders of %v", exe.address))
+			exe.client.Subscribe(fmt.Sprintf("subscribe::%v", exe.address))
+			respChan := exe.client.Listen()
 
-			select {
-			case resp, ok := <-respChan:
-				if !ok {
-					break SIGNALOOP
-				}
-				expSetBack = time.Second
-				switch response := resp.(type) {
-				case rest.WebsocketError:
-					break SIGNALOOP
-				case rest.UpdatedOrders:
-					// execute orders
-					orders := response.Orders
-					e.logger.Info("recieved orders from the order book", zap.Int("count", len(orders)))
+		InnerLoop:
+			for {
+				select {
+				case resp, ok := <-respChan:
+					if !ok {
+						break InnerLoop
+					}
 
-					for _, order := range orders {
-						if order.Status == model.Filled {
-							if order.Maker == e.signer.String() {
-
-								status, err := e.store.Status(order.InitiatorAtomicSwap.SecretHash)
-								if err != nil {
-									e.logger.Error("order not found", zap.Error(err))
-									continue
-								}
-								if order.InitiatorAtomicSwap.Status == model.NotStarted && status < store.InitiatorInitiated {
-									distributeSwap(order.ID, order.InitiatorAtomicSwap, Initiator, Initiate)
-								} else if order.InitiatorAtomicSwap.Status == model.Initiated &&
-									order.FollowerAtomicSwap.Status == model.Initiated && status < store.InitiatorRedeemed {
-									distributeSwap(order.ID, order.FollowerAtomicSwap, Initiator, Redeem)
-								} else if order.InitiatorAtomicSwap.Status == model.Expired && status < store.InitiatorRefunded {
-									distributeSwap(order.ID, order.InitiatorAtomicSwap, Initiator, Refund)
-								}
-							} else {
-
-								status, err := e.store.Status(order.FollowerAtomicSwap.SecretHash)
-								if err != nil {
-									e.logger.Error("order not found", zap.Error(err))
-									continue
-								}
-
-								if order.InitiatorAtomicSwap.Status == model.Initiated &&
-									order.FollowerAtomicSwap.Status == model.NotStarted && status < store.FollowerInitiated {
-									distributeSwap(order.ID, order.FollowerAtomicSwap, Follower, Initiate)
-								} else if order.InitiatorAtomicSwap.Status == model.Initiated &&
-									order.FollowerAtomicSwap.Status == model.Redeemed && status < store.FollowerRedeemed {
-									distributeSwap(order.ID, order.InitiatorAtomicSwap, Follower, Redeem)
-								} else if order.FollowerAtomicSwap.Status == model.Expired && status < store.FollowerRefunded {
-									distributeSwap(order.ID, order.FollowerAtomicSwap, Follower, Refund)
-								}
+					switch response := resp.(type) {
+					case rest.WebsocketError:
+						break InnerLoop
+					case rest.UpdatedOrders:
+						for _, order := range response.Orders {
+							if err := exe.processOrder(order); err != nil {
+								exe.logger.Error("process order", zap.Error(err))
 							}
 						}
 					}
+				case <-exe.quit:
+					return
 				}
-				continue
-			case <-e.quit:
-				e.logger.Info("received quit channel signal")
-				cancel()
-				// waiting for executor to complete
-				e.chainWg.Wait()
-				break CONNECTIONLOOP
 			}
 
+			time.Sleep(5 * time.Second)
 		}
-		time.Sleep(expSetBack)
-		if expSetBack < (8 * time.Second) {
-			expSetBack *= 2
+	}()
+}
+
+func (exe executors) Stop() {
+	if exe.quit != nil {
+		close(exe.quit)
+		exe.wg.Wait()
+		exe.quit = nil
+	}
+}
+
+func (exe executors) processOrder(order model.Order) error {
+	if order.Status == model.Filled {
+		// We're the maker
+		if order.Maker == exe.address {
+			if order.InitiatorAtomicSwap.Status == model.NotStarted {
+				// initiate the InitiatorAtomicSwap
+				exe.execute(ActionInitiate, order.InitiatorAtomicSwap)
+			} else if order.InitiatorAtomicSwap.Status == model.Initiated &&
+				order.FollowerAtomicSwap.Status == model.Initiated {
+				// redeem the FollowerAtomicSwap
+				secretHash, err := hex.DecodeString(order.FollowerAtomicSwap.SecretHash)
+				if err != nil {
+					return err
+				}
+				secret, err := exe.store.Secret(secretHash)
+				if err != nil {
+					return err
+				}
+				order.FollowerAtomicSwap.Secret = hex.EncodeToString(secret)
+				exe.execute(ActionRedeem, order.FollowerAtomicSwap)
+			} else if order.InitiatorAtomicSwap.Status == model.Expired {
+				// refund the InitiatorAtomicSwap
+				exe.execute(ActionRefund, order.InitiatorAtomicSwap)
+			}
+		}
+
+		// We're the taker
+		if order.Taker == exe.address {
+			if order.InitiatorAtomicSwap.Status == model.Initiated &&
+				order.FollowerAtomicSwap.Status == model.NotStarted {
+				// initiate the FollowerAtomicSwap
+				exe.execute(ActionInitiate, order.FollowerAtomicSwap)
+			} else if order.InitiatorAtomicSwap.Status == model.Initiated &&
+				order.FollowerAtomicSwap.Status == model.Redeemed {
+				// redeem the InitiatorAtomicSwap
+				if order.FollowerAtomicSwap.Secret == "" {
+					return fmt.Errorf("missing secret")
+				}
+				exe.execute(ActionRedeem, order.InitiatorAtomicSwap)
+			} else if order.FollowerAtomicSwap.Status == model.Expired {
+				// refund the FollowerAtomicSwap
+				exe.execute(ActionRefund, order.FollowerAtomicSwap)
+			}
 		}
 	}
+	return nil
+}
+
+func (exe executors) execute(action Action, swap *model.AtomicSwap) {
+	etr, ok := exe.exes[swap.Chain]
+	if !ok {
+		// Skip execution since the chain is not supported
+		return
+	}
+
+	etr.Execute(action, swap)
 }

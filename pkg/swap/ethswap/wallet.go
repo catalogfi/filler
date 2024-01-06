@@ -20,11 +20,11 @@ type Wallet interface {
 
 	Balance(ctx context.Context, tokenAddr *common.Address, pending bool) (*big.Int, error)
 
-	Initiate(ctx context.Context, swap *Swap) (string, error)
+	Initiate(ctx context.Context, swap Swap) (string, error)
 
-	Redeem(ctx context.Context, swap *Swap, secret []byte) (string, error)
+	Redeem(ctx context.Context, swap Swap, secret []byte) (string, error)
 
-	Refund(ctx context.Context, swap *Swap) (string, error)
+	Refund(ctx context.Context, swap Swap) (string, error)
 }
 
 type wallet struct {
@@ -97,7 +97,7 @@ func (wallet *wallet) Balance(ctx context.Context, tokenAddr *common.Address, pe
 	}
 }
 
-func (wallet *wallet) Initiate(ctx context.Context, swap *Swap) (string, error) {
+func (wallet *wallet) Initiate(ctx context.Context, swap Swap) (string, error) {
 	allowance, err := wallet.token.Allowance(&bind.CallOpts{}, swap.Initiator, wallet.options.SwapAddr)
 	if err != nil {
 		return "", err
@@ -130,7 +130,7 @@ func (wallet *wallet) Initiate(ctx context.Context, swap *Swap) (string, error) 
 	return receipt.TxHash.String(), nil
 }
 
-func (wallet *wallet) Redeem(ctx context.Context, swap *Swap, secret []byte) (string, error) {
+func (wallet *wallet) Redeem(ctx context.Context, swap Swap, secret []byte) (string, error) {
 	transactor, err := bind.NewKeyedTransactorWithChainID(wallet.key, wallet.options.ChainID)
 	if err != nil {
 		return "", err
@@ -147,7 +147,7 @@ func (wallet *wallet) Redeem(ctx context.Context, swap *Swap, secret []byte) (st
 	return receipt.TxHash.String(), nil
 }
 
-func (wallet *wallet) Refund(ctx context.Context, swap *Swap) (string, error) {
+func (wallet *wallet) Refund(ctx context.Context, swap Swap) (string, error) {
 	transactor, err := bind.NewKeyedTransactorWithChainID(wallet.key, wallet.options.ChainID)
 	if err != nil {
 		return "", err
