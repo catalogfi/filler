@@ -147,7 +147,7 @@ For further interaction docs with cobi-cli refer [cli docs](docs/cli.md)
 - `cli` : contains all `cobra` cli commands. which can be used by user to communicate with json-rpc daemon
   - `commands` : cobra Commands abstracted into different file. these files resemble files in `handlers` which indicate one-on-one logic mapping for server logic in our architecture.
 - `daemon` : core services of cobid background processes
-  - `executor` : this `daemon` process runs in background with responsibility of executing its part of atomicSwap trade based on websocket events recieved from websocket from `Catalog Orderbook`
+  - `executor` : this `daemon` process runs in background with responsibility of executing its part of atomicSwap trade based on websocket events received from websocket from `Catalog Orderbook`
   - `rpc` : json-rpc server which handles and operates executors and fillers. `rpc` is also used to do wallet specific tasks and handling users instantWallets
     - `handlers` : rpc handlers to operate and interact with daemon efficiently
   - `strategy` : these are daemon process responsible for running autofill and autoCreate logic for your defined strategies
