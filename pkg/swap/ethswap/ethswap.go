@@ -7,6 +7,7 @@ import (
 	"math/big"
 
 	"github.com/catalogfi/cobi/pkg/swap/ethswap/bindings"
+	"github.com/catalogfi/orderbook/model"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -20,15 +21,12 @@ type Swap struct {
 	Amount     *big.Int
 	Expiry     *big.Int
 	Contract   common.Address
-
-	// TODO : MIGHT WORTH CACHING SOME OF THE RESULTS
-	secret []byte
 }
 
-func NewSwap(initiator, redeemer, contract common.Address, secretHash common.Hash, amount, expiry *big.Int) (*Swap, error) {
+func NewSwap(initiator, redeemer, contract common.Address, secretHash common.Hash, amount, expiry *big.Int) Swap {
 	id := sha256.Sum256(append(secretHash[:], common.BytesToHash(initiator.Bytes()).Bytes()...))
 
-	return &Swap{
+	return Swap{
 		ID:         id,
 		Initiator:  initiator,
 		Redeemer:   redeemer,
@@ -36,7 +34,7 @@ func NewSwap(initiator, redeemer, contract common.Address, secretHash common.Has
 		Amount:     amount,
 		Expiry:     expiry,
 		Contract:   contract,
-	}, nil
+	}
 }
 
 func (swap *Swap) Initiated(ctx context.Context, client *ethclient.Client) (bool, error) {
@@ -55,10 +53,6 @@ func (swap *Swap) Initiated(ctx context.Context, client *ethclient.Client) (bool
 }
 
 func (swap *Swap) Redeemed(ctx context.Context, client *ethclient.Client) (bool, error) {
-	if len(swap.secret) != 0 {
-		return true, nil
-	}
-
 	// Check if the swap has been redeemed
 	atomicSwap, err := bindings.NewAtomicSwap(swap.Contract, client)
 	if err != nil {
@@ -72,10 +66,6 @@ func (swap *Swap) Redeemed(ctx context.Context, client *ethclient.Client) (bool,
 }
 
 func (swap *Swap) Secret(ctx context.Context, client *ethclient.Client, step uint64) ([]byte, error) {
-	if len(swap.secret) != 0 {
-		return swap.secret, nil
-	}
-
 	// Check if the swap has been redeemed
 	atomicSwap, err := bindings.NewAtomicSwap(swap.Contract, client)
 	if err != nil {
@@ -144,4 +134,31 @@ func (swap *Swap) Expired(ctx context.Context, client *ethclient.Client) (bool, 
 		return false, err
 	}
 	return latest.Header().Number.Int64()-details.InitiatedAt.Int64() >= details.Expiry.Int64(), nil
+}
+
+func FromAtomicSwap(atomicSwap *model.AtomicSwap) (Swap, error) {
+	waitBlocks, ok := new(big.Int).SetString(atomicSwap.Timelock, 10)
+	if !ok {
+		return Swap{}, fmt.Errorf("failed to decode timelock")
+	}
+	amount, ok := new(big.Int).SetString(atomicSwap.Amount, 10)
+	if !ok {
+		return Swap{}, fmt.Errorf("failed to decode amount")
+	}
+	if !common.IsHexAddress(atomicSwap.InitiatorAddress) {
+		return Swap{}, fmt.Errorf("failed to decode initiator address")
+	}
+	initiatorAddr := common.HexToAddress(atomicSwap.InitiatorAddress)
+
+	if !common.IsHexAddress(atomicSwap.RedeemerAddress) {
+		return Swap{}, fmt.Errorf("failed to decode redeemer address")
+	}
+	redeemerAddr := common.HexToAddress(atomicSwap.RedeemerAddress)
+
+	if !common.IsHexAddress(string(atomicSwap.Asset)) {
+		return Swap{}, fmt.Errorf("failed to decode asset address")
+	}
+	contractAddr := common.HexToAddress(string(atomicSwap.Asset))
+
+	return NewSwap(initiatorAddr, redeemerAddr, contractAddr, common.HexToHash(atomicSwap.SecretHash), amount, waitBlocks), nil
 }

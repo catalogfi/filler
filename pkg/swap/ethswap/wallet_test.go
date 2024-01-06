@@ -54,8 +54,7 @@ var _ = Describe("Ethereum Atomic Swap", func() {
 			secret := testutil.RandomSecret()
 			secretHash := sha256.Sum256(secret)
 			expiry := big.NewInt(6)
-			swap, err := ethswap.NewSwap(aliceWallet.Address(), bobWallet.Address(), swapAddr, secretHash, amount, expiry)
-			Expect(err).To(BeNil())
+			swap := ethswap.NewSwap(aliceWallet.Address(), bobWallet.Address(), swapAddr, secretHash, amount, expiry)
 
 			By("Alice initiates the swap")
 			initTx, err := aliceWallet.Initiate(ctx, swap)
@@ -112,8 +111,7 @@ var _ = Describe("Ethereum Atomic Swap", func() {
 			secret := testutil.RandomSecret()
 			secretHash := sha256.Sum256(secret)
 			expiry := big.NewInt(6)
-			swap, err := ethswap.NewSwap(aliceWallet.Address(), bobWallet.Address(), swapAddr, secretHash, amount, expiry)
-			Expect(err).To(BeNil())
+			swap := ethswap.NewSwap(aliceWallet.Address(), bobWallet.Address(), swapAddr, secretHash, amount, expiry)
 
 			By("Alice initiates the swap")
 			initTx, err := aliceWallet.Initiate(ctx, swap)

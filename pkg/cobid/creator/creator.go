@@ -8,12 +8,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/catalogfi/cobi/pkg/store"
 	"github.com/catalogfi/cobi/pkg/util"
 	"github.com/catalogfi/orderbook/model"
 	"github.com/catalogfi/orderbook/rest"
 	"go.uber.org/zap"
 )
+
+type Store interface {
+	// PutSecret stores the secret.
+	PutSecret(hash, secret []byte) error
+}
 
 type Creator interface {
 	Start() error
@@ -25,7 +29,7 @@ type creator struct {
 	ethAddress string
 	restClient rest.Client
 	strategy   *Strategy
-	store      store.Store
+	store      Store
 	logger     *zap.Logger
 	quit       chan struct{}
 	execWg     *sync.WaitGroup
@@ -36,7 +40,7 @@ func NewCreator(
 	ethAddress string,
 	restClient rest.Client,
 	strategy *Strategy,
-	store store.Store,
+	store Store,
 	logger *zap.Logger,
 ) (Creator, error) {
 	fromChain, toChain, _, _, err := model.ParseOrderPair(strategy.orderPair)
@@ -125,16 +129,15 @@ func (c *creator) Start() error {
 					break
 				}
 				secretHash := sha256.Sum256(secret[:])
-				secretStr := hex.EncodeToString(secret[:])
 
 				// TODO: virtual Balance Checks After InstantWallet
-				id, err := c.restClient.CreateOrder(fromAddress, toAddress, c.strategy.orderPair, c.strategy.Amount.String(), receiveAmount.String(), hex.EncodeToString(secretHash[:]))
+				_, err = c.restClient.CreateOrder(fromAddress, toAddress, c.strategy.orderPair, c.strategy.Amount.String(), receiveAmount.String(), hex.EncodeToString(secretHash[:]))
 				if err != nil {
 					c.logger.Error("failed creating order", zap.Error(err))
 					break
 				}
 
-				if err := c.store.PutSecret(hex.EncodeToString(secretHash[:]), &secretStr, uint64(id)); err != nil {
+				if err := c.store.PutSecret(secretHash[:], secret[:]); err != nil {
 					c.logger.Error("failed storing secret", zap.Error(err))
 					break
 				}

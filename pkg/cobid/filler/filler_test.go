@@ -10,12 +10,10 @@ import (
 	testutil2 "github.com/catalogfi/blockchain/testutil"
 	"github.com/catalogfi/cobi/pkg/cobid/filler"
 	"github.com/catalogfi/cobi/pkg/mock"
-	"github.com/catalogfi/cobi/pkg/store"
 	"github.com/catalogfi/orderbook/model"
 	"github.com/catalogfi/orderbook/rest"
 	"github.com/ethereum/go-ethereum/trie/testutil"
 	"go.uber.org/zap"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -69,11 +67,7 @@ var _ = Describe("Filler", func() {
 			}
 
 			By("Create the filler")
-			db, err := gorm.Open(sqlite.Open("test.db"))
-			Expect(err).To(BeNil())
-			st, err := store.NewStore(db)
-			Expect(err).To(BeNil())
-			filler := filler.New(stgs, restClient, wsClient, st, logger)
+			filler := filler.New(stgs, restClient, wsClient, logger)
 
 			By("Start the filler")
 			Expect(filler.Start()).Should(Succeed())

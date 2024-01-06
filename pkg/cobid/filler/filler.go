@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/catalogfi/cobi/pkg/store"
 	"github.com/catalogfi/orderbook/rest"
 	"go.uber.org/zap"
 )
@@ -21,18 +20,16 @@ type filler struct {
 	strategies Strategies
 	restClient rest.Client
 	wsClient   rest.WSClient
-	store      store.Store
 	logger     *zap.Logger
 	quit       chan struct{}
 	wg         *sync.WaitGroup
 }
 
-func New(strategies Strategies, restClient rest.Client, wsClient rest.WSClient, store store.Store, logger *zap.Logger) Filler {
+func New(strategies Strategies, restClient rest.Client, wsClient rest.WSClient, logger *zap.Logger) Filler {
 	return &filler{
 		strategies: strategies,
 		restClient: restClient,
 		wsClient:   wsClient,
-		store:      store,
 		logger:     logger,
 		quit:       make(chan struct{}),
 		wg:         new(sync.WaitGroup),
@@ -80,10 +77,6 @@ func (f *filler) Start() error {
 										continue
 									}
 
-									if err := f.store.PutSecret(order.SecretHash, nil, uint64(order.ID)); err != nil {
-										f.logger.Error("❌ [STORE] put secret", zap.Error(err))
-										continue
-									}
 									f.logger.Info("✅ [FILL]", zap.Uint("id", order.ID))
 								}
 							}
