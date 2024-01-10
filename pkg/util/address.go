@@ -1,11 +1,14 @@
 package util
 
 import (
+	"crypto/ecdsa"
 	"fmt"
 
+	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/catalogfi/orderbook/model"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 func ValidateAddress(chain model.Chain, address string) error {
@@ -20,4 +23,13 @@ func ValidateAddress(chain model.Chain, address string) error {
 	} else {
 		return fmt.Errorf("unknown chain: %v", chain)
 	}
+}
+
+func BtcecToECDSA(key *btcec.PrivateKey) (*ecdsa.PrivateKey, error) {
+	return crypto.ToECDSA(key.Serialize())
+}
+
+func EcdsaToBtcec(key *ecdsa.PrivateKey) *btcec.PrivateKey {
+	pk, _ := btcec.PrivKeyFromBytes(crypto.FromECDSA(key))
+	return pk
 }

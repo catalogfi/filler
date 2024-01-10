@@ -58,7 +58,7 @@ func NewWallet(options Options, key *ecdsa.PrivateKey, client *ethclient.Client)
 		return nil, err
 	}
 	if options.ChainID.Cmp(chainID) != 0 {
-		return nil, fmt.Errorf("wrong chain ID")
+		return nil, fmt.Errorf("wrong chain ID, expect %v, got %v", options.ChainID, chainID)
 	}
 
 	return &wallet{

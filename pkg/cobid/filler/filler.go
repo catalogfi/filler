@@ -18,18 +18,18 @@ type Filler interface {
 
 type filler struct {
 	strategies Strategies
+	orderbook  string
 	restClient rest.Client
-	wsClient   rest.WSClient
 	logger     *zap.Logger
 	quit       chan struct{}
 	wg         *sync.WaitGroup
 }
 
-func New(strategies Strategies, restClient rest.Client, wsClient rest.WSClient, logger *zap.Logger) Filler {
+func New(strategies Strategies, restClient rest.Client, orderbook string, logger *zap.Logger) Filler {
 	return &filler{
 		strategies: strategies,
+		orderbook:  orderbook,
 		restClient: restClient,
-		wsClient:   wsClient,
 		logger:     logger,
 		quit:       make(chan struct{}),
 		wg:         new(sync.WaitGroup),
@@ -54,8 +54,9 @@ func (f *filler) Start() error {
 
 			for {
 				f.logger.Info("subscribing to orderPair", zap.String("orderPair", orderPair))
-				f.wsClient.Subscribe(fmt.Sprintf("subscribe::%v", orderPair))
-				respChan := f.wsClient.Listen()
+				client := rest.NewWSClient(fmt.Sprintf("wss://%s/", f.orderbook), f.logger)
+				client.Subscribe(fmt.Sprintf("subscribe::%v", orderPair))
+				respChan := client.Listen()
 
 			Orders:
 				for {
@@ -71,8 +72,9 @@ func (f *filler) Start() error {
 						case rest.OpenOrders:
 							orders := response.Orders
 							for _, order := range orders {
+								// TODO : BALANCE CHECK TO MAKE SURE WE HAVE ENOUGH AMOUNT TO EXECUTE
 								if strategy.Match(order) {
-									if err := f.restClient.FillOrder(order.ID, strategy.FromAddress, strategy.ToAddress); err != nil {
+									if err := f.restClient.FillOrder(order.ID, strategy.SendAddress, strategy.ReceiveAddress); err != nil {
 										f.logger.Error("❌ [FILL]", zap.Uint("id", order.ID), zap.Error(err))
 										continue
 									}

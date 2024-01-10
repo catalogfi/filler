@@ -59,7 +59,7 @@ var _ = Describe("Filler", func() {
 			}
 			orderFilled := false
 			restClient.FuncFillOrder = func(id uint, from string, to string) error {
-				if id != order.ID || from != stg.FromAddress || to != stg.ToAddress {
+				if id != order.ID || from != stg.SendAddress || to != stg.ReceiveAddress {
 					return fmt.Errorf("wrong")
 				}
 				orderFilled = true

@@ -15,37 +15,38 @@ type Strategies []Strategy
 // Strategy defines the criteria of whether an order should be filled by the Filler. It is basing on the order pair, and
 // each order pair will have its own strategy.
 type Strategy struct {
-	OrderPair   string
-	FromAddress string
-	ToAddress   string
-	Makers      []string // whitelisted makers, nil means allowing any address
-	MinAmount   *big.Int // minimum amount, nil means no minimum requirement
-	MaxAmount   *big.Int // maximum amount, nil means no maximum requirement
-	Fee         int      // fee in basic point (0.01%)
+	OrderPair      string
+	SendAddress    string
+	ReceiveAddress string
+	Makers         []string // whitelisted makers, nil means allowing any address
+	MinAmount      *big.Int // minimum amount, nil means no minimum requirement
+	MaxAmount      *big.Int // maximum amount, nil means no maximum requirement
+	Fee            int      // fee in basic point (0.01%)
 }
 
 // NewStrategy returns a new strategy with
-func NewStrategy(orderPair, from, to string, makers []string, minAmount *big.Int, maxAmount *big.Int, fee int) (Strategy, error) {
+func NewStrategy(orderPair, send, receive string, makers []string, minAmount *big.Int, maxAmount *big.Int, fee int) (Strategy, error) {
 	// Validate the order pair and addresses.
-	toChain, fromChain, _, _, err := model.ParseOrderPair(orderPair)
+	receiveChain, sendChain, _, _, err := model.ParseOrderPair(orderPair)
 	if err != nil {
 		return Strategy{}, err
 	}
-	if err := ValidateAddress(toChain, to); err != nil {
+	// Since the fromChain is relative to the order maker, so we need to check our from address.
+	if err := ValidateAddress(sendChain, send); err != nil {
 		return Strategy{}, err
 	}
-	if err := ValidateAddress(fromChain, from); err != nil {
+	if err := ValidateAddress(receiveChain, receive); err != nil {
 		return Strategy{}, err
 	}
 
 	return Strategy{
-		OrderPair:   orderPair,
-		FromAddress: from,
-		ToAddress:   to,
-		Makers:      makers,
-		MinAmount:   minAmount,
-		MaxAmount:   maxAmount,
-		Fee:         fee,
+		OrderPair:      orderPair,
+		SendAddress:    send,
+		ReceiveAddress: receive,
+		Makers:         makers,
+		MinAmount:      minAmount,
+		MaxAmount:      maxAmount,
+		Fee:            fee,
 	}, nil
 }
 

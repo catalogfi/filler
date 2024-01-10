@@ -1,10 +1,27 @@
 package btcswap
 
-import "github.com/btcsuite/btcd/chaincfg"
+import (
+	"fmt"
+
+	"github.com/btcsuite/btcd/chaincfg"
+)
 
 type Options struct {
 	Network *chaincfg.Params
 	FeeTier string
+}
+
+func NewWalletOptions(network *chaincfg.Params) Options {
+	switch network.Name {
+	case chaincfg.MainNetParams.Name:
+		return OptionsMainnet()
+	case chaincfg.TestNet3Params.Name:
+		return OptionsTestnet()
+	case chaincfg.RegressionNetParams.Name:
+		return OptionsRegression()
+	default:
+		panic(fmt.Sprintf("unknown network = %v", network.Name))
+	}
 }
 
 func OptionsMainnet() Options {

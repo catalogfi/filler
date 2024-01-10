@@ -3,6 +3,7 @@ package executor
 import (
 	"encoding/hex"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -36,7 +37,7 @@ type Executor interface {
 // Executors contains a collection of Executor and will distribute task to different executors accordingly.
 type Executors interface {
 
-	// Starts listening orders and processing the swaps depending on status.
+	// Start listening orders and processing the swaps depending on status.
 	Start()
 
 	// Stop the Executors
@@ -61,7 +62,7 @@ func New(logger *zap.Logger, exes []Executor, address string, client rest.WSClie
 	return executors{
 		logger:  logger,
 		exes:    exeMap,
-		address: address,
+		address: strings.ToLower(address),
 		client:  client,
 		store:   store,
 		quit:    make(chan struct{}, 1),
@@ -117,6 +118,9 @@ func (exe executors) Stop() {
 
 func (exe executors) processOrder(order model.Order) error {
 	if order.Status == model.Filled {
+		order.FollowerAtomicSwap.SecretHash = order.SecretHash  // this is not populated by the orderbook
+		order.InitiatorAtomicSwap.SecretHash = order.SecretHash // this is not populated by the orderbook
+
 		// We're the maker
 		if order.Maker == exe.address {
 			if order.InitiatorAtomicSwap.Status == model.NotStarted {
