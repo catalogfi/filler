@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strconv"
-	"sync"
 
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
@@ -16,19 +15,13 @@ import (
 type Swap struct {
 	Network    *chaincfg.Params
 	Amount     int64
+	Secret     []byte
 	SecretHash []byte
 	WaitBlock  int64
 	Address    btcutil.Address
 	Initiator  btcutil.Address
 	Redeemer   btcutil.Address
 	Script     []byte
-
-	// Cached results
-	mu             *sync.Mutex
-	initiatedBlock uint64
-	initiatedTx    []string
-	initiatedAddrs []string
-	secret         []byte
 }
 
 func NewSwap(network *chaincfg.Params, initiatorAddr, redeemer btcutil.Address, amount int64, secretHash []byte, waitBlock int64) (Swap, error) {
@@ -50,8 +43,6 @@ func NewSwap(network *chaincfg.Params, initiatorAddr, redeemer btcutil.Address, 
 		Initiator:  initiatorAddr,
 		Redeemer:   redeemer,
 		Script:     htlc,
-
-		mu: new(sync.Mutex),
 	}, nil
 }
 
@@ -92,14 +83,6 @@ func (swap *Swap) IsRedeemer(address string) bool {
 // confirmed initiated tx. The swap doesn't have an idea about block confirmations. It will let the caller decide if the
 // swap initiation has reached enough confirmation.
 func (swap *Swap) Initiated(ctx context.Context, client btc.IndexerClient) (bool, uint64, error) {
-	swap.mu.Lock()
-	defer swap.mu.Unlock()
-
-	// TODO : this doesn't consider block reorg
-	if len(swap.initiatedTx) != 0 && swap.initiatedBlock != 0 {
-		return true, swap.initiatedBlock, nil
-	}
-
 	// Fetch all utxos
 	utxos, err := client.GetUTXOs(ctx, swap.Address)
 	if err != nil {
@@ -119,25 +102,10 @@ func (swap *Swap) Initiated(ctx context.Context, client btc.IndexerClient) (bool
 		}
 	}
 
-	// Cache the result
-	if total >= swap.Amount {
-		swap.initiatedBlock = blockHeight
-		swap.initiatedTx = txs
-	}
-
 	return total >= swap.Amount, blockHeight, nil
 }
 
 func (swap *Swap) Initiators(ctx context.Context, client btc.IndexerClient) ([]string, error) {
-	swap.mu.Lock()
-	defer swap.mu.Unlock()
-
-	// Return previously cached result
-	// TODO : this doesn't consider block reorg
-	if len(swap.initiatedAddrs) != 0 {
-		return swap.initiatedAddrs, nil
-	}
-
 	// Fetch all utxos
 	utxos, err := client.GetUTXOs(ctx, swap.Address)
 	if err != nil {
@@ -180,11 +148,8 @@ func (swap *Swap) Initiators(ctx context.Context, client btc.IndexerClient) ([]s
 }
 
 func (swap *Swap) Redeemed(ctx context.Context, client btc.IndexerClient) (bool, []byte, error) {
-	swap.mu.Lock()
-	defer swap.mu.Unlock()
-
-	if len(swap.secret) != 0 {
-		return true, swap.secret, nil
+	if len(swap.Secret) != 0 {
+		return true, swap.Secret, nil
 	}
 
 	txs, err := client.GetAddressTxs(ctx, swap.Address)
@@ -210,8 +175,8 @@ func (swap *Swap) Redeemed(ctx context.Context, client btc.IndexerClient) (bool,
 						return false, nil, err
 					}
 
-					swap.secret = secretBytes
-					return true, swap.secret, nil
+					swap.Secret = secretBytes
+					return true, swap.Secret, nil
 				}
 			}
 		}

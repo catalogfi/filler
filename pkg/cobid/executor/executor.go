@@ -7,21 +7,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/catalogfi/cobi/pkg/swap"
 	"github.com/catalogfi/orderbook/model"
 	"github.com/catalogfi/orderbook/rest"
 	"go.uber.org/zap"
 )
 
-type Action string
-
-var (
-	ActionInitiate Action = "initiate"
-	ActionRedeem   Action = "redeem"
-	ActionRefund   Action = "refund"
-)
-
 type ActionItem struct {
-	Action Action
+	Action swap.Action
 	Swap   *model.AtomicSwap
 }
 
@@ -31,7 +24,7 @@ type Executor interface {
 	Chain() model.Chain
 
 	// Execute the atomic swap with the given action.
-	Execute(action Action, swap *model.AtomicSwap)
+	Execute(action swap.Action, swap *model.AtomicSwap)
 }
 
 // Executors contains a collection of Executor and will distribute task to different executors accordingly.
@@ -125,7 +118,7 @@ func (exe executors) processOrder(order model.Order) error {
 		if order.Maker == exe.address {
 			if order.InitiatorAtomicSwap.Status == model.NotStarted {
 				// initiate the InitiatorAtomicSwap
-				exe.execute(ActionInitiate, order.InitiatorAtomicSwap)
+				exe.execute(swap.ActionInitiate, order.InitiatorAtomicSwap)
 			} else if order.InitiatorAtomicSwap.Status == model.Initiated &&
 				order.FollowerAtomicSwap.Status == model.Initiated {
 				// redeem the FollowerAtomicSwap
@@ -138,10 +131,10 @@ func (exe executors) processOrder(order model.Order) error {
 					return err
 				}
 				order.FollowerAtomicSwap.Secret = hex.EncodeToString(secret)
-				exe.execute(ActionRedeem, order.FollowerAtomicSwap)
+				exe.execute(swap.ActionRedeem, order.FollowerAtomicSwap)
 			} else if order.InitiatorAtomicSwap.Status == model.Expired {
 				// refund the InitiatorAtomicSwap
-				exe.execute(ActionRefund, order.InitiatorAtomicSwap)
+				exe.execute(swap.ActionRefund, order.InitiatorAtomicSwap)
 			}
 		}
 
@@ -150,24 +143,25 @@ func (exe executors) processOrder(order model.Order) error {
 			if order.InitiatorAtomicSwap.Status == model.Initiated &&
 				order.FollowerAtomicSwap.Status == model.NotStarted {
 				// initiate the FollowerAtomicSwap
-				exe.execute(ActionInitiate, order.FollowerAtomicSwap)
+				exe.execute(swap.ActionInitiate, order.FollowerAtomicSwap)
 			} else if order.InitiatorAtomicSwap.Status == model.Initiated &&
 				order.FollowerAtomicSwap.Status == model.Redeemed {
 				// redeem the InitiatorAtomicSwap
 				if order.FollowerAtomicSwap.Secret == "" {
 					return fmt.Errorf("missing secret")
 				}
-				exe.execute(ActionRedeem, order.InitiatorAtomicSwap)
+				order.InitiatorAtomicSwap.Secret = order.FollowerAtomicSwap.Secret
+				exe.execute(swap.ActionRedeem, order.InitiatorAtomicSwap)
 			} else if order.FollowerAtomicSwap.Status == model.Expired {
 				// refund the FollowerAtomicSwap
-				exe.execute(ActionRefund, order.FollowerAtomicSwap)
+				exe.execute(swap.ActionRefund, order.FollowerAtomicSwap)
 			}
 		}
 	}
 	return nil
 }
 
-func (exe executors) execute(action Action, swap *model.AtomicSwap) {
+func (exe executors) execute(action swap.Action, swap *model.AtomicSwap) {
 	etr, ok := exe.exes[swap.Chain]
 	if !ok {
 		// Skip execution since the chain is not supported

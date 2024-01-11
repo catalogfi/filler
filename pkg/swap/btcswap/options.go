@@ -4,11 +4,13 @@ import (
 	"fmt"
 
 	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/catalogfi/blockchain/btc"
 )
 
 type Options struct {
-	Network *chaincfg.Params
-	FeeTier string
+	Network     *chaincfg.Params
+	AddressType btc.AddressType
+	FeeTier     string
 }
 
 func NewWalletOptions(network *chaincfg.Params) Options {
@@ -26,22 +28,25 @@ func NewWalletOptions(network *chaincfg.Params) Options {
 
 func OptionsMainnet() Options {
 	return Options{
-		Network: &chaincfg.MainNetParams,
-		FeeTier: "high",
+		Network:     &chaincfg.MainNetParams,
+		AddressType: btc.AddressP2WPKH,
+		FeeTier:     "high",
 	}
 }
 
 func OptionsTestnet() Options {
 	return Options{
-		Network: &chaincfg.TestNet3Params,
-		FeeTier: "medium",
+		Network:     &chaincfg.TestNet3Params,
+		AddressType: btc.AddressP2WPKH,
+		FeeTier:     "medium",
 	}
 }
 
 func OptionsRegression() Options {
 	return Options{
-		Network: &chaincfg.RegressionNetParams,
-		FeeTier: "low",
+		Network:     &chaincfg.RegressionNetParams,
+		AddressType: btc.AddressP2WPKH,
+		FeeTier:     "low",
 	}
 }
 
@@ -52,5 +57,10 @@ func (opts Options) WithNetwork(network *chaincfg.Params) Options {
 
 func (opts Options) WithFeeTier(feeTier string) Options {
 	opts.FeeTier = feeTier
+	return opts
+}
+
+func (opts Options) WithAddressType(addressType btc.AddressType) Options {
+	opts.AddressType = addressType
 	return opts
 }

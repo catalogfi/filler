@@ -3,15 +3,17 @@ package executor
 import (
 	"encoding/hex"
 	"sync"
+
+	"github.com/catalogfi/cobi/pkg/swap"
 )
 
 type Store interface {
 
 	// RecordAction keeps track of an action has been done on the swap of the given id.
-	RecordAction(action Action, swapID uint) error
+	RecordAction(action swap.Action, swapID uint) error
 
 	// CheckAction returns if an action has been done on the swap previously
-	CheckAction(action Action, swapID uint) (bool, error)
+	CheckAction(action swap.Action, swapID uint) (bool, error)
 
 	// PutSecret stores the secret.
 	PutSecret(hash, secret []byte) error
@@ -25,7 +27,7 @@ func NewInMemStore() Store {
 		secretMu: new(sync.Mutex),
 		secrets:  map[string][]byte{},
 		actionMu: new(sync.Mutex),
-		actions:  map[Action]map[uint]bool{},
+		actions:  map[swap.Action]map[uint]bool{},
 	}
 }
 
@@ -34,10 +36,10 @@ type InMemStore struct {
 	secrets  map[string][]byte
 
 	actionMu *sync.Mutex
-	actions  map[Action]map[uint]bool
+	actions  map[swap.Action]map[uint]bool
 }
 
-func (store *InMemStore) RecordAction(action Action, swapID uint) error {
+func (store *InMemStore) RecordAction(action swap.Action, swapID uint) error {
 	store.actionMu.Lock()
 	defer store.actionMu.Unlock()
 
@@ -51,7 +53,7 @@ func (store *InMemStore) RecordAction(action Action, swapID uint) error {
 	return nil
 }
 
-func (store *InMemStore) CheckAction(action Action, swapID uint) (bool, error) {
+func (store *InMemStore) CheckAction(action swap.Action, swapID uint) (bool, error) {
 	store.actionMu.Lock()
 	defer store.actionMu.Unlock()
 
