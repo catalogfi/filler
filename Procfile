@@ -1,0 +1,1 @@
+worker: go run cmd/cobid/main.go
