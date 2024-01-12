@@ -30,7 +30,7 @@ func New(strategies Strategies, restClient rest.Client, orderbook string, logger
 		strategies: strategies,
 		orderbook:  orderbook,
 		restClient: restClient,
-		logger:     logger,
+		logger:     logger.With(zap.String("service", "filler")),
 		quit:       make(chan struct{}),
 		wg:         new(sync.WaitGroup),
 	}
@@ -80,6 +80,8 @@ func (f *filler) Start() error {
 									}
 
 									f.logger.Info("✅ [FILL]", zap.Uint("id", order.ID))
+								} else {
+									f.logger.Info("❌ [FILL] order not match our strategy", zap.Uint("id", order.ID))
 								}
 							}
 						}

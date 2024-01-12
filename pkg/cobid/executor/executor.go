@@ -53,7 +53,7 @@ func New(logger *zap.Logger, exes []Executor, address string, client rest.WSClie
 		exeMap[exe.Chain()] = exe
 	}
 	return executors{
-		logger:  logger,
+		logger:  logger.With(zap.String("service", "executor")),
 		exes:    exeMap,
 		address: strings.ToLower(address),
 		client:  client,
