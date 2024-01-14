@@ -30,7 +30,7 @@ func New(strategies Strategies, restClient rest.Client, orderbook string, logger
 		strategies: strategies,
 		orderbook:  orderbook,
 		restClient: restClient,
-		logger:     logger.With(zap.String("service", "filler")),
+		logger:     logger.With(zap.String("component", "filler")),
 		quit:       make(chan struct{}),
 		wg:         new(sync.WaitGroup),
 	}

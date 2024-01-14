@@ -7,9 +7,11 @@ import (
 	"math/big"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/btcsuite/btcd/btcutil"
+	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/catalogfi/blockchain/btc"
 	"github.com/catalogfi/cobi/pkg/cobid"
 	"github.com/catalogfi/cobi/pkg/cobid/filler"
@@ -20,22 +22,9 @@ import (
 )
 
 func main() {
-	btcChain, ethChain, err := ParseNetwork()
-	if err != nil {
-		panic(err)
-	}
-	config := cobid.Config{
-		BtcChain:     btcChain,
-		EthChain:     ethChain,
-		Key:          parseRequiredEnv("PRIVATE_KEY"),
-		BtcIndexer:   parseRequiredEnv("BITCOIN_INDEXER"),
-		EthURL:       parseRequiredEnv("ETHEREUM_URL"),
-		SwapAddress:  parseRequiredEnv("SWAP_CONTRACT"),
-		OrderbookURL: parseRequiredEnv("ORDERBOOK_URL"),
-	}
-
 	// Decode key
-	keyBytes, err := hex.DecodeString(config.Key)
+	keyStr := parseRequiredEnv("PRIVATE_KEY")
+	keyBytes, err := hex.DecodeString(keyStr)
 	if err != nil {
 		panic(err)
 	}
@@ -43,15 +32,41 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	ethAddr := crypto.PubkeyToAddress(key.PublicKey)
-	keyBytesHash := btcutil.Hash160(util.EcdsaToBtcec(key).PubKey().SerializeCompressed())
-	btcAdr, err := btcutil.NewAddressWitnessPubKeyHash(keyBytesHash, btcChain.Params())
+
+	// Parse Chain configs
+	btcConfig, evmConfigs, err := ParseChainConfig()
 	if err != nil {
 		panic(err)
 	}
-	config.Strategies = TestnetStrategies(ethAddr, btcAdr)
 
-	estimator := btc.NewMempoolFeeEstimator(btcChain.Params(), btc.MempoolFeeAPI, btc.DefaultRetryInterval)
+	// Get addresses for filler strategy
+	ethAddr := crypto.PubkeyToAddress(key.PublicKey)
+	keyBytesHash := btcutil.Hash160(util.EcdsaToBtcec(key).PubKey().SerializeCompressed())
+	btcAddr, err := btcutil.NewAddressWitnessPubKeyHash(keyBytesHash, btcConfig.Chain.Params())
+	if err != nil {
+		panic(err)
+	}
+
+	// Generate filler strategy
+	var strategies filler.Strategies
+	switch btcConfig.Chain.Params().Name {
+	case chaincfg.MainNetParams.Name:
+		strategies = MainnetStrategies(ethAddr, btcAddr)
+	case chaincfg.TestNet3Params.Name:
+		strategies = TestnetStrategies(ethAddr, btcAddr)
+	default:
+		panic(fmt.Sprintf("unknown network = %v", btcConfig.Chain.Params().Name))
+	}
+
+	// Init and start cobid
+	config := cobid.Config{
+		Key:          parseRequiredEnv("PRIVATE_KEY"),
+		OrderbookURL: parseRequiredEnv("ORDERBOOK_URL"),
+		Btc:          btcConfig,
+		Evms:         evmConfigs,
+		Strategies:   strategies,
+	}
+	estimator := btc.NewMempoolFeeEstimator(btcConfig.Chain.Params(), btc.MempoolFeeAPI, btc.DefaultRetryInterval)
 	cobi, err := cobid.NewCobi(config, estimator)
 	if err != nil {
 		panic(err)
@@ -111,4 +126,74 @@ func TestnetStrategies(ethAddr common.Address, btcAddr btcutil.Address) []filler
 			Fee:            10,
 		},
 	}
+}
+
+func MainnetStrategies(ethAddr common.Address, btcAddr btcutil.Address) []filler.Strategy {
+	log.Print("btcAddress = ", btcAddr.EncodeAddress())
+	log.Print("ethAddress = ", ethAddr.Hex())
+	return []filler.Strategy{
+		{
+			OrderPair:      "bitcoin_testnet-ethereum_sepolia:0x130Ff59B75a415d0bcCc2e996acAf27ce70fD5eF",
+			SendAddress:    ethAddr.Hex(),
+			ReceiveAddress: btcAddr.EncodeAddress(),
+			Makers:         nil,
+			MinAmount:      big.NewInt(1000),
+			MaxAmount:      big.NewInt(100000000),
+			Fee:            10,
+		},
+		{
+			OrderPair:      "ethereum_sepolia:0x130Ff59B75a415d0bcCc2e996acAf27ce70fD5eF-bitcoin_testnet",
+			SendAddress:    btcAddr.EncodeAddress(),
+			ReceiveAddress: ethAddr.Hex(),
+			Makers:         nil,
+			MinAmount:      big.NewInt(1000),
+			MaxAmount:      big.NewInt(100000000),
+			Fee:            10,
+		},
+		{
+			OrderPair:      "bitcoin-ethereum:0xA5E38d098b54C00F10e32E51647086232a9A0afD",
+			SendAddress:    ethAddr.Hex(),
+			ReceiveAddress: btcAddr.EncodeAddress(),
+			Makers:         nil,
+			MinAmount:      big.NewInt(1000),
+			MaxAmount:      big.NewInt(100000000),
+			Fee:            10,
+		},
+	}
+}
+
+func ParseChainConfig() (cobid.BtcChainConfig, []cobid.EvmChainConfig, error) {
+	// Parse network
+	network := parseRequiredEnv("NETWORK")
+
+	// Parse bitcoin
+	btcConfig := cobid.BtcChainConfig{
+		Chain:   model.BitcoinTestnet,
+		Indexer: parseRequiredEnv("BITCOIN_INDEXER"),
+	}
+	if network == "mainnet" {
+		btcConfig.Chain = model.Bitcoin
+	}
+
+	// Parse evms config
+	evms := parseRequiredEnv("EVMS")
+	chains := []cobid.EvmChainConfig{}
+	for _, chainStr := range strings.Split(evms, ",") {
+		chain, err := model.ParseChain(chainStr)
+		if err != nil {
+			return cobid.BtcChainConfig{}, nil, err
+		}
+		if !chain.IsEVM() {
+			return cobid.BtcChainConfig{}, nil, fmt.Errorf("invalid evm chain = %v", chain)
+		}
+
+		config := cobid.EvmChainConfig{
+			Chain:       chain,
+			SwapAddress: parseRequiredEnv(strings.ToUpper(string(chain)) + "_SWAP_CONTRACT"),
+			URL:         parseRequiredEnv(strings.ToUpper(string(chain)) + "_URL"),
+		}
+		chains = append(chains, config)
+	}
+	return btcConfig, chains, nil
+
 }

@@ -59,7 +59,7 @@ type TestOrderBookServer struct {
 }
 
 func NewTestServer(logger *zap.Logger) *TestOrderBookServer {
-	childLogger := logger.With(zap.String("service", "rest"))
+	childLogger := logger.With(zap.String("component", "rest"))
 	return &TestOrderBookServer{
 		router: gin.Default(),
 		logger: childLogger,

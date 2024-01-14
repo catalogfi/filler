@@ -38,25 +38,24 @@ type Executors interface {
 }
 
 type executors struct {
-	logger  *zap.Logger
-	exes    map[model.Chain]Executor
-	address string
-	client  rest.WSClient
-	store   Store
-	quit    chan struct{}
-	wg      *sync.WaitGroup
+	logger    *zap.Logger
+	exes      map[model.Chain]Executor
+	address   string
+	orderbook string
+	store     Store
+	quit      chan struct{}
+	wg        *sync.WaitGroup
 }
 
-func New(logger *zap.Logger, exes []Executor, address string, client rest.WSClient, store Store) Executors {
+func New(logger *zap.Logger, exes []Executor, address string, store Store, orderbook string) Executors {
 	exeMap := map[model.Chain]Executor{}
 	for _, exe := range exes {
 		exeMap[exe.Chain()] = exe
 	}
 	return executors{
-		logger:  logger.With(zap.String("service", "executor")),
+		logger:  logger.With(zap.String("component", "executor")),
 		exes:    exeMap,
 		address: strings.ToLower(address),
-		client:  client,
 		store:   store,
 		quit:    make(chan struct{}, 1),
 		wg:      new(sync.WaitGroup),
@@ -70,8 +69,9 @@ func (exe executors) Start() {
 
 		for {
 			exe.logger.Info(fmt.Sprintf("subscribing to orders of %v", exe.address))
-			exe.client.Subscribe(fmt.Sprintf("subscribe::%v", exe.address))
-			respChan := exe.client.Listen()
+			client := rest.NewWSClient(fmt.Sprintf("wss://%s/", exe.orderbook), exe.logger)
+			client.Subscribe(fmt.Sprintf("subscribe::%v", exe.address))
+			respChan := client.Listen()
 
 		InnerLoop:
 			for {

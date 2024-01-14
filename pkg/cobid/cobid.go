@@ -24,14 +24,22 @@ type Cobid struct {
 	filler    filler.Filler
 }
 
+type BtcChainConfig struct {
+	Chain   model.Chain
+	Indexer string
+}
+
+type EvmChainConfig struct {
+	Chain       model.Chain
+	SwapAddress string
+	URL         string
+}
+
 type Config struct {
-	BtcChain     model.Chain
-	EthChain     model.Chain
 	Key          string
-	BtcIndexer   string
-	EthURL       string
-	SwapAddress  string
 	OrderbookURL string
+	Btc          BtcChainConfig   // chain of the native bitcoin
+	Evms         []EvmChainConfig // target evm chains for wbtc
 	Strategies   []filler.Strategy
 }
 
@@ -51,38 +59,38 @@ func NewCobi(config Config, estimator btc.FeeEstimator) (Cobid, error) {
 		return Cobid{}, err
 	}
 
-	// Blockchain clients
-	indexer := btc.NewElectrsIndexerClient(logger, config.BtcIndexer, btc.DefaultRetryInterval)
-	ethClient, err := ethclient.Dial(config.EthURL)
-	if err != nil {
-		return Cobid{}, err
-	}
-
 	// Bitcoin wallet and executor
-	btcWalletOptions := btcswap.NewWalletOptions(config.BtcChain.Params())
+	indexer := btc.NewElectrsIndexerClient(logger, config.Btc.Indexer, btc.DefaultRetryInterval)
+	btcWalletOptions := btcswap.NewWalletOptions(config.Btc.Chain.Params())
 	btcWallet, err := btcswap.NewWallet(btcWalletOptions, indexer, util.EcdsaToBtcec(key), estimator)
 	if err != nil {
 		return Cobid{}, err
 	}
 	storage := executor.NewInMemStore()
-	btcExe := executor.NewBitcoinExecutor(config.BtcChain, logger, btcWallet, storage)
+	btcExe := executor.NewBitcoinExecutor(config.Btc.Chain, logger, btcWallet, storage)
+	executors := []executor.Executor{btcExe}
 
 	// Ethereum wallet and executor
-	swapAddr := common.HexToAddress(config.SwapAddress)
-	ethWalletOptions := ethswap.NewOptions(config.EthChain, swapAddr)
-	ethWallet, err := ethswap.NewWallet(ethWalletOptions, key, ethClient)
-	if err != nil {
-		return Cobid{}, err
-	}
-	ethExe := executor.NewEvmExecutor(config.EthChain, logger, ethWallet, storage)
-	if err != nil {
-		return Cobid{}, err
-	}
+	for _, evm := range config.Evms {
+		ethClient, err := ethclient.Dial(evm.URL)
+		if err != nil {
+			return Cobid{}, err
+		}
 
-	// Executors
+		swapAddr := common.HexToAddress(evm.SwapAddress)
+		ethWalletOptions := ethswap.NewOptions(evm.Chain, swapAddr)
+		ethWallet, err := ethswap.NewWallet(ethWalletOptions, key, ethClient)
+		if err != nil {
+			return Cobid{}, err
+		}
+		ethExe := executor.NewEvmExecutor(evm.Chain, logger, ethWallet, storage)
+		if err != nil {
+			return Cobid{}, err
+		}
+		executors = append(executors, ethExe)
+	}
 	addr := crypto.PubkeyToAddress(key.PublicKey)
-	wsClient := rest.NewWSClient(fmt.Sprintf("wss://%s/", config.OrderbookURL), logger)
-	exes := executor.New(logger, []executor.Executor{btcExe, ethExe}, addr.Hex(), wsClient, storage)
+	exes := executor.New(logger, executors, addr.Hex(), storage, config.OrderbookURL)
 
 	// Filler
 	client := rest.NewClient(fmt.Sprintf("https://%s", config.OrderbookURL), config.Key)
