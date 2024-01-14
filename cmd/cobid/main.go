@@ -133,7 +133,7 @@ func MainnetStrategies(ethAddr common.Address, btcAddr btcutil.Address) []filler
 	log.Print("ethAddress = ", ethAddr.Hex())
 	return []filler.Strategy{
 		{
-			OrderPair:      "bitcoin_testnet-ethereum_sepolia:0x130Ff59B75a415d0bcCc2e996acAf27ce70fD5eF",
+			OrderPair:      "bitcoin-ethereum:0xA5E38d098b54C00F10e32E51647086232a9A0afD",
 			SendAddress:    ethAddr.Hex(),
 			ReceiveAddress: btcAddr.EncodeAddress(),
 			Makers:         nil,
@@ -142,7 +142,7 @@ func MainnetStrategies(ethAddr common.Address, btcAddr btcutil.Address) []filler
 			Fee:            10,
 		},
 		{
-			OrderPair:      "ethereum_sepolia:0x130Ff59B75a415d0bcCc2e996acAf27ce70fD5eF-bitcoin_testnet",
+			OrderPair:      "ethereum:0xA5E38d098b54C00F10e32E51647086232a9A0afD-bitcoin",
 			SendAddress:    btcAddr.EncodeAddress(),
 			ReceiveAddress: ethAddr.Hex(),
 			Makers:         nil,
@@ -150,10 +150,20 @@ func MainnetStrategies(ethAddr common.Address, btcAddr btcutil.Address) []filler
 			MaxAmount:      big.NewInt(100000000),
 			Fee:            10,
 		},
+		// todo : check contract address on arbitrum
 		{
-			OrderPair:      "bitcoin-ethereum:0xA5E38d098b54C00F10e32E51647086232a9A0afD",
+			OrderPair:      "bitcoin-ethereum_arbitrum:0xA5E38d098b54C00F10e32E51647086232a9A0afD",
 			SendAddress:    ethAddr.Hex(),
 			ReceiveAddress: btcAddr.EncodeAddress(),
+			Makers:         nil,
+			MinAmount:      big.NewInt(1000),
+			MaxAmount:      big.NewInt(100000000),
+			Fee:            10,
+		},
+		{
+			OrderPair:      "ethereum_arbitrum:0xA5E38d098b54C00F10e32E51647086232a9A0afD-bitcoin",
+			SendAddress:    btcAddr.EncodeAddress(),
+			ReceiveAddress: ethAddr.Hex(),
 			Makers:         nil,
 			MinAmount:      big.NewInt(1000),
 			MaxAmount:      big.NewInt(100000000),
