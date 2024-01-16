@@ -48,6 +48,8 @@ github.com/catalogfi/blockchain v0.0.7-0.20240110134338-07722f6ea9fc h1:P+3yQOnm
 github.com/catalogfi/blockchain v0.0.7-0.20240110134338-07722f6ea9fc/go.mod h1:LeRxIYLDcMKIJAobiwQG78Gfgo3mMwug4yCljO4XZNc=
 github.com/catalogfi/blockchain v0.0.7-0.20240110152752-6bc53f0da9e7 h1:Jsvd8VDz9SN9CjGnHa9SwHM7mGowV9962Ijdi89MDX8=
 github.com/catalogfi/blockchain v0.0.7-0.20240110152752-6bc53f0da9e7/go.mod h1:LeRxIYLDcMKIJAobiwQG78Gfgo3mMwug4yCljO4XZNc=
+github.com/catalogfi/blockchain v0.0.7-0.20240116052107-9eff0d23b676 h1:Gd/Z9VeAkTHDfTq1Aw2wqEOsnzxL0cM5Bqpj5m89Nis=
+github.com/catalogfi/blockchain v0.0.7-0.20240116052107-9eff0d23b676/go.mod h1:LeRxIYLDcMKIJAobiwQG78Gfgo3mMwug4yCljO4XZNc=
 github.com/catalogfi/orderbook v0.0.0-20231207112335-5bf92a98f600 h1:ixUVHWWCK8NbdcLzZaPCkGPlnQHfsys39zTCVN5S8tE=
 github.com/catalogfi/orderbook v0.0.0-20231207112335-5bf92a98f600/go.mod h1:6JqH+eXT+ArPLVdI7OU0zKH2KrRPYLuePGe5Quf7Yps=
 github.com/cespare/cp v0.1.0 h1:SE+dxFebS7Iik5LK0tsi1k9ZCxEaFX4AjQmoyA+1dJk=

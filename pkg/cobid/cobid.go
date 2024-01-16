@@ -71,6 +71,7 @@ func NewCobi(config Config, estimator btc.FeeEstimator) (Cobid, error) {
 	executors := []executor.Executor{btcExe}
 
 	// Ethereum wallet and executor
+	wallets := map[model.Chain]ethswap.Wallet{}
 	for _, evm := range config.Evms {
 		ethClient, err := ethclient.Dial(evm.URL)
 		if err != nil {
@@ -83,6 +84,7 @@ func NewCobi(config Config, estimator btc.FeeEstimator) (Cobid, error) {
 		if err != nil {
 			return Cobid{}, err
 		}
+		wallets[evm.Chain] = ethWallet
 		ethExe := executor.NewEvmExecutor(evm.Chain, logger, ethWallet, storage)
 		if err != nil {
 			return Cobid{}, err
@@ -101,7 +103,11 @@ func NewCobi(config Config, estimator btc.FeeEstimator) (Cobid, error) {
 	if err := client.SetJwt(token); err != nil {
 		return Cobid{}, err
 	}
-	filler := filler.New(config.Strategies, client, config.OrderbookURL, logger)
+
+	dialer := func() rest.WSClient {
+		return rest.NewWSClient(fmt.Sprintf("wss://%s/", config.OrderbookURL), logger)
+	}
+	filler := filler.New(config.Strategies, btcWallet, wallets, client, dialer, logger)
 
 	return Cobid{
 		executors: exes,

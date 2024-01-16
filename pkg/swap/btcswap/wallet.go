@@ -20,11 +20,10 @@ type ActionItem struct {
 	Secret     []byte
 }
 
-// todo :  have instant wallet integration
 type Wallet interface {
 	Address() btcutil.Address
 
-	Balance(ctx context.Context, pending bool) (int64, error)
+	Balance(ctx context.Context) (int64, error)
 
 	BatchExecute(ctx context.Context, actions []ActionItem) (string, error)
 
@@ -64,7 +63,7 @@ func (wallet *wallet) Address() btcutil.Address {
 	return wallet.address
 }
 
-func (wallet *wallet) Balance(ctx context.Context, pending bool) (int64, error) {
+func (wallet *wallet) Balance(ctx context.Context) (int64, error) {
 	wallet.mu.RLock()
 	defer wallet.mu.RUnlock()
 

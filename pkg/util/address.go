@@ -7,6 +7,7 @@ import (
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/catalogfi/orderbook/model"
+	"github.com/catalogfi/orderbook/rest"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 )
@@ -33,3 +34,5 @@ func EcdsaToBtcec(key *ecdsa.PrivateKey) *btcec.PrivateKey {
 	pk, _ := btcec.PrivKeyFromBytes(crypto.FromECDSA(key))
 	return pk
 }
+
+type WsClientDialer = func() rest.WSClient

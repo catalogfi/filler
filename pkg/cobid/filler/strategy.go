@@ -15,13 +15,11 @@ type Strategies []Strategy
 // Strategy defines the criteria of whether an order should be filled by the Filler. It is basing on the order pair, and
 // each order pair will have its own strategy.
 type Strategy struct {
-	OrderPair      string
-	SendAddress    string
-	ReceiveAddress string
-	Makers         []string // whitelisted makers, nil means allowing any address
-	MinAmount      *big.Int // minimum amount, nil means no minimum requirement
-	MaxAmount      *big.Int // maximum amount, nil means no maximum requirement
-	Fee            int      // fee in basic point (0.01%)
+	OrderPair string
+	Makers    []string // whitelisted makers, nil means allowing any address
+	MinAmount *big.Int // minimum amount, nil means no minimum requirement
+	MaxAmount *big.Int // maximum amount, nil means no maximum requirement
+	Fee       int      // fee in basic point (0.01%)
 }
 
 // NewStrategy returns a new strategy with
@@ -40,13 +38,11 @@ func NewStrategy(orderPair, send, receive string, makers []string, minAmount *bi
 	}
 
 	return Strategy{
-		OrderPair:      orderPair,
-		SendAddress:    send,
-		ReceiveAddress: receive,
-		Makers:         makers,
-		MinAmount:      minAmount,
-		MaxAmount:      maxAmount,
-		Fee:            fee,
+		OrderPair: orderPair,
+		Makers:    makers,
+		MinAmount: minAmount,
+		MaxAmount: maxAmount,
+		Fee:       fee,
 	}, nil
 }
 

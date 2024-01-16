@@ -53,12 +53,13 @@ func New(logger *zap.Logger, exes []Executor, address string, store Store, order
 		exeMap[exe.Chain()] = exe
 	}
 	return executors{
-		logger:  logger.With(zap.String("component", "executor")),
-		exes:    exeMap,
-		address: strings.ToLower(address),
-		store:   store,
-		quit:    make(chan struct{}, 1),
-		wg:      new(sync.WaitGroup),
+		logger:    logger.With(zap.String("component", "executor")),
+		exes:      exeMap,
+		address:   strings.ToLower(address),
+		orderbook: orderbook,
+		store:     store,
+		quit:      make(chan struct{}, 1),
+		wg:        new(sync.WaitGroup),
 	}
 }
 

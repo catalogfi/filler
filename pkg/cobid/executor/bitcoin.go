@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/catalogfi/blockchain/btc"
 	"github.com/catalogfi/cobi/pkg/swap"
 	"github.com/catalogfi/cobi/pkg/swap/btcswap"
 	"github.com/catalogfi/orderbook/model"
@@ -18,12 +19,13 @@ type BitcoinExecutor struct {
 	wallet    btcswap.Wallet
 	storage   Store
 	swapsChan chan ActionItem
+	client    btc.IndexerClient
 
 	mu    *sync.Mutex
 	swaps []btcswap.ActionItem
 }
 
-func NewBitcoinExecutor(chain model.Chain, logger *zap.Logger, wallet btcswap.Wallet, storage Store) *BitcoinExecutor {
+func NewBitcoinExecutor(chain model.Chain, logger *zap.Logger, wallet btcswap.Wallet, storage Store, client btc.IndexerClient) *BitcoinExecutor {
 	swapsChan := make(chan ActionItem, 16)
 	exe := &BitcoinExecutor{
 		logger:    logger,
@@ -31,12 +33,13 @@ func NewBitcoinExecutor(chain model.Chain, logger *zap.Logger, wallet btcswap.Wa
 		wallet:    wallet,
 		storage:   storage,
 		swapsChan: swapsChan,
+		client:    client,
 
 		mu:    new(sync.Mutex),
 		swaps: make([]btcswap.ActionItem, 0),
 	}
 
-	ticker := time.NewTicker(time.Minute)
+	ticker := time.NewTicker(90 * time.Second)
 
 	go func() {
 		for item := range swapsChan {
@@ -60,6 +63,25 @@ func NewBitcoinExecutor(chain model.Chain, logger *zap.Logger, wallet btcswap.Wa
 				secret, err = hex.DecodeString(item.Swap.Secret)
 				if err != nil {
 					logger.Error("failed decode secret", zap.Error(err))
+					continue
+				}
+			}
+
+			// Final check if the swap has been initiated, which we
+			if item.Action == swap.ActionInitiate {
+				var initiated bool
+				for {
+					ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+					initiated, _, err = btcSwap.Initiated(ctx, exe.client)
+					cancel()
+					if err != nil {
+						logger.Error("failed to check if order is initiated", zap.Error(err))
+						time.Sleep(5 * time.Second)
+						continue
+					}
+					break
+				}
+				if initiated {
 					continue
 				}
 			}
@@ -121,6 +143,6 @@ func (be *BitcoinExecutor) execute() {
 		be.logger.Error("failed execute swaps", zap.Error(err))
 		return
 	}
-	be.logger.Info("Execution swaps", zap.String("txhash", txhash))
+	be.logger.Info("[Bitcoin] Executed swaps", zap.String("txhash", txhash))
 	be.swaps = nil
 }
