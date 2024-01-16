@@ -67,7 +67,7 @@ func NewCobi(config Config, estimator btc.FeeEstimator) (Cobid, error) {
 		return Cobid{}, err
 	}
 	storage := executor.NewInMemStore()
-	btcExe := executor.NewBitcoinExecutor(config.Btc.Chain, logger, btcWallet, storage)
+	btcExe := executor.NewBitcoinExecutor(config.Btc.Chain, logger, btcWallet, storage, indexer)
 	executors := []executor.Executor{btcExe}
 
 	// Ethereum wallet and executor
