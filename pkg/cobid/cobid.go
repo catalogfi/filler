@@ -58,6 +58,17 @@ func NewCobi(config Config, estimator btc.FeeEstimator) (Cobid, error) {
 	if err != nil {
 		return Cobid{}, err
 	}
+	addr := crypto.PubkeyToAddress(key.PublicKey)
+
+	// Filler
+	client := rest.NewClient(fmt.Sprintf("https://%s", config.OrderbookURL), config.Key)
+	token, err := client.Login()
+	if err != nil {
+		return Cobid{}, err
+	}
+	if err := client.SetJwt(token); err != nil {
+		return Cobid{}, err
+	}
 
 	// Bitcoin wallet and executor
 	indexer := btc.NewElectrsIndexerClient(logger, config.Btc.Indexer, btc.DefaultRetryInterval)
@@ -67,11 +78,11 @@ func NewCobi(config Config, estimator btc.FeeEstimator) (Cobid, error) {
 		return Cobid{}, err
 	}
 	storage := executor.NewInMemStore()
-	btcExe := executor.NewBitcoinExecutor(config.Btc.Chain, logger, btcWallet, storage, indexer)
-	executors := []executor.Executor{btcExe}
+	btcExe := executor.NewBitcoinExecutor(config.Btc.Chain, logger, btcWallet, client, addr.Hex())
 
 	// Ethereum wallet and executor
 	wallets := map[model.Chain]ethswap.Wallet{}
+	clients := map[model.Chain]*ethclient.Client{}
 	for _, evm := range config.Evms {
 		ethClient, err := ethclient.Dial(evm.URL)
 		if err != nil {
@@ -85,28 +96,15 @@ func NewCobi(config Config, estimator btc.FeeEstimator) (Cobid, error) {
 			return Cobid{}, err
 		}
 		wallets[evm.Chain] = ethWallet
-		ethExe := executor.NewEvmExecutor(evm.Chain, logger, ethWallet, storage)
-		if err != nil {
-			return Cobid{}, err
-		}
-		executors = append(executors, ethExe)
+		clients[evm.Chain] = ethClient
 	}
-	addr := crypto.PubkeyToAddress(key.PublicKey)
-	exes := executor.New(logger, executors, addr.Hex(), storage, config.OrderbookURL)
-
-	// Filler
-	client := rest.NewClient(fmt.Sprintf("https://%s", config.OrderbookURL), config.Key)
-	token, err := client.Login()
-	if err != nil {
-		return Cobid{}, err
-	}
-	if err := client.SetJwt(token); err != nil {
-		return Cobid{}, err
-	}
-
 	dialer := func() rest.WSClient {
 		return rest.NewWSClient(fmt.Sprintf("wss://%s/", config.OrderbookURL), logger)
 	}
+	ethExe := executor.NewEvmExecutor(logger, wallets, clients, storage, dialer)
+	exes := executor.Executors{btcExe, ethExe}
+
+	// Filler
 	filler := filler.New(config.Strategies, btcWallet, wallets, client, dialer, logger)
 
 	return Cobid{

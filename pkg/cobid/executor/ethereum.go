@@ -18,16 +18,16 @@ import (
 type EvmExecutor struct {
 	logger  *zap.Logger
 	wallets map[model.Chain]ethswap.Wallet
+	clients map[model.Chain]*ethclient.Client
 	storage Store
 	dialer  util.WsClientDialer
 	signer  string
-	client  *ethclient.Client
 
 	swaps map[model.Chain]chan ActionItem
 	quit  chan struct{}
 }
 
-func NewEvmExecutor(logger *zap.Logger, wallets map[model.Chain]ethswap.Wallet, storage Store, dialer util.WsClientDialer) *EvmExecutor {
+func NewEvmExecutor(logger *zap.Logger, wallets map[model.Chain]ethswap.Wallet, clients map[model.Chain]*ethclient.Client, storage Store, dialer util.WsClientDialer) *EvmExecutor {
 	// Signer should be the same as the eth wallet address. We assume all evm wallets have the same address.
 	signer := ""
 	swaps := map[model.Chain]chan ActionItem{}
@@ -39,6 +39,7 @@ func NewEvmExecutor(logger *zap.Logger, wallets map[model.Chain]ethswap.Wallet, 
 	return &EvmExecutor{
 		logger:  logger,
 		wallets: wallets,
+		clients: clients,
 		storage: storage,
 		dialer:  dialer,
 		signer:  signer,
@@ -159,10 +160,11 @@ func (ee *EvmExecutor) chainWorker(chain model.Chain, swaps chan ActionItem) {
 			defer cancel()
 
 			wallet := ee.wallets[chain]
+			client := ee.clients[chain]
 			var txHash string
 			switch item.Action {
 			case swap.ActionInitiate:
-				initiated, err := ethSwap.Initiated(ctx, ee.client)
+				initiated, err := ethSwap.Initiated(ctx, client)
 				if err != nil {
 					ee.logger.Error("check swap initiated", zap.Error(err))
 					return
