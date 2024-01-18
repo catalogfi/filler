@@ -1,1 +1,1 @@
-worker: executor
+worker: cobid
