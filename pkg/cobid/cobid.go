@@ -38,6 +38,7 @@ type EvmChainConfig struct {
 type Config struct {
 	Key          string
 	OrderbookURL string
+	RedisURL     string
 	Btc          BtcChainConfig   // chain of the native bitcoin
 	Evms         []EvmChainConfig // target evm chains for wbtc
 	Strategies   []filler.Strategy
@@ -70,6 +71,12 @@ func NewCobi(config Config, estimator btc.FeeEstimator) (Cobid, error) {
 		return Cobid{}, err
 	}
 
+	// Storage
+	storage, err := executor.NewRedisStore(config.RedisURL)
+	if err != nil {
+		return Cobid{}, err
+	}
+
 	// Bitcoin wallet and executor
 	indexer := btc.NewElectrsIndexerClient(logger, config.Btc.Indexer, btc.DefaultRetryInterval)
 	btcWalletOptions := btcswap.NewWalletOptions(config.Btc.Chain.Params())
@@ -77,7 +84,6 @@ func NewCobi(config Config, estimator btc.FeeEstimator) (Cobid, error) {
 	if err != nil {
 		return Cobid{}, err
 	}
-	storage := executor.NewInMemStore()
 	btcExe := executor.NewBitcoinExecutor(config.Btc.Chain, logger, btcWallet, client, addr.Hex())
 
 	// Ethereum wallet and executor
@@ -104,12 +110,9 @@ func NewCobi(config Config, estimator btc.FeeEstimator) (Cobid, error) {
 	ethExe := executor.NewEvmExecutor(logger, wallets, clients, storage, dialer)
 	exes := executor.Executors{btcExe, ethExe}
 
-	// Filler
-	filler := filler.New(config.Strategies, btcWallet, wallets, client, dialer, logger)
-
 	return Cobid{
 		executors: exes,
-		filler:    filler,
+		filler:    filler.New(config.Strategies, btcWallet, wallets, client, dialer, logger),
 	}, nil
 }
 

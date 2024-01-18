@@ -6,7 +6,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/btcsuite/btcd/wire"
 	"github.com/catalogfi/blockchain/btc"
 	"github.com/catalogfi/cobi/pkg/swap"
 	"github.com/catalogfi/cobi/pkg/swap/btcswap"
@@ -21,11 +20,8 @@ type BitcoinExecutor struct {
 	wallet btcswap.Wallet
 	client rest.Client
 	signer string
-
-	stop       chan struct{}
-	prevTx     *wire.MsgTx
-	prevFee    int
-	prevOrders map[uint]struct{}
+	store  Store
+	stop   chan struct{}
 }
 
 func NewBitcoinExecutor(chain model.Chain, logger *zap.Logger, wallet btcswap.Wallet, client rest.Client, signer string) *BitcoinExecutor {
@@ -35,9 +31,7 @@ func NewBitcoinExecutor(chain model.Chain, logger *zap.Logger, wallet btcswap.Wa
 		wallet: wallet,
 		client: client,
 		signer: signer,
-
-		stop:       make(chan struct{}),
-		prevOrders: make(map[uint]struct{}),
+		stop:   make(chan struct{}),
 	}
 
 	return exe
@@ -119,27 +113,34 @@ func (be *BitcoinExecutor) Start() {
 
 				// If any old order is missing from the new order set, that means one of the previous tx has been mined,
 				// and we want to start a new series of rbf txs.
-				for order := range be.prevOrders {
+				prevFees, prevTx, prevOrders, err := be.store.GetPreviousTx()
+				if err != nil {
+					if !errors.Is(err, ErrNotFound) {
+						be.logger.Error("get previous tx info", zap.Error(err))
+						continue
+					}
+				}
+				for order := range prevOrders {
 					if _, ok := orderIDs[order]; !ok {
-						be.prevOrders = nil
-						be.prevTx = nil
-						be.prevFee = 0
+						if err := be.store.StorePreviousTx(0, nil, nil); err != nil {
+							be.logger.Error("btc execution", zap.Error(err))
+						}
 						break
 					}
 				}
 
 				// Skip if no new orders since last time
-				if len(be.prevOrders) == len(orderIDs) {
+				if len(prevOrders) == len(orderIDs) {
 					continue
 				}
 
 				// Check the previous tx and replace it
 				var rbf *btcswap.OptionRBF
-				if be.prevTx != nil {
+				if prevTx != nil {
 					rbf = &btcswap.OptionRBF{
-						PreviousFee:  be.prevFee,
-						PreviousSize: btc.TxVirtualSize(be.prevTx),
-						PreviousTx:   be.prevTx,
+						PreviousFee:  prevFees,
+						PreviousSize: btc.TxVirtualSize(prevTx),
+						PreviousTx:   prevTx,
 					}
 				}
 
@@ -157,9 +158,9 @@ func (be *BitcoinExecutor) Start() {
 				}
 
 				// Cache the tx in case we want to replace it in the future
-				be.prevTx = tx
-				be.prevFee = fees
-				be.prevOrders = orderIDs
+				if err := be.store.StorePreviousTx(fees, tx, orderIDs); err != nil {
+					be.logger.Error("btc execution", zap.Error(err))
+				}
 			case <-be.stop:
 				return
 			}

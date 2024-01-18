@@ -189,7 +189,7 @@ func (ee *EvmExecutor) chainWorker(chain model.Chain, swaps chan ActionItem) {
 			ee.logger.Info("Execution done", zap.String("chain", string(chain)), zap.String("hash", txHash))
 
 			// Store the action we have done and make sure we're not doing it again
-			if err := ee.storage.RecordAction(item.Action, item.Swap.ID); err != nil {
+			if err := ee.storage.StoreAction(item.Action, item.Swap.ID); err != nil {
 				ee.logger.Error("failed storing action", zap.Error(err))
 			}
 		}()

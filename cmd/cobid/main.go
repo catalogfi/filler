@@ -62,6 +62,7 @@ func main() {
 	config := cobid.Config{
 		Key:          parseRequiredEnv("PRIVATE_KEY"),
 		OrderbookURL: parseRequiredEnv("ORDERBOOK_URL"),
+		RedisURL:     parseRequiredEnv("REDISCLOUD_URL"),
 		Btc:          btcConfig,
 		Evms:         evmConfigs,
 		Strategies:   strategies,
