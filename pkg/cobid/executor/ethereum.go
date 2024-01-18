@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/catalogfi/cobi/pkg/swap"
@@ -32,7 +33,7 @@ func NewEvmExecutor(logger *zap.Logger, wallets map[model.Chain]ethswap.Wallet, 
 	signer := ""
 	swaps := map[model.Chain]chan ActionItem{}
 	for chain, wallet := range wallets {
-		signer = wallet.Address().Hex()
+		signer = strings.ToLower(wallet.Address().Hex())
 		swaps[chain] = make(chan ActionItem, 16)
 	}
 
@@ -44,7 +45,8 @@ func NewEvmExecutor(logger *zap.Logger, wallets map[model.Chain]ethswap.Wallet, 
 		dialer:  dialer,
 		signer:  signer,
 
-		quit: make(chan struct{}),
+		swaps: swaps,
+		quit:  make(chan struct{}),
 	}
 }
 
@@ -186,7 +188,7 @@ func (ee *EvmExecutor) chainWorker(chain model.Chain, swaps chan ActionItem) {
 			default:
 				return
 			}
-			ee.logger.Info("Execution done", zap.String("chain", string(chain)), zap.String("hash", txHash))
+			ee.logger.Info("✅ [Execution]", zap.String("chain", string(chain)), zap.String("hash", txHash))
 
 			// Store the action we have done and make sure we're not doing it again
 			if err := ee.storage.StoreAction(item.Action, item.Swap.ID); err != nil {

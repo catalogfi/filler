@@ -41,7 +41,7 @@ func New(strategies Strategies, btcWallet btcswap.Wallet, ethWallets map[model.C
 		ethWallets: ethWallets,
 		dialer:     dialer,
 		restClient: restClient,
-		logger:     logger.With(zap.String("component", "filler")),
+		logger:     logger,
 		quit:       make(chan struct{}),
 		wg:         new(sync.WaitGroup),
 	}
@@ -85,14 +85,14 @@ func (f *filler) Start() error {
 							for _, order := range orders {
 								filled, err := f.fill(strategy, order)
 								if err != nil {
-									f.logger.Error("❌ [FILL]", zap.Uint("id", order.ID), zap.Error(err))
+									f.logger.Error("❌ [Fill]", zap.Uint("id", order.ID), zap.Error(err))
 									continue
 								}
 
 								if filled {
-									f.logger.Info("✅ [FILL]", zap.Uint("id", order.ID))
+									f.logger.Info("✅ [Fill]", zap.Uint("id", order.ID))
 								} else {
-									f.logger.Info("❌ [FILL] order not match our strategy", zap.Uint("id", order.ID))
+									f.logger.Info("❌ [Fill] order not match our strategy", zap.Uint("id", order.ID))
 								}
 							}
 						}
@@ -119,18 +119,20 @@ func (f *filler) login() error {
 
 func (f *filler) fill(strategy Strategy, order model.Order) (bool, error) {
 	if strategy.Match(order) {
-		from, to, fromAsset, toAsset, err := model.ParseOrderPair(order.OrderPair)
+		from, to, _, _, err := model.ParseOrderPair(order.OrderPair)
 		if err != nil {
 			return false, err
 		}
 
 		// When we fill the order, send address is of the `to` chain, receive address is of the `from` chain. And we
 		// assume one of the chain will be native bitcoin chain.
-		sendAddr := f.ethWallets[to].Address().Hex()
-		receiveAddr := f.btcWallet.Address().EncodeAddress()
+		sendAddr, receiveAddr := "", ""
 		if from.IsBTC() {
+			sendAddr = f.ethWallets[to].Address().Hex()
+			receiveAddr = f.btcWallet.Address().EncodeAddress()
+		} else {
 			sendAddr = f.btcWallet.Address().EncodeAddress()
-			receiveAddr = f.ethWallets[to].Address().Hex()
+			receiveAddr = f.ethWallets[from].Address().Hex()
 		}
 
 		// Check if we have enough eth to cover the gas
@@ -150,28 +152,28 @@ func (f *filler) fill(strategy Strategy, order model.Order) (bool, error) {
 			return false, fmt.Errorf("%v balance too low", ethChain)
 		}
 
-		// Check if we have enough tokens to execute the order
-		chain := to
-		asset := fromAsset
-		if to.IsBTC() {
-			chain, asset = from, toAsset
-		}
-		vb, err := f.virtualBalance(chain, asset)
-		if err != nil {
-			return false, err
-		}
-		orderAmount, ok := new(big.Int).SetString(order.FollowerAtomicSwap.Amount, 10)
-		if !ok {
-			return false, fmt.Errorf("fail to get order amount")
-		}
-		if vb.Cmp(orderAmount) < 0 {
-			return false, fmt.Errorf("insufficient balance")
-		}
+		// TODO : Check if we have enough tokens to execute the order
+		// chain := to
+		// asset := fromAsset
+		// if to.IsBTC() {
+		// 	chain, asset = from, toAsset
+		// }
+		// vb, err := f.virtualBalance(chain, asset)
+		// if err != nil {
+		// 	return false, err
+		// }
+		// orderAmount, ok := new(big.Int).SetString(order.FollowerAtomicSwap.Amount, 10)
+		// if !ok {
+		// 	return false, fmt.Errorf("fail to get order amount")
+		// }
+		// if vb.Cmp(orderAmount) < 0 {
+		// 	return false, fmt.Errorf("insufficient balance")
+		// }
 
 		if err := f.restClient.FillOrder(order.ID, sendAddr, receiveAddr); err != nil {
 			return false, err
 		}
-
+		return true, nil
 	}
 	return false, nil
 }

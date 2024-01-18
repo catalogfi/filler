@@ -62,7 +62,7 @@ var _ = Describe("wallet for bitcoin swap", func() {
 				}
 				aliceActions1 = append(aliceActions1, aliceInit)
 			}
-			txhash, _, err := aliceWallet.BatchExecute(ctx, aliceActions1, nil)
+			txhash, err := aliceWallet.BatchExecute(ctx, aliceActions1, nil)
 			Expect(err).To(BeNil())
 			By(color.GreenString("[1] Alice tx hash = %v", txhash.TxHash().String()))
 			bobActions1 := []btcswap.ActionItem{}
@@ -73,7 +73,7 @@ var _ = Describe("wallet for bitcoin swap", func() {
 				}
 				bobActions1 = append(bobActions1, bobInit)
 			}
-			txhash, _, err = bobWallet.BatchExecute(ctx, bobActions1, nil)
+			txhash, err = bobWallet.BatchExecute(ctx, bobActions1, nil)
 			Expect(err).To(BeNil())
 			By(color.GreenString("[1] Bob tx hash = %v", txhash.TxHash().String()))
 			Expect(testutil.NigiriNewBlock()).Should(Succeed())
@@ -94,7 +94,7 @@ var _ = Describe("wallet for bitcoin swap", func() {
 				}
 				aliceActions2 = append(aliceActions2, aliceInit)
 			}
-			txhash, _, err = aliceWallet.BatchExecute(ctx, aliceActions2, nil)
+			txhash, err = aliceWallet.BatchExecute(ctx, aliceActions2, nil)
 			Expect(err).To(BeNil())
 			By(color.GreenString("[2] Alice tx hash = %v", txhash.TxHash().String()))
 			bobActions2 := []btcswap.ActionItem{}
@@ -105,7 +105,7 @@ var _ = Describe("wallet for bitcoin swap", func() {
 				}
 				bobActions2 = append(bobActions2, bobInit)
 			}
-			txhash, _, err = bobWallet.BatchExecute(ctx, bobActions2, nil)
+			txhash, err = bobWallet.BatchExecute(ctx, bobActions2, nil)
 			Expect(err).To(BeNil())
 			By(color.GreenString("[2] Bob tx hash = %v", txhash.TxHash().String()))
 			Expect(testutil.NigiriNewBlock()).Should(Succeed())
@@ -127,7 +127,7 @@ var _ = Describe("wallet for bitcoin swap", func() {
 					})
 				}
 			}
-			txhash, _, err = aliceWallet.BatchExecute(ctx, aliceActions3, nil)
+			txhash, err = aliceWallet.BatchExecute(ctx, aliceActions3, nil)
 			Expect(err).To(BeNil())
 			By(color.GreenString("[3] Alice tx hash = %v", txhash.TxHash().String()))
 			bobActions3 := []btcswap.ActionItem{}
@@ -145,7 +145,7 @@ var _ = Describe("wallet for bitcoin swap", func() {
 					})
 				}
 			}
-			txhash, _, err = bobWallet.BatchExecute(ctx, bobActions3, nil)
+			txhash, err = bobWallet.BatchExecute(ctx, bobActions3, nil)
 			Expect(err).To(BeNil())
 			By(color.GreenString("[3] Bob tx hash = %v", txhash.TxHash().String()))
 			Expect(testutil.NigiriNewBlock()).Should(Succeed())
@@ -172,7 +172,7 @@ var _ = Describe("wallet for bitcoin swap", func() {
 					})
 				}
 			}
-			txhash, _, err = aliceWallet.BatchExecute(ctx, aliceActions4, nil)
+			txhash, err = aliceWallet.BatchExecute(ctx, aliceActions4, nil)
 			Expect(err).To(BeNil())
 			By(color.GreenString("[4] Alice tx hash = %v", txhash.TxHash().String()))
 			bobActions4 := []btcswap.ActionItem{}
@@ -195,7 +195,7 @@ var _ = Describe("wallet for bitcoin swap", func() {
 					})
 				}
 			}
-			txhash, _, err = bobWallet.BatchExecute(ctx, bobActions4, nil)
+			txhash, err = bobWallet.BatchExecute(ctx, bobActions4, nil)
 			Expect(err).To(BeNil())
 			By(color.GreenString("[4] Bob tx hash = %v", txhash.TxHash().String()))
 		})
@@ -232,7 +232,7 @@ var _ = Describe("wallet for bitcoin swap", func() {
 				Action:     swap.ActionInitiate,
 				AtomicSwap: aliceSwap,
 			}
-			initiatedTx, _, err := aliceWallet.BatchExecute(ctx, []btcswap.ActionItem{aliceInit}, nil)
+			initiatedTx, err := aliceWallet.BatchExecute(ctx, []btcswap.ActionItem{aliceInit}, nil)
 			Expect(err).To(BeNil())
 			By(color.GreenString("Alice's swap is initiated in tx %v", initiatedTx.TxHash().String()))
 			Expect(testutil.NigiriNewBlock()).Should(Succeed())
@@ -243,7 +243,7 @@ var _ = Describe("wallet for bitcoin swap", func() {
 				Action:     swap.ActionInitiate,
 				AtomicSwap: bobSwap,
 			}
-			initiatedTx, _, err = bobWallet.BatchExecute(ctx, []btcswap.ActionItem{bobInit}, nil)
+			initiatedTx, err = bobWallet.BatchExecute(ctx, []btcswap.ActionItem{bobInit}, nil)
 			Expect(err).To(BeNil())
 			By(color.GreenString("Bob's swap is initiated in tx %v", initiatedTx.TxHash().String()))
 			Expect(testutil.NigiriNewBlock()).Should(Succeed())
@@ -255,7 +255,7 @@ var _ = Describe("wallet for bitcoin swap", func() {
 				AtomicSwap: bobSwap,
 				Secret:     secret,
 			}
-			redeemTx, _, err := aliceWallet.BatchExecute(ctx, []btcswap.ActionItem{aliceRedeem}, nil)
+			redeemTx, err := aliceWallet.BatchExecute(ctx, []btcswap.ActionItem{aliceRedeem}, nil)
 			Expect(err).Should(BeNil())
 			By(color.GreenString("Bob's swap is redeemed in tx %v", redeemTx.TxHash().String()))
 			Expect(testutil.NigiriNewBlock()).Should(Succeed())
@@ -271,7 +271,7 @@ var _ = Describe("wallet for bitcoin swap", func() {
 				AtomicSwap: aliceSwap,
 				Secret:     revealedSecret,
 			}
-			redeemTx, _, err = bobWallet.BatchExecute(ctx, []btcswap.ActionItem{bobRedeem}, nil)
+			redeemTx, err = bobWallet.BatchExecute(ctx, []btcswap.ActionItem{bobRedeem}, nil)
 			Expect(err).Should(BeNil())
 			By(color.GreenString("Alice's swap is redeemed in tx %v", redeemTx.TxHash().String()))
 			Expect(testutil.NigiriNewBlock()).Should(Succeed())

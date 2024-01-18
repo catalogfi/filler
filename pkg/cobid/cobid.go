@@ -3,6 +3,7 @@ package cobid
 import (
 	"encoding/hex"
 	"fmt"
+	"strings"
 
 	"github.com/catalogfi/blockchain/btc"
 	"github.com/catalogfi/cobi/pkg/cobid/executor"
@@ -84,7 +85,7 @@ func NewCobi(config Config, estimator btc.FeeEstimator) (Cobid, error) {
 	if err != nil {
 		return Cobid{}, err
 	}
-	btcExe := executor.NewBitcoinExecutor(config.Btc.Chain, logger, btcWallet, client, addr.Hex())
+	btcExe := executor.NewBitcoinExecutor(config.Btc.Chain, logger, btcWallet, client, storage, strings.ToLower(addr.Hex()))
 
 	// Ethereum wallet and executor
 	wallets := map[model.Chain]ethswap.Wallet{}
