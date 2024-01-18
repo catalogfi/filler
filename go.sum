@@ -50,6 +50,12 @@ github.com/catalogfi/blockchain v0.0.7-0.20240110152752-6bc53f0da9e7 h1:Jsvd8VDz
 github.com/catalogfi/blockchain v0.0.7-0.20240110152752-6bc53f0da9e7/go.mod h1:LeRxIYLDcMKIJAobiwQG78Gfgo3mMwug4yCljO4XZNc=
 github.com/catalogfi/blockchain v0.0.7-0.20240116052107-9eff0d23b676 h1:Gd/Z9VeAkTHDfTq1Aw2wqEOsnzxL0cM5Bqpj5m89Nis=
 github.com/catalogfi/blockchain v0.0.7-0.20240116052107-9eff0d23b676/go.mod h1:LeRxIYLDcMKIJAobiwQG78Gfgo3mMwug4yCljO4XZNc=
+github.com/catalogfi/blockchain v0.0.7-0.20240117035745-23087a9127bd h1:yg0nTQfs1gQbd+3AC5h5HQjpUUFE1LBWrIL1wc7kVQs=
+github.com/catalogfi/blockchain v0.0.7-0.20240117035745-23087a9127bd/go.mod h1:LeRxIYLDcMKIJAobiwQG78Gfgo3mMwug4yCljO4XZNc=
+github.com/catalogfi/blockchain v0.0.7-0.20240117042502-e7a6e5b26df8 h1:ibYskM2vwZZzth2JJy2Kjck/cLWElFhi/HN2AqFdVhs=
+github.com/catalogfi/blockchain v0.0.7-0.20240117042502-e7a6e5b26df8/go.mod h1:LeRxIYLDcMKIJAobiwQG78Gfgo3mMwug4yCljO4XZNc=
+github.com/catalogfi/blockchain v0.0.7-0.20240117051226-b561f323d37c h1:ZliJRatFq2Xdr8omw0GQlAwYgR2j7wqwqu81ISWEgwI=
+github.com/catalogfi/blockchain v0.0.7-0.20240117051226-b561f323d37c/go.mod h1:LeRxIYLDcMKIJAobiwQG78Gfgo3mMwug4yCljO4XZNc=
 github.com/catalogfi/orderbook v0.0.0-20231207112335-5bf92a98f600 h1:ixUVHWWCK8NbdcLzZaPCkGPlnQHfsys39zTCVN5S8tE=
 github.com/catalogfi/orderbook v0.0.0-20231207112335-5bf92a98f600/go.mod h1:6JqH+eXT+ArPLVdI7OU0zKH2KrRPYLuePGe5Quf7Yps=
 github.com/cespare/cp v0.1.0 h1:SE+dxFebS7Iik5LK0tsi1k9ZCxEaFX4AjQmoyA+1dJk=

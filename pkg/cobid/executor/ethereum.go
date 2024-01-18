@@ -8,89 +8,188 @@ import (
 
 	"github.com/catalogfi/cobi/pkg/swap"
 	"github.com/catalogfi/cobi/pkg/swap/ethswap"
+	"github.com/catalogfi/cobi/pkg/util"
 	"github.com/catalogfi/orderbook/model"
+	"github.com/catalogfi/orderbook/rest"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"go.uber.org/zap"
 )
 
 type EvmExecutor struct {
-	chain     model.Chain
-	wallet    ethswap.Wallet
-	storage   Store
-	logger    *zap.Logger
-	swapsChan chan ActionItem
+	logger  *zap.Logger
+	wallets map[model.Chain]ethswap.Wallet
+	storage Store
+	dialer  util.WsClientDialer
+	signer  string
+	client  *ethclient.Client
+
+	swaps map[model.Chain]chan ActionItem
+	quit  chan struct{}
 }
 
-func NewEvmExecutor(chain model.Chain, logger *zap.Logger, wallet ethswap.Wallet, storage Store) *EvmExecutor {
-	swapsChan := make(chan ActionItem, 16)
-	exe := &EvmExecutor{
-		chain:     chain,
-		wallet:    wallet,
-		storage:   storage,
-		logger:    logger,
-		swapsChan: swapsChan,
+func NewEvmExecutor(logger *zap.Logger, wallets map[model.Chain]ethswap.Wallet, storage Store, dialer util.WsClientDialer) *EvmExecutor {
+	// Signer should be the same as the eth wallet address. We assume all evm wallets have the same address.
+	signer := ""
+	swaps := map[model.Chain]chan ActionItem{}
+	for chain, wallet := range wallets {
+		signer = wallet.Address().Hex()
+		swaps[chain] = make(chan ActionItem, 16)
 	}
+
+	return &EvmExecutor{
+		logger:  logger,
+		wallets: wallets,
+		storage: storage,
+		dialer:  dialer,
+		signer:  signer,
+
+		quit: make(chan struct{}),
+	}
+}
+
+func (ee *EvmExecutor) Start() {
+	// Execute swaps
+	for chain, swaps := range ee.swaps {
+		chain := chain
+		swaps := swaps
+		go ee.chainWorker(chain, swaps)
+	}
+
 	go func() {
-		for item := range swapsChan {
-			// Check if we have done the same action before
-			done, err := exe.storage.CheckAction(item.Action, item.Swap.ID)
-			if err != nil {
-				logger.Error("failed storing action", zap.Error(err))
-				continue
-			}
-			if done {
-				continue
+		for {
+			ee.logger.Info(fmt.Sprintf("subscribing to orders of %v", ee.signer))
+			client := ee.dialer()
+			client.Subscribe(fmt.Sprintf("subscribe::%v", ee.signer))
+			respChan := client.Listen()
+
+		InnerLoop:
+			for {
+				select {
+				case resp, ok := <-respChan:
+					if !ok {
+						break InnerLoop
+					}
+
+					switch response := resp.(type) {
+					case rest.WebsocketError:
+						break InnerLoop
+					case rest.UpdatedOrders:
+						for _, order := range response.Orders {
+							if err := ee.processOrder(order); err != nil {
+								ee.logger.Error("process order", zap.Error(err))
+							}
+						}
+					}
+				case <-ee.quit:
+					return
+				}
 			}
 
-			if err := exe.execute(item.Action, item.Swap); err != nil {
-				logger.Error("execution failed", zap.String("chain", string(chain)), zap.Error(err))
-			}
-
-			// Store the action we have done and make sure we're not doing it again
-			if err := exe.storage.RecordAction(item.Action, item.Swap.ID); err != nil {
-				logger.Error("failed storing action", zap.Error(err))
-				continue
-			}
+			time.Sleep(5 * time.Second)
 		}
 	}()
-	return exe
 }
 
-func (ee *EvmExecutor) Chain() model.Chain {
-	return ee.chain
+func (ee *EvmExecutor) Stop() {
+	if ee.quit != nil {
+		close(ee.quit)
+		ee.quit = nil
+	}
 }
 
-func (ee *EvmExecutor) Execute(action swap.Action, atomicSwap *model.AtomicSwap) {
-	ee.swapsChan <- ActionItem{
+func (ee *EvmExecutor) processOrder(order model.Order) error {
+	if order.Status == model.Filled {
+		order.FollowerAtomicSwap.SecretHash = order.SecretHash  // this is not populated by the orderbook
+		order.InitiatorAtomicSwap.SecretHash = order.SecretHash // this is not populated by the orderbook
+
+		// We're the taker
+		if order.Taker == ee.signer {
+			if order.InitiatorAtomicSwap.Status == model.Initiated &&
+				order.FollowerAtomicSwap.Status == model.NotStarted {
+				ee.execute(swap.ActionInitiate, order.FollowerAtomicSwap)
+			} else if order.InitiatorAtomicSwap.Status == model.Initiated &&
+				order.FollowerAtomicSwap.Status == model.Redeemed {
+				if order.FollowerAtomicSwap.Secret == "" {
+					return fmt.Errorf("missing secret")
+				}
+				order.InitiatorAtomicSwap.Secret = order.FollowerAtomicSwap.Secret
+				ee.execute(swap.ActionRedeem, order.InitiatorAtomicSwap)
+			} else if order.FollowerAtomicSwap.Status == model.Expired {
+				ee.execute(swap.ActionRefund, order.FollowerAtomicSwap)
+			}
+		}
+	}
+	return nil
+}
+
+func (ee *EvmExecutor) execute(action swap.Action, atomicSwap *model.AtomicSwap) {
+	swapChain, ok := ee.swaps[atomicSwap.Chain]
+	if !ok {
+		// Skip execution since the chain is not supported
+		return
+	}
+
+	swapChain <- ActionItem{
 		Action: action,
 		Swap:   atomicSwap,
 	}
 }
 
-func (ee *EvmExecutor) execute(action swap.Action, atomicSwap *model.AtomicSwap) error {
-	ctx, cancel := context.WithTimeout(context.TODO(), time.Minute)
-	defer cancel()
-
-	ethSwap, err := ethswap.FromAtomicSwap(atomicSwap)
-	if err != nil {
-		return err
-	}
-
-	var txHash string
-	switch action {
-	case swap.ActionInitiate:
-		txHash, err = ee.wallet.Initiate(ctx, ethSwap)
-	case swap.ActionRedeem:
-		var secret []byte
-		secret, err = hex.DecodeString(atomicSwap.Secret)
+func (ee *EvmExecutor) chainWorker(chain model.Chain, swaps chan ActionItem) {
+	for item := range swaps {
+		// Check if we have done the same action before
+		done, err := ee.storage.CheckAction(item.Action, item.Swap.ID)
 		if err != nil {
-			return err
+			ee.logger.Error("failed storing action", zap.Error(err))
+			continue
 		}
-		txHash, err = ee.wallet.Redeem(ctx, ethSwap, secret)
-	case swap.ActionRefund:
-		txHash, err = ee.wallet.Refund(ctx, ethSwap)
-	default:
-		return fmt.Errorf("unknown action = %v", action)
+		if done {
+			continue
+		}
+
+		ethSwap, err := ethswap.FromAtomicSwap(item.Swap)
+		if err != nil {
+			ee.logger.Error("parse swap", zap.Error(err))
+			continue
+		}
+
+		// Execute the swap action
+		func() {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+			defer cancel()
+
+			wallet := ee.wallets[chain]
+			var txHash string
+			switch item.Action {
+			case swap.ActionInitiate:
+				initiated, err := ethSwap.Initiated(ctx, ee.client)
+				if err != nil {
+					ee.logger.Error("check swap initiated", zap.Error(err))
+					return
+				}
+				if initiated {
+					return
+				}
+				txHash, err = wallet.Initiate(ctx, ethSwap)
+			case swap.ActionRedeem:
+				var secret []byte
+				secret, err = hex.DecodeString(item.Swap.Secret)
+				if err != nil {
+					ee.logger.Error("decode secret", zap.Error(err))
+					return
+				}
+				txHash, err = wallet.Redeem(ctx, ethSwap, secret)
+			case swap.ActionRefund:
+				txHash, err = wallet.Refund(ctx, ethSwap)
+			default:
+				return
+			}
+			ee.logger.Info("Execution done", zap.String("chain", string(chain)), zap.String("hash", txHash))
+
+			// Store the action we have done and make sure we're not doing it again
+			if err := ee.storage.RecordAction(item.Action, item.Swap.ID); err != nil {
+				ee.logger.Error("failed storing action", zap.Error(err))
+			}
+		}()
 	}
-	ee.logger.Info("Execution Ethereum done", zap.String("hash", txHash))
-	return err
 }

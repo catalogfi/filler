@@ -7,10 +7,13 @@ import (
 	"github.com/catalogfi/blockchain/btc"
 )
 
+const DefaultMinRelayFee = 2
+
 type Options struct {
 	Network     *chaincfg.Params
 	AddressType btc.AddressType
 	FeeTier     string
+	MinRelayFee int
 }
 
 func NewWalletOptions(network *chaincfg.Params) Options {
@@ -31,6 +34,7 @@ func OptionsMainnet() Options {
 		Network:     &chaincfg.MainNetParams,
 		AddressType: btc.AddressP2WPKH,
 		FeeTier:     "high",
+		MinRelayFee: DefaultMinRelayFee,
 	}
 }
 
@@ -39,6 +43,7 @@ func OptionsTestnet() Options {
 		Network:     &chaincfg.TestNet3Params,
 		AddressType: btc.AddressP2WPKH,
 		FeeTier:     "medium",
+		MinRelayFee: DefaultMinRelayFee,
 	}
 }
 
@@ -47,6 +52,7 @@ func OptionsRegression() Options {
 		Network:     &chaincfg.RegressionNetParams,
 		AddressType: btc.AddressP2WPKH,
 		FeeTier:     "low",
+		MinRelayFee: DefaultMinRelayFee,
 	}
 }
 
@@ -62,5 +68,10 @@ func (opts Options) WithFeeTier(feeTier string) Options {
 
 func (opts Options) WithAddressType(addressType btc.AddressType) Options {
 	opts.AddressType = addressType
+	return opts
+}
+
+func (opts Options) WithMinRelayFee(min int) Options {
+	opts.MinRelayFee = min
 	return opts
 }
