@@ -18,7 +18,9 @@ import (
 type Wallet interface {
 	Address() common.Address
 
-	Balance(ctx context.Context, tokenAddr *common.Address, pending bool) (*big.Int, error)
+	Balance(ctx context.Context, pending bool) (*big.Int, error)
+
+	TokenBalance(ctx context.Context, pending bool) (*big.Int, error)
 
 	Initiate(ctx context.Context, swap Swap) (string, error)
 
@@ -76,25 +78,20 @@ func (wallet *wallet) Address() common.Address {
 	return wallet.addr
 }
 
-func (wallet *wallet) Balance(ctx context.Context, tokenAddr *common.Address, pending bool) (*big.Int, error) {
-	if tokenAddr == nil {
-		// return the eth balance
-		if pending {
-			return wallet.client.PendingBalanceAt(ctx, wallet.addr)
-		}
-		return wallet.client.BalanceAt(ctx, wallet.addr, nil)
-	} else {
-		// return the erc20 balance
-		erc20, err := bindings.NewERC20(*tokenAddr, wallet.client)
-		if err != nil {
-			return nil, err
-		}
-		callOpts := &bind.CallOpts{
-			Pending: pending,
-			Context: ctx,
-		}
-		return erc20.BalanceOf(callOpts, wallet.addr)
+func (wallet *wallet) Balance(ctx context.Context, pending bool) (*big.Int, error) {
+	// return the eth balance
+	if pending {
+		return wallet.client.PendingBalanceAt(ctx, wallet.addr)
 	}
+	return wallet.client.BalanceAt(ctx, wallet.addr, nil)
+}
+
+func (wallet *wallet) TokenBalance(ctx context.Context, pending bool) (*big.Int, error) {
+	callOpts := &bind.CallOpts{
+		Pending: pending,
+		Context: ctx,
+	}
+	return wallet.token.BalanceOf(callOpts, wallet.addr)
 }
 
 func (wallet *wallet) Initiate(ctx context.Context, swap Swap) (string, error) {
