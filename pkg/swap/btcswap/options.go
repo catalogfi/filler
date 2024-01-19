@@ -7,7 +7,7 @@ import (
 	"github.com/catalogfi/blockchain/btc"
 )
 
-const DefaultMinRelayFee = 2
+const DefaultMinRelayFee = 1
 
 type Options struct {
 	Network     *chaincfg.Params
