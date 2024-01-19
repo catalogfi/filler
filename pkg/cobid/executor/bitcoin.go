@@ -102,7 +102,7 @@ func (be *BitcoinExecutor) Start() {
 					// Add the action item to the list
 					orderIDs[order.ID] = struct{}{}
 					atomicSwap.SecretHash = order.SecretHash
-					btcSwap, err := btcswap.FromAtomicSwap(order.FollowerAtomicSwap)
+					btcSwap, err := btcswap.FromAtomicSwap(atomicSwap)
 					if err != nil {
 						be.logger.Error("failed parse swap", zap.Error(err))
 						continue
