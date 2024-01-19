@@ -104,16 +104,24 @@ func (be *BitcoinExecutor) Start() {
 						if order.FollowerAtomicSwap.Status == model.Detected {
 							isDetected = true
 						}
-					} else if order.InitiatorAtomicSwap.Status == model.Initiated && // todo : when the status is expired ?
+					} else if (order.InitiatorAtomicSwap.Status == model.Initiated ||
+						order.InitiatorAtomicSwap.Status == model.RedeemDetected) &&
 						order.FollowerAtomicSwap.Status == model.Redeemed &&
 						order.InitiatorAtomicSwap.Chain == be.chain {
 						action = swap.ActionRedeem
 						atomicSwap = order.InitiatorAtomicSwap
 						order.InitiatorAtomicSwap.Secret = order.FollowerAtomicSwap.Secret
-					} else if order.FollowerAtomicSwap.Status == model.Expired &&
+						if order.InitiatorAtomicSwap.Status == model.RedeemDetected {
+							isDetected = true
+						}
+					} else if (order.FollowerAtomicSwap.Status == model.Expired ||
+						order.FollowerAtomicSwap.Status == model.RefundDetected) &&
 						order.FollowerAtomicSwap.Chain == be.chain {
 						action = swap.ActionRefund
 						atomicSwap = order.FollowerAtomicSwap
+						if order.FollowerAtomicSwap.Status == model.RefundDetected {
+							isDetected = true
+						}
 					} else {
 						continue
 					}
