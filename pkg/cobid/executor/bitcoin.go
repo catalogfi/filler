@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
+	"log"
 	"reflect"
 	"time"
 
@@ -40,14 +41,12 @@ func NewBitcoinExecutor(chain model.Chain, logger *zap.Logger, wallet btcswap.Wa
 }
 
 func (be *BitcoinExecutor) Start() {
-	ticker := time.NewTicker(30 * time.Second)
+	ticker := time.NewTicker(10 * time.Second)
 	go func() {
 		defer ticker.Stop()
 
 	outer:
 		for {
-			initiatedCache := map[string]struct{}{}
-
 			select {
 			case <-ticker.C:
 				filter := rest.GetOrdersFilter{
@@ -70,59 +69,50 @@ func (be *BitcoinExecutor) Start() {
 				}
 
 				isInitiated := func(swap btcswap.Swap) (bool, error) {
-					if _, ok := initiatedCache[string(swap.SecretHash)]; ok {
-						return true, nil
-					}
-
 					ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 					defer cancel()
+
 					initiated, _, err := swap.Initiated(ctx, be.wallet.Indexer())
-					if err != nil {
-						return false, err
-					}
-					if initiated {
-						initiatedCache[string(swap.SecretHash)] = struct{}{}
-					}
-					return initiated, nil
+					return initiated, err
 				}
 
 				// Get all the orders we need to execute.
 				pendingActions := make([]btcswap.ActionItem, 0, len(orders))
-				detectedActions := make([]btcswap.ActionItem, 0, len(orders))
+				executedActions := make([]btcswap.ActionItem, 0, len(orders))
 				orderIDs := make(map[uint]struct{})
 				for _, order := range orders {
 					var atomicSwap *model.AtomicSwap
 					var action swap.Action
-					var isDetected bool
+					var executed bool
 
-					if order.InitiatorAtomicSwap.Status == model.Initiated &&
-						(order.FollowerAtomicSwap.Status == model.NotStarted ||
-							order.FollowerAtomicSwap.Status == model.Detected) &&
-						order.FollowerAtomicSwap.Chain == be.chain {
-						action = swap.ActionInitiate
+					iStatus := order.InitiatorAtomicSwap.Status
+					fStatus := order.FollowerAtomicSwap.Status
+
+					switch {
+					case order.FollowerAtomicSwap.Chain == be.chain:
+						// Initiate or Refund
 						atomicSwap = order.FollowerAtomicSwap
-						if order.FollowerAtomicSwap.Status == model.Detected {
-							isDetected = true
+						if iStatus == model.Initiated && (fStatus == model.Detected || fStatus == model.NotStarted) {
+							action = swap.ActionInitiate
+							executed = fStatus == model.Detected
+						} else if fStatus == model.Expired || fStatus == model.RefundDetected {
+							action = swap.ActionRefund
+							executed = fStatus == model.RefundDetected
+						} else {
+							continue
 						}
-					} else if (order.InitiatorAtomicSwap.Status == model.Initiated ||
-						order.InitiatorAtomicSwap.Status == model.RedeemDetected) &&
-						order.FollowerAtomicSwap.Status == model.Redeemed &&
-						order.InitiatorAtomicSwap.Chain == be.chain {
-						action = swap.ActionRedeem
-						atomicSwap = order.InitiatorAtomicSwap
-						order.InitiatorAtomicSwap.Secret = order.FollowerAtomicSwap.Secret
-						if order.InitiatorAtomicSwap.Status == model.RedeemDetected {
-							isDetected = true
+					case order.InitiatorAtomicSwap.Chain == be.chain:
+						// Redeem
+						if (fStatus == model.Redeemed || fStatus == model.RedeemDetected) &&
+							(iStatus == model.Initiated || iStatus == model.RedeemDetected) {
+							action = swap.ActionRedeem
+							atomicSwap = order.InitiatorAtomicSwap
+							executed = iStatus == model.RedeemDetected
+							order.InitiatorAtomicSwap.Secret = order.FollowerAtomicSwap.Secret
+						} else {
+							continue
 						}
-					} else if (order.FollowerAtomicSwap.Status == model.Expired ||
-						order.FollowerAtomicSwap.Status == model.RefundDetected) &&
-						order.FollowerAtomicSwap.Chain == be.chain {
-						action = swap.ActionRefund
-						atomicSwap = order.FollowerAtomicSwap
-						if order.FollowerAtomicSwap.Status == model.RefundDetected {
-							isDetected = true
-						}
-					} else {
+					default:
 						continue
 					}
 
@@ -163,8 +153,8 @@ func (be *BitcoinExecutor) Start() {
 						AtomicSwap: btcSwap,
 						Secret:     secret,
 					}
-					if isDetected {
-						detectedActions = append(detectedActions, actionItem)
+					if executed {
+						executedActions = append(executedActions, actionItem)
 					} else {
 						pendingActions = append(pendingActions, actionItem)
 					}
@@ -172,22 +162,20 @@ func (be *BitcoinExecutor) Start() {
 
 				// Skip if we have no orders to process
 				if len(pendingActions) == 0 {
-					if len(orderIDs) == 0 {
-						initiatedCache = map[string]struct{}{}
-					}
 					continue
 				}
 
 				// Combine all swap actions and submit a new rbf tx
-				pendingActions = append(pendingActions, detectedActions...)
+				pendingActions = append(pendingActions, executedActions...)
 
 				// If any old order is missing from the new order set, that means one of the previous tx has been mined,
 				// and we want to start a new series of rbf txs.
 				for order := range prevOrders {
 					if _, ok := orderIDs[order]; !ok {
-						rbfOptions = nil
-						prevOrders = nil
-						continue
+						if err := be.store.StoreRbfInfo(nil, nil); err != nil {
+							be.logger.Error("store rbf info", zap.Error(err))
+						}
+						continue outer
 					}
 				}
 
@@ -195,6 +183,10 @@ func (be *BitcoinExecutor) Start() {
 				if reflect.DeepEqual(prevOrders, orderIDs) {
 					continue
 				}
+				for _, actionItem := range pendingActions {
+					log.Printf("%v %v", actionItem.Action, actionItem.AtomicSwap.Address.EncodeAddress())
+				}
+				log.Printf("rfb = %v", rbfOptions)
 
 				// Submit the transaction
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -210,6 +202,7 @@ func (be *BitcoinExecutor) Start() {
 						continue
 					}
 					be.logger.Error("btc execution", zap.Error(err))
+					continue
 				}
 
 				// Cache the tx in case we want to replace it in the future

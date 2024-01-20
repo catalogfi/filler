@@ -3,6 +3,7 @@ package btcswap
 import (
 	"context"
 	"fmt"
+	"log"
 	"sync"
 
 	"github.com/btcsuite/btcd/btcec/v2"
@@ -21,10 +22,11 @@ type ActionItem struct {
 }
 
 type OptionRBF struct {
-	PreviousFee     int                 `json:"previous_fee"`
-	PreviousFeeRate int                 `json:"previous_fee_rate"`
-	PreviousTxIns   map[string]struct{} `json:"previous_tx_ins"`
-	PreviousUtxos   []btc.UTXO          `json:"previous_utxos"`
+	PreviousFee     int                   `json:"previous_fee"`
+	PreviousFeeRate int                   `json:"previous_fee_rate"`
+	PreviousTxIns   map[string]struct{}   `json:"previous_tx_ins"`
+	PreviousUtxos   []btc.UTXO            `json:"previous_utxos"`
+	PreviousSpend   map[string][]btc.UTXO `json:"previous_spend"`
 }
 
 type Wallet interface {
@@ -99,6 +101,7 @@ func (wallet *wallet) BatchExecute(ctx context.Context, actions []ActionItem, rb
 	wallet.mu.Lock()
 	defer wallet.mu.Unlock()
 
+	scriptUtxos := map[string][]btc.UTXO{}
 	recipients := make([]btc.Recipient, 0, len(actions))
 	rawInputs := btc.NewRawInputs()
 	utxoOrigin := map[int]ActionItem{}
@@ -115,19 +118,34 @@ func (wallet *wallet) BatchExecute(ctx context.Context, actions []ActionItem, rb
 
 		switch action.Action {
 		case swap.ActionInitiate:
+			log.Print("add initiate ", action.AtomicSwap.Address.EncodeAddress())
 			recipient := btc.Recipient{
 				To:     action.AtomicSwap.Address.EncodeAddress(),
 				Amount: action.AtomicSwap.Amount,
 			}
 			recipients = append(recipients, recipient)
 		case swap.ActionRedeem:
-			// Check the swap is initialised before redeeming
-			utxos, err := wallet.client.GetUTXOs(ctx, action.AtomicSwap.Address)
-			if err != nil {
-				return nil, nil, err
+			log.Print("add redeem ", action.AtomicSwap.Address)
+
+			var utxos []btc.UTXO
+			if rbf != nil {
+				var ok bool
+				utxos, ok = rbf.PreviousSpend[string(action.AtomicSwap.SecretHash)]
+				if !ok {
+					utxos, err = wallet.client.GetUTXOs(ctx, action.AtomicSwap.Address)
+					if err != nil {
+						return nil, nil, err
+					}
+				}
+			} else {
+				utxos, err = wallet.client.GetUTXOs(ctx, action.AtomicSwap.Address)
+				if err != nil {
+					return nil, nil, err
+				}
 			}
+
 			if len(utxos) == 0 {
-				return nil, nil, fmt.Errorf("swap (%v) not initialised", action.AtomicSwap.Address)
+				return nil, nil, btc.ErrTxInputsMissingOrSpent
 			}
 
 			// Mark these utxo as redeeming, so we know how to sign them later.
@@ -146,22 +164,41 @@ func (wallet *wallet) BatchExecute(ctx context.Context, actions []ActionItem, rb
 					Index: utxo.Vout,
 				}, wire.NewTxOut(utxo.Amount, fromScript))
 			}
+			scriptUtxos[string(action.AtomicSwap.SecretHash)] = utxos
 			rawInputs.VIN = append(rawInputs.VIN, utxos...)
 			rawInputs.SegwitSize += len(utxos) * btc.RedeemHtlcRedeemSigScriptSize(len(action.Secret))
 		case swap.ActionRefund:
-			expired, err := action.AtomicSwap.Expired(ctx, wallet.client)
-			if err != nil {
-				return nil, nil, err
-			}
-			if !expired {
-				return nil, nil, fmt.Errorf("swap not expired")
+			log.Print("add refund ", action.AtomicSwap.Address)
+			var utxos []btc.UTXO
+			if rbf != nil {
+				var ok bool
+				utxos, ok = rbf.PreviousSpend[string(action.AtomicSwap.SecretHash)]
+				if !ok {
+					utxos, err = wallet.client.GetUTXOs(ctx, action.AtomicSwap.Address)
+					if err != nil {
+						return nil, nil, err
+					}
+				}
+			} else {
+				utxos, err = wallet.client.GetUTXOs(ctx, action.AtomicSwap.Address)
+				if err != nil {
+					return nil, nil, err
+				}
 			}
 
-			// Mark these utxo as refunding, so we know how to sign them later.
-			utxos, err := wallet.client.GetUTXOs(ctx, action.AtomicSwap.Address)
-			if err != nil {
-				return nil, nil, err
+			if len(utxos) == 0 {
+				return nil, nil, btc.ErrTxInputsMissingOrSpent
 			}
+
+			// expired, err := action.AtomicSwap.Expired(ctx, wallet.client)
+			// if err != nil {
+			// 	return nil, nil, err
+			// }
+			// if !expired {
+			// 	return nil, nil, fmt.Errorf("swap not expired")
+			// }
+
+			// Mark these utxo as refunding, so we know how to sign them later.
 			fromScript, err := txscript.PayToAddrScript(action.AtomicSwap.Address)
 			if err != nil {
 				return nil, nil, err
@@ -179,6 +216,7 @@ func (wallet *wallet) BatchExecute(ctx context.Context, actions []ActionItem, rb
 			}
 			rawInputs.VIN = append(rawInputs.VIN, utxos...)
 			rawInputs.SegwitSize += len(utxos) * btc.RedeemHtlcRefundSigScriptSize
+			scriptUtxos[string(action.AtomicSwap.SecretHash)] = utxos
 		default:
 			return nil, nil, fmt.Errorf("unknown action = %v", action.Action)
 		}
@@ -314,6 +352,7 @@ func (wallet *wallet) BatchExecute(ctx context.Context, actions []ActionItem, rb
 		PreviousFeeRate: feeRate,
 		PreviousTxIns:   txIns,
 		PreviousUtxos:   utxos,
+		PreviousSpend:   scriptUtxos,
 	}, nil
 }
 

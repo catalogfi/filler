@@ -113,10 +113,13 @@ func (rs redisStore) GetRbfInfo() (*btcswap.OptionRBF, map[uint]struct{}, error)
 	}
 
 	var rbf btcswap.OptionRBF
+	rbfOptions := &rbf
 	if len(data) != 0 {
-		if err := json.Unmarshal(data, &rbf); err != nil {
+		if err := json.Unmarshal(data, rbfOptions); err != nil {
 			return nil, nil, err
 		}
+	} else {
+		rbfOptions = nil
 	}
 
 	orderStr, err := rs.client.Get(ctx, KeyOrders).Result()
@@ -127,7 +130,7 @@ func (rs redisStore) GetRbfInfo() (*btcswap.OptionRBF, map[uint]struct{}, error)
 		return nil, nil, err
 	}
 	orders := rs.ordersFromString(orderStr)
-	return &rbf, orders, nil
+	return rbfOptions, orders, nil
 }
 
 // func (rs redisStore) StorePreviousTx(fee int, tx *wire.MsgTx, orders map[uint]struct{}) error {
