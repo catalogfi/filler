@@ -2,6 +2,7 @@ package executor
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,7 +16,33 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-var ErrNotFound = fmt.Errorf("not found")
+var (
+	KeyBatchData = "batchData"
+)
+
+type BatchData struct {
+	PrevOrders map[string]struct{} `json:"prev_orders"`
+	RbfOptions btcswap.OptionRBF   `json:"rbf_options"`
+}
+
+func NewBatchData() BatchData {
+	return BatchData{
+		PrevOrders: map[string]struct{}{},
+		RbfOptions: btcswap.OptionRBF{},
+	}
+}
+
+func (bd *BatchData) HasAction(item btcswap.ActionItem) bool {
+	key := fmt.Sprintf("%v_%v", item.Action, hex.EncodeToString(item.AtomicSwap.SecretHash))
+	_, ok := bd.PrevOrders[key]
+	return ok
+}
+
+func (bd *BatchData) AddExecuteAction(item btcswap.ActionItem) {
+	key := fmt.Sprintf("%v_%v", item.Action, hex.EncodeToString(item.AtomicSwap.SecretHash))
+	bd.PrevOrders[key] = struct{}{}
+	return
+}
 
 type Store interface {
 
@@ -25,21 +52,12 @@ type Store interface {
 	// CheckAction returns if an action has been done on the swap previously
 	CheckAction(action swap.Action, swapID uint) (bool, error)
 
-	// // StorePreviousTx the related info of the previously submitted tx
-	// StorePreviousTx(fee int, tx *wire.MsgTx, orders map[uint]struct{}) error
-	//
-	// // GetPreviousTx returns the info of the previously submitted tx
-	// GetPreviousTx() (int, *wire.MsgTx, map[uint]struct{}, error)
+	// StoreBatchData stores the batch data into the storage
+	StoreBatchData(bd BatchData) error
 
-	StoreRbfInfo(rbf *btcswap.OptionRBF, orders map[uint]struct{}) error
-
-	GetRbfInfo() (*btcswap.OptionRBF, map[uint]struct{}, error)
+	// GetBatchData from the storage
+	GetBatchData() (BatchData, error)
 }
-
-var (
-	KeyOrders = "orders"
-	KeyRBF    = "rbf"
-)
 
 type redisStore struct {
 	client *redis.Client
@@ -63,7 +81,7 @@ func (rs redisStore) StoreAction(action swap.Action, swapID uint) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	key := rs.actionKey(action, swapID)
+	key := actionKey(action, swapID)
 	return rs.client.Set(ctx, key, true, 0).Err()
 }
 
@@ -71,7 +89,7 @@ func (rs redisStore) CheckAction(action swap.Action, swapID uint) (bool, error) 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	key := rs.actionKey(action, swapID)
+	key := actionKey(action, swapID)
 	ok, err := rs.client.Get(ctx, key).Bool()
 	if errors.Is(err, redis.Nil) {
 		return false, nil
@@ -79,122 +97,33 @@ func (rs redisStore) CheckAction(action swap.Action, swapID uint) (bool, error) 
 	return ok, err
 }
 
-func (rs redisStore) StoreRbfInfo(rbf *btcswap.OptionRBF, orders map[uint]struct{}) error {
+func (rs redisStore) StoreBatchData(bd BatchData) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	var data []byte
-	var err error
-	if rbf != nil {
-		data, err = json.Marshal(rbf)
-		if err != nil {
-			return err
-		}
-	}
-
-	if err := rs.client.Set(ctx, KeyRBF, data, 0).Err(); err != nil {
+	data, err := json.Marshal(bd)
+	if err != nil {
 		return err
 	}
-
-	val := rs.ordersToString(orders)
-	return rs.client.Set(ctx, KeyOrders, val, 0).Err()
+	return rs.client.Set(ctx, KeyBatchData, data, 0).Err()
 }
 
-func (rs redisStore) GetRbfInfo() (*btcswap.OptionRBF, map[uint]struct{}, error) {
+func (rs redisStore) GetBatchData() (BatchData, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	data, err := rs.client.Get(ctx, KeyRBF).Bytes()
+	data, err := rs.client.Get(ctx, KeyBatchData).Bytes()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
-			return nil, nil, ErrNotFound
+			return NewBatchData(), nil
 		}
-		return nil, nil, err
+		return BatchData{}, err
 	}
-
-	var rbf btcswap.OptionRBF
-	rbfOptions := &rbf
-	if len(data) != 0 {
-		if err := json.Unmarshal(data, rbfOptions); err != nil {
-			return nil, nil, err
-		}
-	} else {
-		rbfOptions = nil
+	var bd BatchData
+	if err := json.Unmarshal(data, &bd); err != nil {
+		return BatchData{}, err
 	}
-
-	orderStr, err := rs.client.Get(ctx, KeyOrders).Result()
-	if err != nil {
-		if errors.Is(err, redis.Nil) {
-			return nil, nil, ErrNotFound
-		}
-		return nil, nil, err
-	}
-	orders := rs.ordersFromString(orderStr)
-	return rbfOptions, orders, nil
-}
-
-// func (rs redisStore) StorePreviousTx(fee int, tx *wire.MsgTx, orders map[uint]struct{}) error {
-// 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-// 	defer cancel()
-//
-// 	if err := rs.client.Set(ctx, KeyFees, fee, 0).Err(); err != nil {
-// 		return err
-// 	}
-//
-// 	buffer := bytes.NewBuffer([]byte{})
-// 	if tx != nil {
-// 		if err := tx.Serialize(buffer); err != nil {
-// 			return err
-// 		}
-// 	}
-// 	if err := rs.client.Set(ctx, KeyTx, buffer.Bytes(), 0).Err(); err != nil {
-// 		return err
-// 	}
-//
-// 	val := rs.ordersToString(orders)
-// 	return rs.client.Set(ctx, KeyOrders, val, 0).Err()
-// }
-//
-// func (r redisStore) GetPreviousTx() (int, *wire.MsgTx, map[uint]struct{}, error) {
-// 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-// 	defer cancel()
-//
-// 	fee, err := r.client.Get(ctx, KeyFees).Int()
-// 	if err != nil {
-// 		if errors.Is(err, redis.Nil) {
-// 			return 0, nil, nil, ErrNotFound
-// 		}
-// 		return 0, nil, nil, err
-// 	}
-// 	txBytes, err := r.client.Get(ctx, KeyTx).Bytes()
-// 	if err != nil {
-// 		if errors.Is(err, redis.Nil) {
-// 			return 0, nil, nil, ErrNotFound
-// 		}
-// 		return 0, nil, nil, err
-// 	}
-// 	var tx *wire.MsgTx
-// 	if len(txBytes) != 0 {
-// 		decodedTx, err := btcutil.NewTxFromBytes(txBytes)
-// 		if err != nil {
-// 			return 0, nil, nil, err
-// 		}
-// 		tx = decodedTx.MsgTx()
-// 	}
-//
-// 	orderStr, err := r.client.Get(ctx, KeyOrders).Result()
-// 	if err != nil {
-// 		if errors.Is(err, redis.Nil) {
-// 			return 0, nil, nil, ErrNotFound
-// 		}
-// 		return 0, nil, nil, err
-// 	}
-// 	orders := r.ordersFromString(orderStr)
-// 	return fee, tx, orders, nil
-// }
-
-func (rs redisStore) actionKey(action swap.Action, swapID uint) string {
-	return fmt.Sprintf("%v-%v", action, swapID)
+	return bd, nil
 }
 
 func (rs redisStore) ordersToString(orders map[uint]struct{}) string {
@@ -223,4 +152,8 @@ func (rs redisStore) ordersFromString(orders string) map[uint]struct{} {
 		orderMap[uint(orderID)] = struct{}{}
 	}
 	return orderMap
+}
+
+func actionKey(action swap.Action, swapID uint) string {
+	return fmt.Sprintf("%v-%v", action, swapID)
 }
