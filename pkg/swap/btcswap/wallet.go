@@ -41,9 +41,10 @@ type OptionRBF struct {
 	PrevFeeRate   int             `json:"previous_fee_rate"` // fee rate of the previous tx
 	PrevFee       int             `json:"previous_fee"`      // total fee amount of the previous tx
 
-	PrevSigType   map[string]int    `json:"prev_sig_type"`   // a map links the utxo to how it should be signed
-	PrevSigScript map[string][]byte `json:"prev_sig_script"` // a map links the utxo to its script
-	PrevSigSecret map[string][]byte `json:"prev_sig_secret"` // a map links the utxo to the unlocking secret for it
+	PrevSigType     map[string]int    `json:"prev_sig_type"`     // a map links the utxo to how it should be signed
+	PrevSigScript   map[string][]byte `json:"prev_sig_script"`   // a map links the utxo to its script
+	PrevSigSecret   map[string][]byte `json:"prev_sig_secret"`   // a map links the utxo to the unlocking secret for it
+	PrevSigSequence map[string]uint32 `json:"prev_sig_sequence"` // a map links the refund utxo to its timelock
 
 	FirstInputs []btc.UTXO `json:"first_inputs"` // inputs of the first tx, so we can check if the following tx has intersection
 	FirstUtxos  []btc.UTXO `json:"first_utxos"`  // available utxo list to make up amount difference
@@ -60,9 +61,10 @@ func CopyRBF(opts OptionRBF) OptionRBF {
 		PrevFeeRate:   opts.PrevFeeRate,
 		PrevFee:       opts.PrevFee,
 
-		PrevSigType:   map[string]int{},
-		PrevSigScript: map[string][]byte{},
-		PrevSigSecret: map[string][]byte{},
+		PrevSigType:     map[string]int{},
+		PrevSigScript:   map[string][]byte{},
+		PrevSigSecret:   map[string][]byte{},
+		PrevSigSequence: map[string]uint32{},
 
 		FirstInputs: make([]btc.UTXO, len(opts.FirstInputs)),
 		FirstUtxos:  make([]btc.UTXO, len(opts.FirstUtxos)),
@@ -81,6 +83,9 @@ func CopyRBF(opts OptionRBF) OptionRBF {
 	}
 	for key, secret := range opts.PrevSigSecret {
 		newOptions.PrevSigSecret[key] = secret
+	}
+	for key, sequence := range opts.PrevSigSequence {
+		newOptions.PrevSigSequence[key] = sequence
 	}
 	for i, utxo := range opts.FirstInputs {
 		newOptions.FirstInputs[i] = utxo
@@ -253,6 +258,7 @@ func (wallet *wallet) ExecuteRbf(ctx context.Context, actions []ActionItem, rbf 
 				}, wire.NewTxOut(utxo.Amount, fromScript))
 				newRbf.PrevSigType[UtxoKey(utxo)] = SigTypeRefundHTLC
 				newRbf.PrevSigScript[UtxoKey(utxo)] = action.AtomicSwap.Script
+				newRbf.PrevSigSequence[UtxoKey(utxo)] = uint32(action.AtomicSwap.WaitBlock)
 			}
 
 			newRbf.PrevRawInputs.VIN = append(newRbf.PrevRawInputs.VIN, utxos...)
@@ -299,7 +305,6 @@ func (wallet *wallet) ExecuteRbf(ctx context.Context, actions []ActionItem, rbf 
 	}
 
 	// Build tx
-	log.Printf("build tx")
 	tx, err := btc.BuildRbfTransaction(feeRate, wallet.opts.Network, newRbf.PrevRawInputs, utxos, newRbf.PrevRecipient, btc.P2wpkhUpdater, wallet.address)
 	if err != nil {
 		return "", rbf, err
@@ -341,6 +346,18 @@ func (wallet *wallet) ExecuteRbf(ctx context.Context, actions []ActionItem, rbf 
 		}
 	}
 
+	// Set the sequence for refund utxo
+	for i, in := range tx.TxIn {
+		key := fmt.Sprintf("%v-%v", in.PreviousOutPoint.Hash.String(), in.PreviousOutPoint.Index)
+		if newRbf.PrevSigType[key] == SigTypeRefundHTLC {
+			sequence, ok := newRbf.PrevSigSequence[key]
+			if !ok {
+				return "", rbf, fmt.Errorf("missing sequence for %v", key)
+			}
+			tx.TxIn[i].Sequence = sequence
+		}
+	}
+
 	// Sign the tx
 	log.Printf("sign the tx ")
 	for i, in := range tx.TxIn {
@@ -355,7 +372,6 @@ func (wallet *wallet) ExecuteRbf(ctx context.Context, actions []ActionItem, rbf 
 			}
 			tx.TxIn[i].Witness = witness
 		case SigTypeRedeemHTLC:
-			log.Printf("%v, redeem, ", key)
 			txOut := fetcher.FetchPrevOutput(in.PreviousOutPoint)
 			script, ok := newRbf.PrevSigScript[key]
 			if !ok {
@@ -391,13 +407,11 @@ func (wallet *wallet) ExecuteRbf(ctx context.Context, actions []ActionItem, rbf 
 	log.Print("raw ", hex.EncodeToString(buffer.Bytes()))
 
 	// Submit the transaction
-	log.Printf("broadcast tx ")
-
 	if err := wallet.client.SubmitTx(ctx, tx); err != nil {
 		return "", rbf, err
 	}
 
-	// -- Update the rbf option for next tx --
+	// Update the rbf option for next tx
 	newRbf.PrevFeeRate = feeRate
 	newRbf.PrevFee = btc.TotalFee(tx, fetcher)
 	if rbfIsNil {
