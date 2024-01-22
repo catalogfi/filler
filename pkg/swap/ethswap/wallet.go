@@ -112,7 +112,6 @@ func (wallet *wallet) Initiate(ctx context.Context, swap Swap) (string, error) {
 	}
 	transactor.Nonce = big.NewInt(int64(wallet.nonce))
 	transactor.Context = ctx
-	transactor.GasLimit = 25e4
 
 	// allowance, err := wallet.token.Allowance(&bind.CallOpts{}, swap.Initiator, wallet.options.SwapAddr)
 	// if err != nil {
@@ -156,7 +155,6 @@ func (wallet *wallet) Redeem(ctx context.Context, swap Swap, secret []byte) (str
 	}
 	transactor.Nonce = big.NewInt(int64(wallet.nonce))
 	transactor.Context = ctx
-	transactor.GasLimit = 25e4
 
 	tx, err := wallet.swap.Redeem(transactor, swap.ID, secret)
 	if err != nil {
@@ -179,7 +177,6 @@ func (wallet *wallet) Refund(ctx context.Context, swap Swap) (string, error) {
 	}
 	transactor.Nonce = big.NewInt(int64(wallet.nonce))
 	transactor.Context = ctx
-	transactor.GasLimit = 25e4
 
 	tx, err := wallet.swap.Refund(transactor, swap.ID)
 	if err != nil {
