@@ -99,9 +99,13 @@ func (f *filler) match(strategy Strategy, ordersChan chan<- model.Order) {
 				case rest.OpenOrders:
 					orders := response.Orders
 					for _, order := range orders {
-						if strategy.Match(order) {
+						match, err := strategy.Match(order)
+						if err != nil {
+							f.logger.Debug("❌ [Not Match]", zap.Uint("id", order.ID), zap.Error(err))
+						}
+						if match {
 							ordersChan <- order
-							f.logger.Info("✅ [Match]", zap.Uint("id", order.ID))
+							f.logger.Debug("✅ [Match]", zap.Uint("id", order.ID))
 						}
 					}
 				}
@@ -140,7 +144,7 @@ func (f *filler) fill(orderPair string, ordersChan <-chan model.Order) {
 
 			for ; ; <-ticker.C {
 				if err := f.balanceCheck(to, ethChain, toAsset, order, interval); err != nil {
-					f.logger.Debug("balance not enough", zap.Error(err))
+					f.logger.Error("balance not enough", zap.Error(err))
 					continue
 				}
 
@@ -149,6 +153,7 @@ func (f *filler) fill(orderPair string, ordersChan <-chan model.Order) {
 					f.logger.Error("fill order", zap.Error(err))
 					continue
 				}
+				f.logger.Info("✅ [Fill]", zap.Uint("id", order.ID))
 
 				// Move on to next order
 				return

@@ -145,10 +145,9 @@ func (be *BitcoinExecutor) Start() {
 					}
 					newActions = append(newActions, actionItem)
 				}
-
-				log.Printf("has %v new actions", len(newActions))
+				be.logger.Debug("btc executor", zap.Int("new actions", len(newActions)))
 				for _, actionItem := range newActions {
-					log.Printf("%v %v", actionItem.Action, actionItem.AtomicSwap.Address)
+					be.logger.Debug("btc executor", zap.String(string(actionItem.Action), actionItem.AtomicSwap.Address.EncodeAddress()))
 				}
 
 				// Skip if we have no orders to process
@@ -165,7 +164,7 @@ func (be *BitcoinExecutor) Start() {
 					// Previous tx been included in the block, we wait for orderbook to update the order status and
 					// check again later
 					if errors.Is(err, btc.ErrTxInputsMissingOrSpent) {
-						log.Printf("Input conflicts, start fresh ")
+						be.logger.Debug("input conflicts")
 						if err := be.store.StoreBatchData(NewBatchData()); err != nil {
 							be.logger.Error("store rbf info", zap.Error(err))
 						}
@@ -177,19 +176,14 @@ func (be *BitcoinExecutor) Start() {
 
 				be.logger.Info("✅ [Execution]", zap.String("chain", "btc"), zap.String("txid", txid))
 
+				// Update the batch data and store it for next poll
 				for _, action := range newActions {
 					bd.AddExecuteAction(action)
 				}
 				bd.RbfOptions = newRBF
-
-				for key := range bd.PrevOrders {
-					log.Printf("after execution , previous action = %v", key)
-				}
-
 				if err := be.store.StoreBatchData(bd); err != nil {
 					be.logger.Error("storing batch data", zap.Error(err))
 				}
-
 			case <-be.stop:
 				return
 			}

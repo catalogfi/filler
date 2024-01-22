@@ -318,7 +318,6 @@ func (wallet *wallet) ExecuteRbf(ctx context.Context, actions []ActionItem, rbf 
 				break
 			}
 			feeRate += 1
-			log.Printf("increament the fee by 1 to %v", feeRate)
 
 			// Build and sign again
 			tx, err = btc.BuildRbfTransaction(feeRate, wallet.opts.Network, newRbf.PrevRawInputs, utxos, newRbf.PrevRecipient, btc.P2wpkhUpdater, wallet.address)
@@ -327,7 +326,7 @@ func (wallet *wallet) ExecuteRbf(ctx context.Context, actions []ActionItem, rbf 
 			}
 		}
 	}
-	log.Printf("after adjust the fee rate  = %v", feeRate)
+	log.Printf("fee rate after adjustment = %v", feeRate)
 
 	// Make sure one of the input from the first tx still exit in this transaction to prevent double initiation.
 	if !rbfIsNil {

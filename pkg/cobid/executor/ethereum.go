@@ -188,6 +188,10 @@ func (ee *EvmExecutor) chainWorker(chain model.Chain, swaps chan ActionItem) {
 			default:
 				return
 			}
+			if err != nil {
+				ee.logger.Error("❌ [Execution]", zap.String("chain", string(chain)), zap.Error(err))
+				return
+			}
 			ee.logger.Info("✅ [Execution]", zap.String("chain", string(chain)), zap.String("hash", txHash))
 
 			// Store the action we have done and make sure we're not doing it again
