@@ -194,5 +194,4 @@ func ParseChainConfig() (cobid.BtcChainConfig, []cobid.EvmChainConfig, error) {
 		chains = append(chains, config)
 	}
 	return btcConfig, chains, nil
-
 }
