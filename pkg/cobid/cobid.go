@@ -48,6 +48,7 @@ type Config struct {
 
 func NewCobi(config Config, estimator btc.FeeEstimator) (Cobid, error) {
 	loggerConfig := zap.NewDevelopmentConfig()
+	loggerConfig.EncoderConfig.TimeKey = ""
 	loggerConfig.Level = zap.NewAtomicLevelAt(zapcore.DebugLevel)
 	logger, err := loggerConfig.Build()
 	if err != nil {
