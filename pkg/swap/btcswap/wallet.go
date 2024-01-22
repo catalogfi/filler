@@ -431,6 +431,7 @@ func (wallet *wallet) ExecuteRbf(ctx context.Context, actions []ActionItem, rbf 
 	// When we only have initiates in the first tx. We need to add those utxos from ourselves as the raw inputs.
 	// And remove then from the available utxos list.
 	if len(newRbf.PrevRawInputs.VIN) == 0 {
+		used := len(tx.TxIn) - len(newRbf.PrevRawInputs.VIN)
 		for _, in := range tx.TxIn {
 			txOut := fetcher.FetchPrevOutput(in.PreviousOutPoint)
 			newRbf.PrevRawInputs.VIN = append(newRbf.PrevRawInputs.VIN, btc.UTXO{
@@ -439,7 +440,6 @@ func (wallet *wallet) ExecuteRbf(ctx context.Context, actions []ActionItem, rbf 
 				Amount: txOut.Value,
 			})
 		}
-		used := len(tx.TxIn) - len(newRbf.PrevRawInputs.VIN)
 		newRbf.FirstUtxos = utxos[used:]
 		newRbf.PrevRawInputs.SegwitSize = len(tx.TxIn) * txsizes.RedeemP2WPKHInputWitnessWeight
 	}
