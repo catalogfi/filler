@@ -255,8 +255,3 @@ func (f *filler) unexecutedAmount(chain model.Chain, asset model.Asset) (*big.In
 	}
 	return amount, nil
 }
-10477  ethereum:0xA5E38d098b54C00F10e32E51647086232a9A0afD-bitcoin 5843043
-10478  ethereum:0xA5E38d098b54C00F10e32E51647086232a9A0afD-bitcoin 2420930
-
-ethereum_arbitrum:0x203DAC25763aE783Ad532A035FfF33d8df9437eE-bitcoin 25134289
-
