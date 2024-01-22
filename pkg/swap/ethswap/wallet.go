@@ -118,11 +118,14 @@ func (wallet *wallet) Initiate(ctx context.Context, swap Swap) (string, error) {
 
 	// Approve the allowance if it's not enough
 	if allowance.Cmp(swap.Amount) < 0 {
-		_, err = wallet.token.Approve(transactor, wallet.options.SwapAddr, swap.Amount)
+		approveTx, err := wallet.token.Approve(transactor, wallet.options.SwapAddr, swap.Amount)
 		if err != nil {
 			if strings.Contains(err.Error(), "nonce too low") {
 				wallet.calibrateNonce()
 			}
+			return "", err
+		}
+		if _, err := bind.WaitMined(ctx, wallet.client, approveTx); err != nil {
 			return "", err
 		}
 		wallet.nonce++
