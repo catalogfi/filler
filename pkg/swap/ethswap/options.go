@@ -26,7 +26,7 @@ func NewOptions(chain model.Chain, swapAddr common.Address) Options {
 	case model.EthereumLocalnet:
 		chainID = big.NewInt(1337)
 	case model.EthereumArbitrum:
-		chainID = big.NewInt(1337)
+		chainID = big.NewInt(42161)
 	default:
 		panic(fmt.Sprintf("unknown evm chain = %v", chain))
 	}
