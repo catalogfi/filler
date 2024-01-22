@@ -73,9 +73,9 @@ func (strategy Strategy) Match(order model.Order) (bool, error) {
 	}
 
 	// Check if order amount is in the expect range
-	orderAmount, ok := new(big.Int).SetString(order.FollowerAtomicSwap.Amount, 10)
+	orderAmount, ok := new(big.Int).SetString(order.InitiatorAtomicSwap.Amount, 10)
 	if !ok {
-		return false, fmt.Errorf("invalid order amount = %v", order.FollowerAtomicSwap.Amount)
+		return false, fmt.Errorf("invalid order amount = %v", order.InitiatorAtomicSwap.Amount)
 	}
 	if strategy.MinAmount != nil && orderAmount.Cmp(strategy.MinAmount) < 0 {
 		return false, fmt.Errorf("amount(%v) lower than minimum(%v)", orderAmount.String(), strategy.MinAmount.String())
