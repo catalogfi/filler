@@ -40,7 +40,7 @@ func NewBitcoinExecutor(chain model.Chain, logger *zap.Logger, wallet btcswap.Wa
 }
 
 func (be *BitcoinExecutor) Start() {
-	ticker := time.NewTicker(time.Minute)
+	ticker := time.NewTicker(20 * time.Second)
 	go func() {
 		defer ticker.Stop()
 
