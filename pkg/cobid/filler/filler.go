@@ -3,7 +3,6 @@ package filler
 import (
 	"context"
 	"fmt"
-	"log"
 	"math/big"
 	"strings"
 	"sync"
@@ -145,7 +144,7 @@ func (f *filler) fill(orderPair string, ordersChan <-chan model.Order) {
 
 			for ; ; <-ticker.C {
 				if err := f.balanceCheck(to, ethChain, toAsset, order, interval); err != nil {
-					f.logger.Error("balance not enough", zap.Error(err))
+					f.logger.Error("balance not enough", zap.Error(err), zap.Uint("order", order.ID))
 					continue
 				}
 
@@ -153,7 +152,8 @@ func (f *filler) fill(orderPair string, ordersChan <-chan model.Order) {
 				if err := f.restClient.FillOrder(order.ID, sendAddr, receiveAddr); err != nil {
 					f.logger.Error("fill order", zap.Error(err), zap.Uint("order", order.ID))
 					if strings.Contains(err.Error(), "already filled") {
-						log.Print("getting orders from websocket")
+						f.logger.Error("skip order %v since it's already filled", zap.Uint("order", order.ID))
+						return
 					}
 					continue
 				}
@@ -207,7 +207,7 @@ func (f *filler) balanceCheck(chain, ethChain model.Chain, asset model.Asset, or
 			return err
 		}
 		if balance < unexecuted.Int64()+amount.Int64() {
-			return fmt.Errorf("balance is not enough, required = %v, has = %v", unexecuted.Int64()+amount.Int64(), balance)
+			return fmt.Errorf("%v balance is not enough, required = %v, has = %v unexecuted =%v", chain, unexecuted.Int64()+amount.Int64(), balance, unexecuted.String())
 		}
 		return nil
 	} else {
@@ -224,7 +224,8 @@ func (f *filler) balanceCheck(chain, ethChain model.Chain, asset model.Asset, or
 		}
 		required := unexecuted.Add(unexecuted, amount)
 		if balance.Cmp(required) <= 0 {
-			return fmt.Errorf("balance is not enough, required = %v, has = %v", required.String(), balance.String())
+
+			return fmt.Errorf("%v balance is not enough, required = %v, has = %v, unexecuted =%v", chain, required.String(), balance.String(), unexecuted.String())
 		}
 		return nil
 	}
