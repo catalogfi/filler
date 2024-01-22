@@ -3,6 +3,7 @@ package filler
 import (
 	"context"
 	"fmt"
+	"log"
 	"math/big"
 	"strings"
 	"sync"
@@ -150,7 +151,10 @@ func (f *filler) fill(orderPair string, ordersChan <-chan model.Order) {
 
 				// Fill the order in the orderbook
 				if err := f.restClient.FillOrder(order.ID, sendAddr, receiveAddr); err != nil {
-					f.logger.Error("fill order", zap.Error(err))
+					f.logger.Error("fill order", zap.Error(err), zap.Uint("order", order.ID))
+					if strings.Contains(err.Error(), "already filled") {
+						log.Print("getting orders from websocket")
+					}
 					continue
 				}
 				f.logger.Info("✅ [Fill]", zap.Uint("id", order.ID))
