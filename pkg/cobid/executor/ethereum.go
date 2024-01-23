@@ -110,8 +110,8 @@ func (ee *EvmExecutor) processOrder(order model.Order) error {
 			if order.InitiatorAtomicSwap.Status == model.Initiated &&
 				order.FollowerAtomicSwap.Status == model.NotStarted {
 				ee.execute(swap.ActionInitiate, order.FollowerAtomicSwap)
-			} else if order.InitiatorAtomicSwap.Status == model.Initiated &&
-				order.FollowerAtomicSwap.Status == model.Redeemed {
+			} else if order.InitiatorAtomicSwap.Status == model.Initiated && (order.FollowerAtomicSwap.Status == model.Redeemed ||
+				order.FollowerAtomicSwap.Status == model.RedeemDetected) {
 				if order.FollowerAtomicSwap.Secret == "" {
 					return fmt.Errorf("missing secret")
 				}
