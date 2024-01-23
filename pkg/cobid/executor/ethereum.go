@@ -166,7 +166,8 @@ func (ee *EvmExecutor) chainWorker(chain model.Chain, swaps chan ActionItem) {
 			var txHash string
 			switch item.Action {
 			case swap.ActionInitiate:
-				initiated, err := ethSwap.Initiated(ctx, client)
+				var initiated bool
+				initiated, err = ethSwap.Initiated(ctx, client)
 				if err != nil {
 					ee.logger.Error("check swap initiated", zap.Error(err))
 					return
