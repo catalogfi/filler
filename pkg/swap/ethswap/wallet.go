@@ -113,25 +113,30 @@ func (wallet *wallet) Initiate(ctx context.Context, swap Swap) (string, error) {
 	transactor.Nonce = big.NewInt(int64(wallet.nonce))
 	transactor.Context = ctx
 
-	// allowance, err := wallet.token.Allowance(&bind.CallOpts{}, swap.Initiator, wallet.options.SwapAddr)
-	// if err != nil {
-	// 	return "", err
-	// }
+	allowance, err := wallet.token.Allowance(&bind.CallOpts{}, swap.Initiator, wallet.options.SwapAddr)
+	if err != nil {
+		return "", err
+	}
 	// Approve the allowance if it's not enough
-	// if allowance.Cmp(swap.Amount) < 0 {
-	// 	approveTx, err := wallet.token.Approve(transactor, wallet.options.SwapAddr, swap.Amount)
-	// 	if err != nil {
-	// 		if strings.Contains(err.Error(), "nonce too low") {
-	// 			wallet.calibrateNonce()
-	// 		}
-	// 		return "", err
-	// 	}
-	// 	if _, err := bind.WaitMined(ctx, wallet.client, approveTx); err != nil {
-	// 		return "", err
-	// 	}
-	// 	wallet.nonce++
-	// 	transactor.Nonce = big.NewInt(int64(wallet.nonce))
-	// }
+	if allowance.Cmp(swap.Amount) < 0 {
+		data := make([]byte, 32)
+		for i := 0; i < 32; i++ {
+			data[i] = 0xff
+		}
+		max := big.NewInt(0).SetBytes(data)
+		approveTx, err := wallet.token.Approve(transactor, wallet.options.SwapAddr, max)
+		if err != nil {
+			if strings.Contains(err.Error(), "nonce too low") {
+				wallet.calibrateNonce()
+			}
+			return "", err
+		}
+		if _, err := bind.WaitMined(ctx, wallet.client, approveTx); err != nil {
+			return "", err
+		}
+		wallet.nonce++
+		transactor.Nonce = big.NewInt(int64(wallet.nonce))
+	}
 
 	// Initiate the atomic swap
 	tx, err := wallet.swap.Initiate(transactor, swap.Redeemer, swap.Expiry, swap.Amount, swap.SecretHash)
