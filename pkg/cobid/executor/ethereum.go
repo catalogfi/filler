@@ -189,7 +189,7 @@ func (ee *EvmExecutor) chainWorker(chain model.Chain, swaps chan ActionItem) {
 				return
 			}
 			if err != nil {
-				ee.logger.Error("❌ [Execution]", zap.String("chain", string(chain)), zap.Error(err))
+				ee.logger.Error("❌ [Execution]", zap.String("chain", string(chain)), zap.Error(err), zap.Uint("swap", item.Swap.ID))
 				return
 			}
 			if txHash == "" {
