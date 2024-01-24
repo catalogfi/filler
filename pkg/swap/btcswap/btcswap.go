@@ -152,7 +152,7 @@ func (swap *Swap) Redeemed(ctx context.Context, client btc.IndexerClient) (bool,
 		return true, swap.Secret, nil
 	}
 
-	txs, err := client.GetAddressTxs(ctx, swap.Address)
+	txs, err := client.GetAddressTxs(ctx, swap.Address, "")
 	if err != nil {
 		return false, nil, err
 	}

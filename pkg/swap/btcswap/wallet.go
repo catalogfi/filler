@@ -305,7 +305,7 @@ func (wallet *wallet) ExecuteRbf(ctx context.Context, actions []ActionItem, rbf 
 	}
 
 	// Build tx
-	tx, err := btc.BuildRbfTransaction(feeRate, wallet.opts.Network, newRbf.PrevRawInputs, utxos, newRbf.PrevRecipient, btc.P2wpkhUpdater, wallet.address)
+	tx, err := btc.BuildRbfTransaction(wallet.opts.Network, feeRate, newRbf.PrevRawInputs, utxos, btc.P2wpkhUpdater, newRbf.PrevRecipient, wallet.address)
 	if err != nil {
 		log.Printf("raw inputs = %+v", newRbf.PrevRawInputs)
 		log.Printf("available utxos = %+v", utxos)
@@ -323,7 +323,7 @@ func (wallet *wallet) ExecuteRbf(ctx context.Context, actions []ActionItem, rbf 
 			feeRate += 1
 
 			// Build and sign again
-			tx, err = btc.BuildRbfTransaction(feeRate, wallet.opts.Network, newRbf.PrevRawInputs, utxos, newRbf.PrevRecipient, btc.P2wpkhUpdater, wallet.address)
+			tx, err = btc.BuildRbfTransaction(wallet.opts.Network, feeRate, newRbf.PrevRawInputs, utxos, btc.P2wpkhUpdater, newRbf.PrevRecipient, wallet.address)
 			if err != nil {
 				return "", rbf, err
 			}
@@ -476,7 +476,7 @@ func (wallet *wallet) Initiate(ctx context.Context, swap Swap) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	tx, err := btc.BuildTransaction(feeRate, swap.Network, btc.NewRawInputs(), utxos, recipients, btc.P2wpkhUpdater, wallet.address)
+	tx, err := btc.BuildTransaction(swap.Network, feeRate, btc.NewRawInputs(), utxos, btc.P2wpkhUpdater, recipients, wallet.address)
 	if err != nil {
 		return "", err
 	}
@@ -532,17 +532,15 @@ func (wallet *wallet) Redeem(ctx context.Context, swap Swap, secret []byte, targ
 		BaseSize:   0,
 		SegwitSize: len(utxos) * btc.RedeemHtlcRedeemSigScriptSize(len(secret)),
 	}
-	recipient := []btc.Recipient{
-		{
-			To:     target,
-			Amount: 0,
-		},
-	}
 	feeRate, err := wallet.feeRate()
 	if err != nil {
 		return "", err
 	}
-	tx, err := btc.BuildTransaction(feeRate, swap.Network, rawInputs, nil, recipient, nil, nil)
+	targetAddr, err := btcutil.DecodeAddress(target, wallet.opts.Network)
+	if err != nil {
+		return "", err
+	}
+	tx, err := btc.BuildTransaction(swap.Network, feeRate, rawInputs, nil, nil, nil, targetAddr)
 	if err != nil {
 		return "", err
 	}
@@ -603,17 +601,15 @@ func (wallet *wallet) Refund(ctx context.Context, swap Swap, target string) (str
 		BaseSize:   0,
 		SegwitSize: len(utxos) * btc.RedeemHtlcRefundSigScriptSize,
 	}
-	recipients := []btc.Recipient{
-		{
-			To:     target,
-			Amount: 0,
-		},
+	targetAddr, err := btcutil.DecodeAddress(target, wallet.opts.Network)
+	if err != nil {
+		return "", err
 	}
 	feeRate, err := wallet.feeRate()
 	if err != nil {
 		return "", err
 	}
-	tx, err := btc.BuildTransaction(feeRate, swap.Network, rawInputs, nil, recipients, nil, nil)
+	tx, err := btc.BuildTransaction(swap.Network, feeRate, rawInputs, nil, nil, nil, targetAddr)
 	if err != nil {
 		return "", err
 	}

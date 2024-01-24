@@ -52,6 +52,8 @@ github.com/bytedance/sonic v1.9.1 h1:6iJ6NqdoxCDr6mbY8h18oSO+cShGSMRGCEo7F2h0x8s
 github.com/bytedance/sonic v1.9.1/go.mod h1:i736AoUSYt75HyZLoJW9ERYxcy6eaN6h4BZXU064P/U=
 github.com/catalogfi/blockchain v0.0.7-0.20240117051226-b561f323d37c h1:ZliJRatFq2Xdr8omw0GQlAwYgR2j7wqwqu81ISWEgwI=
 github.com/catalogfi/blockchain v0.0.7-0.20240117051226-b561f323d37c/go.mod h1:LeRxIYLDcMKIJAobiwQG78Gfgo3mMwug4yCljO4XZNc=
+github.com/catalogfi/blockchain v0.0.7-0.20240124011023-5d42bff4f7b7 h1:ffkxwNNRMgzfyq9QinB4TGj5TeytkyXLFvkpT/xjLcA=
+github.com/catalogfi/blockchain v0.0.7-0.20240124011023-5d42bff4f7b7/go.mod h1:LeRxIYLDcMKIJAobiwQG78Gfgo3mMwug4yCljO4XZNc=
 github.com/catalogfi/orderbook v0.0.0-20231207112335-5bf92a98f600 h1:ixUVHWWCK8NbdcLzZaPCkGPlnQHfsys39zTCVN5S8tE=
 github.com/catalogfi/orderbook v0.0.0-20231207112335-5bf92a98f600/go.mod h1:6JqH+eXT+ArPLVdI7OU0zKH2KrRPYLuePGe5Quf7Yps=
 github.com/catalogfi/orderbook v0.0.0-20240119104804-cfee4a7e2796 h1:LaaEr0vTYbyOEwnwmmVnPBvgL1fl9clgxtIi8zcmmmE=
