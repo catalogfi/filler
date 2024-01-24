@@ -122,6 +122,20 @@ func TestnetStrategies(ethAddr common.Address, btcAddr btcutil.Address) []filler
 			MaxAmount: big.NewInt(100000),
 			Fee:       10,
 		},
+		{
+			OrderPair: "bitcoin_testnet-ethereum_testPolygonZk:0x2120C5005A70C704aB8D99C8245Fc74A4BB5599d",
+			Makers:    nil,
+			MinAmount: big.NewInt(1000),
+			MaxAmount: big.NewInt(100000),
+			Fee:       10,
+		},
+		{
+			OrderPair: "ethereum_testPolygonZk:0x2120C5005A70C704aB8D99C8245Fc74A4BB5599d-bitcoin_testnet",
+			Makers:    nil,
+			MinAmount: big.NewInt(1000),
+			MaxAmount: big.NewInt(100000),
+			Fee:       10,
+		},
 	}
 }
 
