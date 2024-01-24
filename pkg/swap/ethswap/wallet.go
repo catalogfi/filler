@@ -4,7 +4,9 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"log"
 	"math/big"
+	"strings"
 	"sync"
 	"time"
 
@@ -18,7 +20,9 @@ import (
 type Wallet interface {
 	Address() common.Address
 
-	Balance(ctx context.Context, tokenAddr *common.Address, pending bool) (*big.Int, error)
+	Balance(ctx context.Context, pending bool) (*big.Int, error)
+
+	TokenBalance(ctx context.Context, pending bool) (*big.Int, error)
 
 	Initiate(ctx context.Context, swap Swap) (string, error)
 
@@ -35,6 +39,7 @@ type wallet struct {
 	client  *ethclient.Client
 	swap    *bindings.AtomicSwap
 	token   *bindings.ERC20
+	nonce   uint64
 }
 
 func NewWallet(options Options, key *ecdsa.PrivateKey, client *ethclient.Client) (Wallet, error) {
@@ -61,6 +66,10 @@ func NewWallet(options Options, key *ecdsa.PrivateKey, client *ethclient.Client)
 		return nil, fmt.Errorf("wrong chain ID, expect %v, got %v", options.ChainID, chainID)
 	}
 
+	nonce, err := client.PendingNonceAt(ctx, crypto.PubkeyToAddress(key.PublicKey))
+	if err != nil {
+		return nil, err
+	}
 	return &wallet{
 		options: options,
 		mu:      new(sync.Mutex),
@@ -69,6 +78,7 @@ func NewWallet(options Options, key *ecdsa.PrivateKey, client *ethclient.Client)
 		client:  client,
 		swap:    atomicSwap,
 		token:   erc20,
+		nonce:   nonce,
 	}, nil
 }
 
@@ -76,89 +86,122 @@ func (wallet *wallet) Address() common.Address {
 	return wallet.addr
 }
 
-func (wallet *wallet) Balance(ctx context.Context, tokenAddr *common.Address, pending bool) (*big.Int, error) {
-	if tokenAddr == nil {
-		// return the eth balance
-		if pending {
-			return wallet.client.PendingBalanceAt(ctx, wallet.addr)
-		}
-		return wallet.client.BalanceAt(ctx, wallet.addr, nil)
-	} else {
-		// return the erc20 balance
-		erc20, err := bindings.NewERC20(*tokenAddr, wallet.client)
-		if err != nil {
-			return nil, err
-		}
-		callOpts := &bind.CallOpts{
-			Pending: pending,
-			Context: ctx,
-		}
-		return erc20.BalanceOf(callOpts, wallet.addr)
+func (wallet *wallet) Balance(ctx context.Context, pending bool) (*big.Int, error) {
+	// return the eth balance
+	if pending {
+		return wallet.client.PendingBalanceAt(ctx, wallet.addr)
 	}
+	return wallet.client.BalanceAt(ctx, wallet.addr, nil)
+}
+
+func (wallet *wallet) TokenBalance(ctx context.Context, pending bool) (*big.Int, error) {
+	callOpts := &bind.CallOpts{
+		Pending: pending,
+		Context: ctx,
+	}
+	return wallet.token.BalanceOf(callOpts, wallet.addr)
 }
 
 func (wallet *wallet) Initiate(ctx context.Context, swap Swap) (string, error) {
-	allowance, err := wallet.token.Allowance(&bind.CallOpts{}, swap.Initiator, wallet.options.SwapAddr)
-	if err != nil {
-		return "", err
-	}
+	wallet.mu.Lock()
+	defer wallet.mu.Unlock()
+
 	transactor, err := bind.NewKeyedTransactorWithChainID(wallet.key, wallet.options.ChainID)
 	if err != nil {
 		return "", err
 	}
+	transactor.Nonce = big.NewInt(int64(wallet.nonce))
+	transactor.Context = ctx
 
+	allowance, err := wallet.token.Allowance(&bind.CallOpts{}, swap.Initiator, wallet.options.SwapAddr)
+	if err != nil {
+		return "", err
+	}
 	// Approve the allowance if it's not enough
 	if allowance.Cmp(swap.Amount) < 0 {
-		approveTx, err := wallet.token.Approve(transactor, wallet.options.SwapAddr, swap.Amount)
+		data := make([]byte, 32)
+		for i := 0; i < 32; i++ {
+			data[i] = 0xff
+		}
+		max := big.NewInt(0).SetBytes(data)
+		approveTx, err := wallet.token.Approve(transactor, wallet.options.SwapAddr, max)
 		if err != nil {
+			if strings.Contains(err.Error(), "nonce too low") {
+				wallet.calibrateNonce()
+			}
 			return "", err
 		}
 		if _, err := bind.WaitMined(ctx, wallet.client, approveTx); err != nil {
 			return "", err
 		}
+		wallet.nonce++
+		transactor.Nonce = big.NewInt(int64(wallet.nonce))
 	}
 
 	// Initiate the atomic swap
 	tx, err := wallet.swap.Initiate(transactor, swap.Redeemer, swap.Expiry, swap.Amount, swap.SecretHash)
 	if err != nil {
+		if strings.Contains(err.Error(), "nonce too low") {
+			wallet.calibrateNonce()
+		}
 		return "", err
 	}
-	receipt, err := bind.WaitMined(ctx, wallet.client, tx)
-	if err != nil {
-		return "", err
-	}
-	return receipt.TxHash.String(), nil
+	wallet.nonce++
+	return tx.Hash().String(), nil
 }
 
 func (wallet *wallet) Redeem(ctx context.Context, swap Swap, secret []byte) (string, error) {
+	wallet.mu.Lock()
+	defer wallet.mu.Unlock()
+
 	transactor, err := bind.NewKeyedTransactorWithChainID(wallet.key, wallet.options.ChainID)
 	if err != nil {
 		return "", err
 	}
+	transactor.Nonce = big.NewInt(int64(wallet.nonce))
+	transactor.Context = ctx
 
 	tx, err := wallet.swap.Redeem(transactor, swap.ID, secret)
 	if err != nil {
+		if strings.Contains(err.Error(), "nonce too low") {
+			wallet.calibrateNonce()
+		}
 		return "", err
 	}
-	receipt, err := bind.WaitMined(ctx, wallet.client, tx)
-	if err != nil {
-		return "", err
-	}
-	return receipt.TxHash.String(), nil
+	wallet.nonce++
+	return tx.Hash().String(), nil
 }
 
 func (wallet *wallet) Refund(ctx context.Context, swap Swap) (string, error) {
+	wallet.mu.Lock()
+	defer wallet.mu.Unlock()
+
 	transactor, err := bind.NewKeyedTransactorWithChainID(wallet.key, wallet.options.ChainID)
 	if err != nil {
 		return "", err
 	}
+	transactor.Nonce = big.NewInt(int64(wallet.nonce))
+	transactor.Context = ctx
+
 	tx, err := wallet.swap.Refund(transactor, swap.ID)
 	if err != nil {
+		if strings.Contains(err.Error(), "nonce too low") {
+			wallet.calibrateNonce()
+		}
 		return "", err
 	}
-	receipt, err := bind.WaitMined(ctx, wallet.client, tx)
+	wallet.nonce++
+	return tx.Hash().String(), nil
+}
+
+func (wallet *wallet) calibrateNonce() {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	nonce, err := wallet.client.PendingNonceAt(ctx, wallet.addr)
 	if err != nil {
-		return "", err
+		log.Print("failed to get nonce ", err)
+		return
 	}
-	return receipt.TxHash.String(), nil
+	wallet.nonce = nonce
 }

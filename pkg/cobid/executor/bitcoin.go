@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
+	"log"
 	"time"
 
 	"github.com/catalogfi/blockchain/btc"
@@ -39,11 +40,11 @@ func NewBitcoinExecutor(chain model.Chain, logger *zap.Logger, wallet btcswap.Wa
 }
 
 func (be *BitcoinExecutor) Start() {
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(90 * time.Second)
 	go func() {
 		defer ticker.Stop()
 
-	OutLoop:
+	outer:
 		for {
 			select {
 			case <-ticker.C:
@@ -58,51 +59,57 @@ func (be *BitcoinExecutor) Start() {
 					continue
 				}
 
-				rbfOptions, prevOrders, err := be.store.GetRbfInfo()
+				// Get data for previous batched orders
+				bd, err := be.store.GetBatchData()
 				if err != nil {
-					if !errors.Is(err, ErrNotFound) {
-						be.logger.Error("get previous tx info", zap.Error(err))
-						continue
-					}
+					be.logger.Error("get batch data", zap.Error(err))
+					continue
 				}
 
-				// Get all the orders we need to execute.
-				pendingActions := make([]btcswap.ActionItem, 0, len(orders))
-				detectedActions := make([]btcswap.ActionItem, 0, len(orders))
-				newAddedOrders := map[string]btcswap.ActionItem{}
-				orderIDs := make(map[uint]struct{})
+				isInitiated := func(swap btcswap.Swap) (bool, error) {
+					ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+					defer cancel()
+
+					initiated, _, err := swap.Initiated(ctx, be.wallet.Indexer())
+					return initiated, err
+				}
+
+				// Get all the new orders we need to execute.
+				newActions := make([]btcswap.ActionItem, 0, len(orders))
 				for _, order := range orders {
 					var atomicSwap *model.AtomicSwap
 					var action swap.Action
-					var isDetected bool
 
-					if order.InitiatorAtomicSwap.Status == model.Initiated &&
-						(order.FollowerAtomicSwap.Status == model.NotStarted ||
-							order.FollowerAtomicSwap.Status == model.Detected) &&
-						order.FollowerAtomicSwap.Chain == be.chain {
-						action = swap.ActionInitiate
+					iStatus := order.InitiatorAtomicSwap.Status
+					fStatus := order.FollowerAtomicSwap.Status
+
+					switch {
+					case order.FollowerAtomicSwap.Chain == be.chain:
+						// Initiate or Refund
 						atomicSwap = order.FollowerAtomicSwap
-						if order.FollowerAtomicSwap.Status == model.Detected {
-							isDetected = true
+						if iStatus == model.Initiated && fStatus == model.NotStarted {
+							action = swap.ActionInitiate
+						} else if fStatus == model.Expired {
+							action = swap.ActionRefund
+						} else {
+							continue
 						}
-					} else if order.InitiatorAtomicSwap.Status == model.Initiated && // todo : when the status is expired ?
-						order.FollowerAtomicSwap.Status == model.Redeemed &&
-						order.InitiatorAtomicSwap.Chain == be.chain {
-						action = swap.ActionRedeem
-						atomicSwap = order.InitiatorAtomicSwap
-						order.InitiatorAtomicSwap.Secret = order.FollowerAtomicSwap.Secret
-					} else if order.FollowerAtomicSwap.Status == model.Expired &&
-						order.FollowerAtomicSwap.Chain == be.chain {
-						action = swap.ActionRefund
-						atomicSwap = order.FollowerAtomicSwap
-					} else {
+					case order.InitiatorAtomicSwap.Chain == be.chain:
+						// Redeem
+						if (fStatus == model.Redeemed || fStatus == model.RedeemDetected) && iStatus == model.Initiated {
+							action = swap.ActionRedeem
+							atomicSwap = order.InitiatorAtomicSwap
+							order.InitiatorAtomicSwap.Secret = order.FollowerAtomicSwap.Secret
+						} else {
+							continue
+						}
+					default:
 						continue
 					}
 
-					// Add the action item to the list
-					orderIDs[order.ID] = struct{}{}
+					// Parse the order to an action item
 					atomicSwap.SecretHash = order.SecretHash
-					btcSwap, err := btcswap.FromAtomicSwap(order.FollowerAtomicSwap)
+					btcSwap, err := btcswap.FromAtomicSwap(atomicSwap)
 					if err != nil {
 						be.logger.Error("failed parse swap", zap.Error(err))
 						continue
@@ -112,106 +119,71 @@ func (be *BitcoinExecutor) Start() {
 						secret, err = hex.DecodeString(atomicSwap.Secret)
 						if err != nil {
 							be.logger.Error("failed decode secret", zap.Error(err))
-							continue
+							continue outer
 						}
 					}
-
 					actionItem := btcswap.ActionItem{
 						Action:     action,
 						AtomicSwap: btcSwap,
 						Secret:     secret,
 					}
-					if isDetected {
-						detectedActions = append(detectedActions, actionItem)
-					} else {
-						pendingActions = append(pendingActions, actionItem)
+
+					if bd.HasAction(actionItem) {
+						continue
 					}
 
-					if _, ok := prevOrders[order.ID]; !ok {
-						newAddedOrders[string(btcSwap.SecretHash)] = actionItem
+					// Check if the swap has been initiated before to prevent double initiations.
+					if action == swap.ActionInitiate {
+						initiated, err := isInitiated(btcSwap)
+						if err != nil {
+							be.logger.Error("check swap initiation", zap.Error(err))
+							continue
+						}
+						if initiated {
+							continue
+						}
 					}
+					newActions = append(newActions, actionItem)
+				}
+				be.logger.Debug("btc executor", zap.Int("new actions", len(newActions)))
+				for _, actionItem := range newActions {
+					be.logger.Debug("btc executor", zap.String(string(actionItem.Action), actionItem.AtomicSwap.Address.EncodeAddress()))
 				}
 
 				// Skip if we have no orders to process
-				if len(orderIDs) == 0 || len(pendingActions) == 0 {
+				if len(newActions) == 0 {
 					continue
-				}
-
-				// Combine all swap actions and submit a new rbf tx
-				pendingActions = append(pendingActions, detectedActions...)
-
-				// If any old order is missing from the new order set, that means one of the previous tx has been mined,
-				// and we want to start a new series of rbf txs.
-				for order := range prevOrders {
-					if _, ok := orderIDs[order]; !ok {
-						rbfOptions = nil
-						prevOrders = nil
-						break
-					}
-				}
-
-				// Skip if no new orders since last time
-				if len(prevOrders) == len(orderIDs) {
-					continue
-				}
-
-				// Check initiate hasn't been initiated before doing the tx and remove tx which have been initiated
-				if err := func() error {
-					ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-					defer cancel()
-
-					if rbfOptions == nil {
-						for i, action := range pendingActions {
-							initiated, _, err := action.AtomicSwap.Initiated(ctx, be.wallet.Indexer())
-							if err != nil {
-								return err
-							}
-							if initiated {
-								pendingActions = append(pendingActions[:i], pendingActions[i+1:]...)
-								i--
-							}
-						}
-					} else {
-						for key, actionItem := range newAddedOrders {
-							initiated, _, err := actionItem.AtomicSwap.Initiated(ctx, be.wallet.Indexer())
-							if err != nil {
-								return err
-							}
-							if initiated {
-								for i := range pendingActions {
-									if key == string(pendingActions[i].AtomicSwap.SecretHash) {
-										pendingActions = append(pendingActions[:i], pendingActions[i+1:]...)
-										break
-									}
-								}
-							}
-						}
-					}
-					return nil
-				}(); err != nil {
-					be.logger.Error("check swap initiation", zap.Error(err))
-					continue OutLoop
 				}
 
 				// Submit the transaction
+				log.Printf("execute rbf = %+v", bd.RbfOptions)
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-				tx, newRbf, err := be.wallet.BatchExecute(ctx, pendingActions, rbfOptions)
+				txid, newRBF, err := be.wallet.ExecuteRbf(ctx, newActions, bd.RbfOptions)
 				cancel()
 				if err != nil {
 					// Previous tx been included in the block, we wait for orderbook to update the order status and
 					// check again later
 					if errors.Is(err, btc.ErrTxInputsMissingOrSpent) {
+						be.logger.Debug("input conflicts")
+						if err := be.store.StoreBatchData(NewBatchData()); err != nil {
+							be.logger.Error("store rbf info", zap.Error(err))
+						}
 						continue
 					}
 					be.logger.Error("btc execution", zap.Error(err))
+					continue
 				}
 
-				// Cache the tx in case we want to replace it in the future
-				if err := be.store.StoreRbfInfo(newRbf, orderIDs); err != nil {
-					be.logger.Error("btc execution", zap.Error(err))
-				}
+				be.logger.Info("✅ [Execution]", zap.String("chain", "btc"), zap.String("txid", txid))
 
-				be.logger.Info("✅ [Execution]", zap.String("chain", "btc"), zap.String("txid", tx.TxHash().String()))
+				// Update the batch data and store it for next poll
+				for _, action := range newActions {
+					bd.AddExecuteAction(action)
+				}
+				bd.RbfOptions = newRBF
+				if err := be.store.StoreBatchData(bd); err != nil {
+					be.logger.Error("storing batch data", zap.Error(err))
+				}
 			case <-be.stop:
 				return
 			}

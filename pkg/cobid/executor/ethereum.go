@@ -110,8 +110,8 @@ func (ee *EvmExecutor) processOrder(order model.Order) error {
 			if order.InitiatorAtomicSwap.Status == model.Initiated &&
 				order.FollowerAtomicSwap.Status == model.NotStarted {
 				ee.execute(swap.ActionInitiate, order.FollowerAtomicSwap)
-			} else if order.InitiatorAtomicSwap.Status == model.Initiated &&
-				order.FollowerAtomicSwap.Status == model.Redeemed {
+			} else if order.InitiatorAtomicSwap.Status == model.Initiated && (order.FollowerAtomicSwap.Status == model.Redeemed ||
+				order.FollowerAtomicSwap.Status == model.RedeemDetected) {
 				if order.FollowerAtomicSwap.Secret == "" {
 					return fmt.Errorf("missing secret")
 				}
@@ -166,7 +166,8 @@ func (ee *EvmExecutor) chainWorker(chain model.Chain, swaps chan ActionItem) {
 			var txHash string
 			switch item.Action {
 			case swap.ActionInitiate:
-				initiated, err := ethSwap.Initiated(ctx, client)
+				var initiated bool
+				initiated, err = ethSwap.Initiated(ctx, client)
 				if err != nil {
 					ee.logger.Error("check swap initiated", zap.Error(err))
 					return
@@ -188,6 +189,14 @@ func (ee *EvmExecutor) chainWorker(chain model.Chain, swaps chan ActionItem) {
 			default:
 				return
 			}
+			if err != nil {
+				ee.logger.Error("❌ [Execution]", zap.String("chain", string(chain)), zap.Error(err), zap.Uint("swap", item.Swap.ID))
+				return
+			}
+			if txHash == "" {
+				ee.logger.Debug("Nil tx hash", zap.String("chain", string(chain)), zap.Uint("swap id", item.Swap.ID))
+			}
+
 			ee.logger.Info("✅ [Execution]", zap.String("chain", string(chain)), zap.String("hash", txHash))
 
 			// Store the action we have done and make sure we're not doing it again

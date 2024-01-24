@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 type Cobid struct {
@@ -46,7 +47,10 @@ type Config struct {
 }
 
 func NewCobi(config Config, estimator btc.FeeEstimator) (Cobid, error) {
-	logger, err := zap.NewDevelopment()
+	loggerConfig := zap.NewDevelopmentConfig()
+	loggerConfig.EncoderConfig.TimeKey = ""
+	loggerConfig.Level = zap.NewAtomicLevelAt(zapcore.DebugLevel)
+	logger, err := loggerConfig.Build()
 	if err != nil {
 		return Cobid{}, err
 	}
