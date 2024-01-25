@@ -113,14 +113,14 @@ func TestnetStrategies(ethAddr common.Address, btcAddr btcutil.Address) []filler
 			Makers:    nil,
 			MinAmount: big.NewInt(1000),
 			MaxAmount: big.NewInt(100000),
-			Fee:       10,
+			Fee:       30,
 		},
 		{
 			OrderPair: "ethereum_sepolia:0x130Ff59B75a415d0bcCc2e996acAf27ce70fD5eF-bitcoin_testnet",
 			Makers:    nil,
 			MinAmount: big.NewInt(1000),
 			MaxAmount: big.NewInt(100000),
-			Fee:       10,
+			Fee:       30,
 		},
 	}
 }
@@ -133,30 +133,29 @@ func MainnetStrategies(ethAddr common.Address, btcAddr btcutil.Address) []filler
 			OrderPair: "bitcoin-ethereum:0xA5E38d098b54C00F10e32E51647086232a9A0afD",
 			Makers:    nil,
 			MinAmount: big.NewInt(100000),
-			MaxAmount: big.NewInt(100000000),
-			Fee:       10,
+			MaxAmount: big.NewInt(150000000),
+			Fee:       30,
 		},
 		{
 			OrderPair: "ethereum:0xA5E38d098b54C00F10e32E51647086232a9A0afD-bitcoin",
 			Makers:    nil,
 			MinAmount: big.NewInt(100000),
-			MaxAmount: big.NewInt(100000000),
-			Fee:       10,
+			MaxAmount: big.NewInt(150000000),
+			Fee:       30,
 		},
-		// todo : check contract address on arbitrum
 		{
 			OrderPair: "bitcoin-ethereum_arbitrum:0x203DAC25763aE783Ad532A035FfF33d8df9437eE",
 			Makers:    nil,
 			MinAmount: big.NewInt(100000),
-			MaxAmount: big.NewInt(100000000),
-			Fee:       10,
+			MaxAmount: big.NewInt(150000000),
+			Fee:       30,
 		},
 		{
 			OrderPair: "ethereum_arbitrum:0x203DAC25763aE783Ad532A035FfF33d8df9437eE-bitcoin",
 			Makers:    nil,
 			MinAmount: big.NewInt(100000),
-			MaxAmount: big.NewInt(100000000),
-			Fee:       10,
+			MaxAmount: big.NewInt(150000000),
+			Fee:       30,
 		},
 	}
 }
