@@ -17,6 +17,7 @@ func NewOptions(chain model.Chain, swapAddr common.Address) Options {
 	if !chain.IsEVM() {
 		panic("not a evm chain")
 	}
+
 	var chainID *big.Int
 	switch chain {
 	case model.Ethereum:
@@ -37,20 +38,6 @@ func NewOptions(chain model.Chain, swapAddr common.Address) Options {
 
 	return Options{
 		ChainID:  chainID,
-		SwapAddr: swapAddr,
-	}
-}
-
-func OptionsMainnet(swapAddr common.Address) Options {
-	return Options{
-		ChainID:  big.NewInt(1),
-		SwapAddr: swapAddr,
-	}
-}
-
-func OptionsLocalnet(swapAddr common.Address) Options {
-	return Options{
-		ChainID:  big.NewInt(1337),
 		SwapAddr: swapAddr,
 	}
 }

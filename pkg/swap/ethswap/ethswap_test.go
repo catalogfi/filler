@@ -12,6 +12,7 @@ import (
 
 	"github.com/catalogfi/blockchain/testutil"
 	"github.com/catalogfi/cobi/pkg/swap/ethswap"
+	"github.com/catalogfi/orderbook/model"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/fatih/color"
@@ -27,16 +28,17 @@ var _ = Describe("Ethereum Atomic Swap", func() {
 			client, err := ethclient.Dial(url)
 			Expect(err).To(BeNil())
 
-			By("Initialization two keys")
-			options := ethswap.OptionsLocalnet(swapAddr)
+			By("Initialize Alice wallet")
+			options := ethswap.NewOptions(model.EthereumLocalnet, swapAddr)
 			aliceKeyStr := strings.TrimPrefix(os.Getenv("ETH_KEY_1"), "0x")
 			aliceKeyBytes, err := hex.DecodeString(aliceKeyStr)
 			Expect(err).To(BeNil())
 			aliceKey, err := crypto.ToECDSA(aliceKeyBytes)
 			Expect(err).To(BeNil())
-
 			aliceWallet, err := ethswap.NewWallet(options, aliceKey, client)
 			Expect(err).To(BeNil())
+
+			By("Initialize Bob wallet")
 			bobKeyStr := strings.TrimPrefix(os.Getenv("ETH_KEY_2"), "0x")
 			bobKeyBytes, err := hex.DecodeString(bobKeyStr)
 			Expect(err).To(BeNil())
@@ -46,9 +48,9 @@ var _ = Describe("Ethereum Atomic Swap", func() {
 			Expect(err).To(BeNil())
 
 			By("Get balance of both user")
-			aliceBalance, err := aliceWallet.Balance(ctx, &tokenAddr, false)
+			aliceBalance, err := aliceWallet.TokenBalance(ctx, false)
 			Expect(err).To(BeNil())
-			bobBalance, err := bobWallet.Balance(ctx, &tokenAddr, false)
+			bobBalance, err := bobWallet.TokenBalance(ctx, false)
 			Expect(err).To(BeNil())
 
 			By("Alice constructs a swap")
@@ -93,9 +95,9 @@ var _ = Describe("Ethereum Atomic Swap", func() {
 			Expect(bytes.Equal(secret, revealedSecret))
 
 			By("Check balance again")
-			newAliceBalance, err := aliceWallet.Balance(ctx, &tokenAddr, false)
+			newAliceBalance, err := aliceWallet.TokenBalance(ctx, false)
 			Expect(err).To(BeNil())
-			newBobBalance, err := bobWallet.Balance(ctx, &tokenAddr, false)
+			newBobBalance, err := bobWallet.TokenBalance(ctx, false)
 			Expect(err).To(BeNil())
 			Expect(newAliceBalance.Cmp(big.NewInt(0).Sub(aliceBalance, amount))).Should(Equal(0))
 			Expect(newBobBalance.Cmp(big.NewInt(0).Add(bobBalance, amount))).Should(Equal(0))

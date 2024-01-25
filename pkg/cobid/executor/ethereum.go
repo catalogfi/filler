@@ -3,6 +3,7 @@ package executor
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -12,9 +13,22 @@ import (
 	"github.com/catalogfi/cobi/pkg/util"
 	"github.com/catalogfi/orderbook/model"
 	"github.com/catalogfi/orderbook/rest"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"go.uber.org/zap"
 )
+
+type RetriableError struct {
+	Err error
+}
+
+func (re RetriableError) Error() string {
+	return re.Err.Error()
+}
+
+func NewRetriableError(err error) error {
+	return RetriableError{err}
+}
 
 type EvmExecutor struct {
 	logger  *zap.Logger
@@ -51,7 +65,7 @@ func NewEvmExecutor(logger *zap.Logger, wallets map[model.Chain]ethswap.Wallet, 
 }
 
 func (ee *EvmExecutor) Start() {
-	// Execute swaps
+	// Spin up a worker for each of the evm chain to execute swaps
 	for chain, swaps := range ee.swaps {
 		chain := chain
 		swaps := swaps
@@ -110,8 +124,9 @@ func (ee *EvmExecutor) processOrder(order model.Order) error {
 			if order.InitiatorAtomicSwap.Status == model.Initiated &&
 				order.FollowerAtomicSwap.Status == model.NotStarted {
 				ee.execute(swap.ActionInitiate, order.FollowerAtomicSwap)
-			} else if order.InitiatorAtomicSwap.Status == model.Initiated && (order.FollowerAtomicSwap.Status == model.Redeemed ||
-				order.FollowerAtomicSwap.Status == model.RedeemDetected) {
+			} else if order.InitiatorAtomicSwap.Status == model.Initiated &&
+				(order.FollowerAtomicSwap.Status == model.Redeemed ||
+					order.FollowerAtomicSwap.Status == model.RedeemDetected) {
 				if order.FollowerAtomicSwap.Secret == "" {
 					return fmt.Errorf("missing secret")
 				}
@@ -129,6 +144,7 @@ func (ee *EvmExecutor) execute(action swap.Action, atomicSwap *model.AtomicSwap)
 	swapChain, ok := ee.swaps[atomicSwap.Chain]
 	if !ok {
 		// Skip execution since the chain is not supported
+		ee.logger.Debug("⚠️ ignore swap", zap.Uint("swap id", atomicSwap.ID), zap.String("chain", string(atomicSwap.Chain)))
 		return
 	}
 
@@ -140,16 +156,6 @@ func (ee *EvmExecutor) execute(action swap.Action, atomicSwap *model.AtomicSwap)
 
 func (ee *EvmExecutor) chainWorker(chain model.Chain, swaps chan ActionItem) {
 	for item := range swaps {
-		// Check if we have done the same action before
-		done, err := ee.storage.CheckAction(item.Action, item.Swap.ID)
-		if err != nil {
-			ee.logger.Error("failed storing action", zap.Error(err))
-			continue
-		}
-		if done {
-			continue
-		}
-
 		ethSwap, err := ethswap.FromAtomicSwap(item.Swap)
 		if err != nil {
 			ee.logger.Error("parse swap", zap.Error(err))
@@ -157,52 +163,63 @@ func (ee *EvmExecutor) chainWorker(chain model.Chain, swaps chan ActionItem) {
 		}
 
 		// Execute the swap action
-		func() {
+		err = func() error {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 			defer cancel()
 
 			wallet := ee.wallets[chain]
 			client := ee.clients[chain]
-			var txHash string
+			var txHash common.Hash
 			switch item.Action {
 			case swap.ActionInitiate:
 				var initiated bool
 				initiated, err = ethSwap.Initiated(ctx, client)
 				if err != nil {
-					ee.logger.Error("check swap initiated", zap.Error(err))
-					return
+					return NewRetriableError(err)
 				}
 				if initiated {
-					return
+					ee.logger.Debug("⚠️ skip swap initiation", zap.String("chain", string(chain)), zap.Uint("swap", item.Swap.ID))
+					return nil
 				}
 				txHash, err = wallet.Initiate(ctx, ethSwap)
 			case swap.ActionRedeem:
 				var secret []byte
 				secret, err = hex.DecodeString(item.Swap.Secret)
 				if err != nil {
-					ee.logger.Error("decode secret", zap.Error(err))
-					return
+					return err
 				}
 				txHash, err = wallet.Redeem(ctx, ethSwap, secret)
 			case swap.ActionRefund:
+				var expired bool
+				expired, err = ethSwap.Expired(ctx, wallet.Client())
+				if err != nil {
+					return NewRetriableError(err)
+				}
+				if !expired {
+					return NewRetriableError(fmt.Errorf("swap not expired"))
+				}
 				txHash, err = wallet.Refund(ctx, ethSwap)
 			default:
-				return
+				return nil
 			}
 			if err != nil {
-				ee.logger.Error("❌ [Execution]", zap.String("chain", string(chain)), zap.Error(err), zap.Uint("swap", item.Swap.ID))
-				return
-			}
-			if txHash == "" {
-				ee.logger.Debug("Nil tx hash", zap.String("chain", string(chain)), zap.Uint("swap id", item.Swap.ID))
+				return NewRetriableError(err)
 			}
 
-			ee.logger.Info("✅ [Execution]", zap.String("chain", string(chain)), zap.String("hash", txHash))
-
-			// Store the action we have done and make sure we're not doing it again
-			if err := ee.storage.StoreAction(item.Action, item.Swap.ID); err != nil {
-				ee.logger.Error("failed storing action", zap.Error(err))
-			}
+			ee.logger.Info("✅ [Execution]", zap.String("chain", string(chain)), zap.String("hash", txHash.Hex()), zap.Uint("swap", item.Swap.ID))
+			return nil
 		}()
+
+		if err != nil {
+			// Retry after 30 seconds if it's a RetriableError
+			var re RetriableError
+			if errors.As(err, &re) {
+				go func(item ActionItem) {
+					time.Sleep(30 * time.Second)
+					swaps <- item
+				}(item)
+			}
+			ee.logger.Error("❌ [Execution]", zap.String("chain", string(chain)), zap.Error(err), zap.Uint("swap", item.Swap.ID))
+		}
 	}
 }
