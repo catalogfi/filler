@@ -149,7 +149,6 @@ func (ee *EvmExecutor) execute(action swap.Action, atomicSwap *model.AtomicSwap)
 	swapChain, ok := ee.swaps[atomicSwap.Chain]
 	if !ok {
 		// Skip execution since the chain is not supported
-		ee.logger.Debug("⚠️ ignore swap", zap.Uint("swap id", atomicSwap.ID), zap.String("chain", string(atomicSwap.Chain)))
 		return
 	}
 
@@ -219,8 +218,11 @@ func (ee *EvmExecutor) chainWorker(chain model.Chain, swaps chan ActionItem) {
 			// Retry after 30 seconds if it's a RetriableError
 			var re RetriableError
 			if errors.As(err, &re) {
+				if item.Swap.ID == 25483 {
+					continue
+				}
 				go func(item ActionItem) {
-					time.Sleep(30 * time.Second)
+					time.Sleep(time.Minute)
 					swaps <- item
 				}(item)
 			}
