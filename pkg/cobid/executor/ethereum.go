@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
@@ -93,10 +92,6 @@ func (ee *EvmExecutor) Start() {
 						break InnerLoop
 					case rest.UpdatedOrders:
 						for _, order := range response.Orders {
-							if order.ID == 12711 {
-								log.Printf("receive order 12711 , %v %v %v", order.Status, order.InitiatorAtomicSwap.Status, order.FollowerAtomicSwap.Status)
-							}
-
 							if err := ee.processOrder(order); err != nil {
 								ee.logger.Error("process order", zap.Error(err))
 							}
