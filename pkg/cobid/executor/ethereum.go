@@ -218,7 +218,7 @@ func (ee *EvmExecutor) chainWorker(chain model.Chain, swaps chan ActionItem) {
 			// Retry after 30 seconds if it's a RetriableError
 			var re RetriableError
 			if errors.As(err, &re) {
-				if item.Swap.ID == 25483 {
+				if item.Swap.ID == 24577 {
 					continue
 				}
 				go func(item ActionItem) {
