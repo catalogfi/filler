@@ -78,6 +78,9 @@ func (ee *EvmExecutor) Start() {
 						break InnerLoop
 					case rest.UpdatedOrders:
 						for _, order := range response.Orders {
+							ee.logger.Info("receive order update = %v", zap.Uint("orderId", order.ID),
+								zap.Int("status", int(order.Status)), zap.Int("iStatus", int(order.InitiatorAtomicSwap.Status)),
+								zap.Int("fStatus", int(order.FollowerAtomicSwap.Status)))
 							if err := ee.processOrder(order); err != nil {
 								ee.logger.Error("process order", zap.Error(err))
 							}
