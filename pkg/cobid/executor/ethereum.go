@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -92,6 +93,10 @@ func (ee *EvmExecutor) Start() {
 						break InnerLoop
 					case rest.UpdatedOrders:
 						for _, order := range response.Orders {
+							if order.ID == 12711 {
+								log.Printf("receive order 12711 , %v %v %v", order.Status, order.InitiatorAtomicSwap.Status, order.FollowerAtomicSwap.Status)
+							}
+
 							if err := ee.processOrder(order); err != nil {
 								ee.logger.Error("process order", zap.Error(err))
 							}
@@ -219,7 +224,7 @@ func (ee *EvmExecutor) chainWorker(chain model.Chain, swaps chan ActionItem) {
 					swaps <- item
 				}(item)
 			}
-			ee.logger.Error("❌ [Execution]", zap.String("chain", string(chain)), zap.Error(err), zap.Uint("swap", item.Swap.ID))
+			ee.logger.Error("❌ [Execution]", zap.String("chain", string(chain)), zap.Error(err), zap.Uint("swap", item.Swap.ID), zap.String("action", string(item.Action)))
 		}
 	}
 }
