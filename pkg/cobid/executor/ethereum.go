@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
@@ -161,7 +160,6 @@ func (ee *EvmExecutor) chainWorker(chain model.Chain, swaps chan ActionItem) {
 			ee.logger.Error("parse swap", zap.Error(err))
 			continue
 		}
-		log.Printf("%v swap, id = %v", item.Action, hex.EncodeToString(ethSwap.ID[:]))
 
 		// Execute the swap action
 		err = func() error {
@@ -194,11 +192,9 @@ func (ee *EvmExecutor) chainWorker(chain model.Chain, swaps chan ActionItem) {
 				var expired bool
 				expired, err = ethSwap.Expired(ctx, wallet.Client())
 				if err != nil {
-					log.Printf("checking expired %v", err)
 					return NewRetriableError(err)
 				}
 				if !expired {
-					log.Printf("swap not expired %v", item.Swap.ID)
 					return NewRetriableError(fmt.Errorf("swap not expired"))
 				}
 				txHash, err = wallet.Refund(ctx, ethSwap)

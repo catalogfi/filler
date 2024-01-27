@@ -128,11 +128,11 @@ func (swap *Swap) Expired(ctx context.Context, client *ethclient.Client) (bool, 
 	if err != nil {
 		return false, err
 	}
-	latest, err := client.BlockByNumber(ctx, nil)
+	latest, err := client.BlockNumber(ctx)
 	if err != nil {
 		return false, err
 	}
-	return latest.Header().Number.Int64()-details.InitiatedAt.Int64() >= details.Expiry.Int64(), nil
+	return latest-details.InitiatedAt.Uint64() >= details.Expiry.Uint64(), nil
 }
 
 func FromAtomicSwap(atomicSwap *model.AtomicSwap) (Swap, error) {
