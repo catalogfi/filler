@@ -54,10 +54,16 @@ github.com/catalogfi/blockchain v0.0.7-0.20240117051226-b561f323d37c h1:ZliJRatF
 github.com/catalogfi/blockchain v0.0.7-0.20240117051226-b561f323d37c/go.mod h1:LeRxIYLDcMKIJAobiwQG78Gfgo3mMwug4yCljO4XZNc=
 github.com/catalogfi/blockchain v0.0.7-0.20240124011023-5d42bff4f7b7 h1:ffkxwNNRMgzfyq9QinB4TGj5TeytkyXLFvkpT/xjLcA=
 github.com/catalogfi/blockchain v0.0.7-0.20240124011023-5d42bff4f7b7/go.mod h1:LeRxIYLDcMKIJAobiwQG78Gfgo3mMwug4yCljO4XZNc=
+github.com/catalogfi/blockchain v0.0.7-0.20240124095831-096bd5d76167 h1:EEnPScGO6Ru1WqTN7ZKMGU6J/6eZoO4KFu1ydfTAneo=
+github.com/catalogfi/blockchain v0.0.7-0.20240124095831-096bd5d76167/go.mod h1:LeRxIYLDcMKIJAobiwQG78Gfgo3mMwug4yCljO4XZNc=
 github.com/catalogfi/orderbook v0.0.0-20231207112335-5bf92a98f600 h1:ixUVHWWCK8NbdcLzZaPCkGPlnQHfsys39zTCVN5S8tE=
 github.com/catalogfi/orderbook v0.0.0-20231207112335-5bf92a98f600/go.mod h1:6JqH+eXT+ArPLVdI7OU0zKH2KrRPYLuePGe5Quf7Yps=
 github.com/catalogfi/orderbook v0.0.0-20240119104804-cfee4a7e2796 h1:LaaEr0vTYbyOEwnwmmVnPBvgL1fl9clgxtIi8zcmmmE=
 github.com/catalogfi/orderbook v0.0.0-20240119104804-cfee4a7e2796/go.mod h1:6JqH+eXT+ArPLVdI7OU0zKH2KrRPYLuePGe5Quf7Yps=
+github.com/catalogfi/orderbook v0.0.0-20240124090817-f0a8cea74886 h1:8nbGKio2SMU4W5Y3IATowYytaYl4Ea7x9Cku4p6lq68=
+github.com/catalogfi/orderbook v0.0.0-20240124090817-f0a8cea74886/go.mod h1:6JqH+eXT+ArPLVdI7OU0zKH2KrRPYLuePGe5Quf7Yps=
+github.com/catalogfi/orderbook v0.0.0-20240124103604-71ad49ff7e1b h1:oGUnRK9KdJzESoWztVCXhu3F9YaEGn/3bvkx69oSbgI=
+github.com/catalogfi/orderbook v0.0.0-20240124103604-71ad49ff7e1b/go.mod h1:6JqH+eXT+ArPLVdI7OU0zKH2KrRPYLuePGe5Quf7Yps=
 github.com/cespare/cp v0.1.0 h1:SE+dxFebS7Iik5LK0tsi1k9ZCxEaFX4AjQmoyA+1dJk=
 github.com/cespare/xxhash/v2 v2.2.0 h1:DC2CZ1Ep5Y4k3ZQ899DldepgrayRUGE6BBZ/cd9Cj44=
 github.com/cespare/xxhash/v2 v2.2.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=

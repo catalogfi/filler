@@ -46,10 +46,7 @@ func (swap *Swap) Initiated(ctx context.Context, client *ethclient.Client) (bool
 	if err != nil {
 		return false, err
 	}
-	if details.InitiatedAt.Uint64() == 0 {
-		return false, nil
-	}
-	return true, nil
+	return details.InitiatedAt.Uint64() != 0, nil
 }
 
 func (swap *Swap) Redeemed(ctx context.Context, client *ethclient.Client) (bool, error) {
@@ -88,6 +85,8 @@ func (swap *Swap) Secret(ctx context.Context, client *ethclient.Client, step uin
 	if step == 0 {
 		step = 500
 	}
+	// TODO : theoretically people can still redeem after the expiry, but we assume the initiator will refund right
+	// after the expiry
 	expiry := big.NewInt(0).Add(details.InitiatedAt, details.Expiry)
 	if latest.Cmp(expiry) == 1 {
 		latest = expiry
@@ -129,11 +128,11 @@ func (swap *Swap) Expired(ctx context.Context, client *ethclient.Client) (bool, 
 	if err != nil {
 		return false, err
 	}
-	latest, err := client.BlockByNumber(ctx, nil)
+	latest, err := client.BlockNumber(ctx)
 	if err != nil {
 		return false, err
 	}
-	return latest.Header().Number.Int64()-details.InitiatedAt.Int64() >= details.Expiry.Int64(), nil
+	return latest-details.InitiatedAt.Uint64() >= details.Expiry.Uint64(), nil
 }
 
 func FromAtomicSwap(atomicSwap *model.AtomicSwap) (Swap, error) {
