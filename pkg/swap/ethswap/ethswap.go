@@ -85,8 +85,9 @@ func (swap *Swap) Secret(ctx context.Context, client *ethclient.Client, step uin
 	if step == 0 {
 		step = 500
 	}
-	// TODO : theoretically people can still redeem after the expiry, but we assume the initiator will refund right
-	// after the expiry
+
+	// Theoretically people can still redeem after the expiry, but we assume the initiator will refund right after the
+	// expiry.
 	expiry := big.NewInt(0).Add(details.InitiatedAt, details.Expiry)
 	if latest.Cmp(expiry) == 1 {
 		latest = expiry
@@ -136,6 +137,10 @@ func (swap *Swap) Expired(ctx context.Context, client *ethclient.Client) (bool, 
 }
 
 func FromAtomicSwap(atomicSwap *model.AtomicSwap) (Swap, error) {
+	if atomicSwap.SecretHash == "" {
+		return Swap{}, fmt.Errorf("empty secret hash")
+	}
+
 	waitBlocks, ok := new(big.Int).SetString(atomicSwap.Timelock, 10)
 	if !ok {
 		return Swap{}, fmt.Errorf("failed to decode timelock")
@@ -144,6 +149,7 @@ func FromAtomicSwap(atomicSwap *model.AtomicSwap) (Swap, error) {
 	if !ok {
 		return Swap{}, fmt.Errorf("failed to decode amount")
 	}
+
 	if !common.IsHexAddress(atomicSwap.InitiatorAddress) {
 		return Swap{}, fmt.Errorf("failed to decode initiator address")
 	}
