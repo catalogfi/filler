@@ -7,11 +7,13 @@ import (
 	"math/big"
 	"os"
 	"os/signal"
+	"regexp"
 	"strings"
 	"syscall"
 
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/bwmarrin/discordgo"
 	"github.com/catalogfi/blockchain/btc"
 	"github.com/catalogfi/cobi/pkg/cobid"
 	"github.com/catalogfi/cobi/pkg/cobid/filler"
@@ -19,9 +21,51 @@ import (
 	"github.com/catalogfi/orderbook/model"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
+var DiscordWebhookRegex = `^https://discord.com/api/webhooks/(?P<wid>\d+)/(?P<token>.+)$`
+
 func main() {
+	loggerConfig := zap.NewDevelopmentConfig()
+	loggerConfig.EncoderConfig.TimeKey = ""
+	loggerConfig.Level = zap.NewAtomicLevelAt(zapcore.DebugLevel)
+	logger, err := loggerConfig.Build()
+	if err != nil {
+		panic(err)
+	}
+
+	// Check if we have discord webhook setup
+	webhookURL := os.Getenv("DISCORD_WEBHOOK")
+	if webhookURL != "" {
+		// Validate the webhook url
+		reg := regexp.MustCompile(DiscordWebhookRegex)
+		if !reg.MatchString(webhookURL) {
+			panic("invalid discord webhook url")
+		}
+		matches := reg.FindStringSubmatch(webhookURL)
+		if len(matches) != 3 {
+			panic("invalid matches")
+		}
+
+		// Parse the webhook id and token, adding a discord hook to our logger
+		id, token := matches[1], matches[2]
+		disClient, err := discordgo.New("")
+		if err != nil {
+			panic(err)
+		}
+		logger = logger.WithOptions(zap.Hooks(func(entry zapcore.Entry) error {
+			if entry.Level == zap.ErrorLevel {
+				_, err := disClient.WebhookExecute(id, token, true, &discordgo.WebhookParams{
+					Content: entry.Message,
+				})
+				return err
+			}
+			return nil
+		}))
+	}
+
 	// Decode key
 	keyStr := parseRequiredEnv("PRIVATE_KEY")
 	keyBytes, err := hex.DecodeString(keyStr)
@@ -68,7 +112,7 @@ func main() {
 		Strategies:   strategies,
 	}
 	estimator := btc.NewMempoolFeeEstimator(btcConfig.Chain.Params(), btc.MempoolFeeAPI, btc.DefaultRetryInterval)
-	cobi, err := cobid.NewCobi(config, estimator)
+	cobi, err := cobid.NewCobi(config, logger, estimator)
 	if err != nil {
 		panic(err)
 	}
