@@ -133,7 +133,7 @@ func (swap *Swap) Expired(ctx context.Context, client *ethclient.Client) (bool, 
 	if err != nil {
 		return false, err
 	}
-	return latest-details.InitiatedAt.Uint64() >= details.Expiry.Uint64(), nil
+	return !details.IsFulfilled && latest-details.InitiatedAt.Uint64() >= details.Expiry.Uint64(), nil
 }
 
 func FromAtomicSwap(atomicSwap *model.AtomicSwap) (Swap, error) {
