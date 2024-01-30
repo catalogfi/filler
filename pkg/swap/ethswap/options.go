@@ -31,7 +31,7 @@ func NewOptions(chain model.Chain, swapAddr common.Address) Options {
 	case model.EthereumPolygonZk:
 		chainID = big.NewInt(1101)
 	case model.EthereumTestPolygonZk:
-		chainID = big.NewInt(1442)
+		chainID = big.NewInt(2442)
 	default:
 		panic(fmt.Sprintf("unknown evm chain = %v", chain))
 	}
