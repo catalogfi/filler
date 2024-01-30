@@ -104,6 +104,8 @@ type Wallet interface {
 
 	Indexer() btc.IndexerClient
 
+	BatchExecute(ctx context.Context, actions []ActionItem) (string, error)
+
 	ExecuteRbf(ctx context.Context, actions []ActionItem, rbf OptionRBF) (string, OptionRBF, error)
 
 	Initiate(ctx context.Context, swap Swap) (string, error)
@@ -159,6 +161,166 @@ func (wallet *wallet) Balance(ctx context.Context) (int64, error) {
 
 func (wallet *wallet) Indexer() btc.IndexerClient {
 	return wallet.client
+}
+
+func (wallet *wallet) BatchExecute(ctx context.Context, actions []ActionItem) (string, error) {
+	if len(actions) == 0 {
+		return "", nil
+	}
+
+	wallet.mu.Lock()
+	defer wallet.mu.Unlock()
+
+	recipients := make([]btc.Recipient, 0, len(actions))
+	rawInputs := btc.NewRawInputs()
+	utxoOrigin := map[int]ActionItem{}
+	fetcher := txscript.NewMultiPrevOutFetcher(nil)
+	walletScript, err := txscript.PayToAddrScript(wallet.address)
+	if err != nil {
+		return "", err
+	}
+	for _, action := range actions {
+		if action.AtomicSwap.Network.Name != wallet.opts.Network.Name {
+			return "", fmt.Errorf("wrong network")
+		}
+
+		switch action.Action {
+		case swap.ActionInitiate:
+			recipient := btc.Recipient{
+				To:     action.AtomicSwap.Address.EncodeAddress(),
+				Amount: action.AtomicSwap.Amount,
+			}
+			recipients = append(recipients, recipient)
+		case swap.ActionRedeem:
+			// Check the swap is initialised before redeeming
+			utxos, err := wallet.client.GetUTXOs(ctx, action.AtomicSwap.Address)
+			if err != nil {
+				return "", err
+			}
+			if len(utxos) == 0 {
+				return "", fmt.Errorf("swap (%v) not initialised", action.AtomicSwap.Address)
+			}
+
+			// Mark these utxo as redeeming, so we know how to sign them later.
+			fromScript, err := txscript.PayToAddrScript(action.AtomicSwap.Address)
+			if err != nil {
+				return "", err
+			}
+			for i, utxo := range utxos {
+				utxoOrigin[len(rawInputs.VIN)+i] = action
+				hash, err := chainhash.NewHashFromStr(utxo.TxID)
+				if err != nil {
+					return "", err
+				}
+				fetcher.AddPrevOut(wire.OutPoint{
+					Hash:  *hash,
+					Index: utxo.Vout,
+				}, wire.NewTxOut(utxo.Amount, fromScript))
+			}
+			rawInputs.VIN = append(rawInputs.VIN, utxos...)
+			rawInputs.SegwitSize += len(utxos) * btc.RedeemHtlcRedeemSigScriptSize(len(action.Secret))
+		case swap.ActionRefund:
+			expired, err := action.AtomicSwap.Expired(ctx, wallet.client)
+			if err != nil {
+				return "", err
+			}
+			if !expired {
+				return "", fmt.Errorf("swap not expired")
+			}
+
+			// Mark these utxo as refunding, so we know how to sign them later.
+			utxos, err := wallet.client.GetUTXOs(ctx, action.AtomicSwap.Address)
+			if err != nil {
+				return "", err
+			}
+			fromScript, err := txscript.PayToAddrScript(action.AtomicSwap.Address)
+			if err != nil {
+				return "", err
+			}
+			for i, utxo := range utxos {
+				utxoOrigin[len(rawInputs.VIN)+i] = action
+				hash, err := chainhash.NewHashFromStr(utxo.TxID)
+				if err != nil {
+					return "", err
+				}
+				fetcher.AddPrevOut(wire.OutPoint{
+					Hash:  *hash,
+					Index: utxo.Vout,
+				}, wire.NewTxOut(utxo.Amount, fromScript))
+			}
+			rawInputs.VIN = append(rawInputs.VIN, utxos...)
+			rawInputs.SegwitSize += len(utxos) * btc.RedeemHtlcRefundSigScriptSize
+		default:
+			return "", fmt.Errorf("unknown action = %v", action.Action)
+		}
+	}
+
+	// Build the transaction
+	feeRate, err := wallet.feeRate()
+	if err != nil {
+		return "", err
+	}
+	utxos, err := wallet.client.GetUTXOs(ctx, wallet.address)
+	if err != nil {
+		return "", err
+	}
+	for _, utxo := range utxos {
+		hash, err := chainhash.NewHashFromStr(utxo.TxID)
+		if err != nil {
+			return "", err
+		}
+		fetcher.AddPrevOut(wire.OutPoint{
+			Hash:  *hash,
+			Index: utxo.Vout,
+		}, wire.NewTxOut(utxo.Amount, walletScript))
+	}
+	tx, err := btc.BuildTransaction(wallet.opts.Network, feeRate, rawInputs, utxos, btc.P2wpkhUpdater, recipients, wallet.address)
+	if err != nil {
+		return "", err
+	}
+
+	// Update the sequence before signing
+	for i := range tx.TxIn {
+		actionItem, ok := utxoOrigin[i]
+		if !ok {
+			continue
+		}
+		if actionItem.Action == swap.ActionRefund {
+			tx.TxIn[i].Sequence = uint32(actionItem.AtomicSwap.WaitBlock)
+		}
+	}
+
+	// Sign the transaction
+	for i, utxo := range tx.TxIn {
+		// Either redeem or refund a HTLC
+		if i < len(utxoOrigin) {
+			txOut := fetcher.FetchPrevOutput(utxo.PreviousOutPoint)
+			actionItem := utxoOrigin[i]
+			sig, err := txscript.RawTxInWitnessSignature(tx, txscript.NewTxSigHashes(tx, fetcher), i, txOut.Value, actionItem.AtomicSwap.Script, txscript.SigHashAll, wallet.key)
+			if err != nil {
+				return "", err
+			}
+			if actionItem.Action == swap.ActionRedeem {
+				tx.TxIn[i].Witness = btc.HtlcWitness(actionItem.AtomicSwap.Script, wallet.key.PubKey().SerializeCompressed(), sig, actionItem.Secret)
+			} else if actionItem.Action == swap.ActionRefund {
+				tx.TxIn[i].Witness = btc.HtlcWitness(actionItem.AtomicSwap.Script, wallet.key.PubKey().SerializeCompressed(), sig, nil)
+			}
+		} else {
+			sigHashes := txscript.NewTxSigHashes(tx, fetcher)
+			txOut := fetcher.FetchPrevOutput(utxo.PreviousOutPoint)
+			witness, err := txscript.WitnessSignature(tx, sigHashes, i, txOut.Value, walletScript, txscript.SigHashAll, wallet.key, true)
+			if err != nil {
+				return "", err
+			}
+			tx.TxIn[i].Witness = witness
+		}
+	}
+
+	// Submit the transaction
+	if err := wallet.client.SubmitTx(ctx, tx); err != nil {
+		return "", err
+	}
+	return tx.TxHash().String(), nil
 }
 
 func (wallet *wallet) ExecuteRbf(ctx context.Context, actions []ActionItem, rbf OptionRBF) (string, OptionRBF, error) {

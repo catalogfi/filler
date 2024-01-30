@@ -47,10 +47,14 @@ func NewSwap(network *chaincfg.Params, initiatorAddr, redeemer btcutil.Address, 
 }
 
 func FromAtomicSwap(swap *model.AtomicSwap) (Swap, error) {
+	if swap.SecretHash == "" {
+		return Swap{}, fmt.Errorf("empty secret hash")
+	}
 	secretHash, err := hex.DecodeString(swap.SecretHash)
 	if err != nil {
 		return Swap{}, fmt.Errorf("failed to decode secretHash, err : %v", err)
 	}
+
 	waitBlocks, err := strconv.ParseInt(swap.Timelock, 10, 64)
 	if err != nil {
 		return Swap{}, fmt.Errorf("failed to decode timelock, err : %v", err)
@@ -58,8 +62,8 @@ func FromAtomicSwap(swap *model.AtomicSwap) (Swap, error) {
 	amount, err := strconv.ParseInt(swap.Amount, 10, 64)
 	if err != nil {
 		return Swap{}, fmt.Errorf("failed to decode amount, err : %v", err)
-
 	}
+
 	initiatorAddr, err := btcutil.DecodeAddress(swap.InitiatorAddress, swap.Chain.Params())
 	if err != nil {
 		return Swap{}, fmt.Errorf("failed to decode initiator address, err : %v", err)
@@ -87,6 +91,11 @@ func (swap *Swap) Initiated(ctx context.Context, client btc.IndexerClient) (bool
 	utxos, err := client.GetUTXOs(ctx, swap.Address)
 	if err != nil {
 		return false, 0, fmt.Errorf("failed to get UTXOs: %w", err)
+	}
+
+	// Too many utxos will cause us losing many fees
+	if len(utxos) > 3 {
+		return false, 0, fmt.Errorf("too many partial fill")
 	}
 
 	// Check we have enough confirmed utxos (total Amount >= required Amount)
@@ -184,29 +193,27 @@ func (swap *Swap) Redeemed(ctx context.Context, client btc.IndexerClient) (bool,
 	return false, nil, nil
 }
 
+// Expired returns true if there's any utxo of the swap address has more confirmations than the timelock and is ready
+// for refunding.
 func (swap *Swap) Expired(ctx context.Context, client btc.IndexerClient) (bool, error) {
-	// Check if swap has been redeemed
-	redeemed, _, err := swap.Redeemed(ctx, client)
+	// Fetch all utxos
+	utxos, err := client.GetUTXOs(ctx, swap.Address)
 	if err != nil {
-		return false, err
-	}
-	if redeemed {
-		return false, fmt.Errorf("swap has been redeemed")
+		return false, fmt.Errorf("failed to get UTXOs: %w", err)
 	}
 
-	// Check if swap has been initiated
-	initiated, initiatedBlock, err := swap.Initiated(ctx, client)
-	if err != nil {
-		return false, err
-	}
-	if !initiated {
-		return false, fmt.Errorf("swap not initiated")
-	}
-
-	// Get the number of blocks has been passed since the initiation
+	// Get the number of block height
 	current, err := client.GetTipBlockHeight(ctx)
 	if err != nil {
 		return false, err
 	}
-	return current-initiatedBlock+1 >= uint64(swap.WaitBlock), nil
+
+	for _, utxo := range utxos {
+		if utxo.Status != nil && utxo.Status.Confirmed {
+			if current-utxo.Status.BlockHeight >= uint64(swap.WaitBlock) {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
 }
