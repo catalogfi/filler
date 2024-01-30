@@ -190,7 +190,7 @@ func (f *filler) balanceCheck(chain, ethChain model.Chain, asset model.Asset, or
 	if err != nil {
 		return fmt.Errorf("failed to get eth balance")
 	}
-	if ethBalance.Cmp(big.NewInt(1e17)) <= 0 {
+	if ethBalance.Cmp(big.NewInt(1e16)) <= 0 {
 		addr := ethWallet.Address()
 		f.logger.Error("ETH balance low", zap.String("balance", ethBalance.String()), zap.String("addr", addr.Hex()))
 		return fmt.Errorf("insufficent ETH")
