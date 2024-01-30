@@ -167,14 +167,14 @@ func TestnetStrategies(ethAddr common.Address, btcAddr btcutil.Address) []filler
 			Fee:       30,
 		},
 		{
-			OrderPair: "bitcoin_testnet-ethereum_testpolygonzk:0x2120C5005A70C704aB8D99C8245Fc74A4BB5599d",
+			OrderPair: "bitcoin_testnet-ethereum_testpolygonzk:0xd0D4553DD6FD162B46423947BF3c0cf8d692Aa66",
 			Makers:    nil,
 			MinAmount: big.NewInt(1000),
 			MaxAmount: big.NewInt(100000),
 			Fee:       10,
 		},
 		{
-			OrderPair: "ethereum_testpolygonzk:0x2120C5005A70C704aB8D99C8245Fc74A4BB5599d-bitcoin_testnet",
+			OrderPair: "ethereum_testpolygonzk:0xd0D4553DD6FD162B46423947BF3c0cf8d692Aa66-bitcoin_testnet",
 			Makers:    nil,
 			MinAmount: big.NewInt(1000),
 			MaxAmount: big.NewInt(100000),
