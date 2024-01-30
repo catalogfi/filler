@@ -8,7 +8,7 @@ require (
 	github.com/btcsuite/btcd/btcutil v1.1.3
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.2
 	github.com/btcsuite/btcwallet/wallet/txsizes v1.2.3
-	github.com/catalogfi/blockchain v0.0.7-0.20240124095831-096bd5d76167
+	github.com/catalogfi/blockchain v0.0.7
 	github.com/catalogfi/orderbook v0.0.0-20240119104804-cfee4a7e2796
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/ethereum/go-ethereum v1.13.11
