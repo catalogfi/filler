@@ -57,6 +57,10 @@ func main() {
 		}
 		logger = logger.WithOptions(zap.Hooks(func(entry zapcore.Entry) error {
 			if entry.Level == zap.ErrorLevel {
+				// Ignore the wb reconnection error for now
+				if strings.Contains(entry.Message, "failed to read message from") {
+					return nil
+				}
 				_, err := disClient.WebhookExecute(id, token, true, &discordgo.WebhookParams{
 					Content: entry.Message,
 				})

@@ -478,7 +478,9 @@ func (wallet *wallet) ExecuteRbf(ctx context.Context, actions []ActionItem, rbf 
 	// Make sure the fee meet the rbf requirement
 	if !rbfIsNil {
 		for {
-			vsize := btc.TxVirtualSize(tx)
+			// Estimate the tx size (rawInput.SegwitSize + P2WPKH segwit size * number of cobi utxos)
+			extraSegSize := txsizes.RedeemP2WPKHInputWitnessWeight * (len(tx.TxIn) - len(newRbf.PrevRawInputs.VIN))
+			vsize := btc.EstimateVirtualSize(tx, 0, newRbf.PrevRawInputs.SegwitSize+extraSegSize)
 			if btc.TotalFee(tx, fetcher) >= rbf.PrevFee+vsize*wallet.opts.MinRelayFee {
 				break
 			}

@@ -170,7 +170,7 @@ func (be *BitcoinExecutor) Start() {
 						}
 						continue
 					}
-					be.logger.Error("btc execution", zap.Error(err))
+					be.logger.Error("❌ [Execution] btc ", zap.Error(err))
 					continue
 				}
 
