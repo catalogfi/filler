@@ -188,7 +188,7 @@ func (f *filler) balanceCheck(chain, ethChain model.Chain, asset model.Asset, or
 	ethWallet := f.ethWallets[ethChain]
 	ethBalance, err := ethWallet.Balance(ctx, true)
 	if err != nil {
-		return fmt.Errorf("failed to get eth balance")
+		return fmt.Errorf("failed to get eth balance, %v", err)
 	}
 	if ethBalance.Cmp(big.NewInt(1e17)) <= 0 {
 		addr := ethWallet.Address()
@@ -216,7 +216,7 @@ func (f *filler) balanceCheck(chain, ethChain model.Chain, asset model.Asset, or
 		// Check if the balance is enough
 		balance, err := wallet.TokenBalance(ctx, true)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to get token balance, %v", err)
 		}
 		unexecuted, err := f.unexecutedAmount(chain, asset)
 		if err != nil {
