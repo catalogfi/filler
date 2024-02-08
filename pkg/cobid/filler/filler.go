@@ -122,16 +122,17 @@ func (f *filler) fill(orderPair string, ordersChan <-chan model.Order) {
 		f.logger.Panic("parse order pair", zap.Error(err))
 	}
 
-	// When we fill the order, send address is of the `to` chain, receive address is of the `from` chain. And we assume
-	// one of the chain will be native bitcoin chain.
+	// When we fill the order, send address is of the `to` chain, receive address is of the `from` chain.
 	sendAddr, receiveAddr, ethChain := "", "", to
 	if from.IsBTC() {
-		sendAddr = f.ethWallets[to].Address().Hex()
 		receiveAddr = f.btcWallet.Address().EncodeAddress()
 	} else {
-		sendAddr = f.btcWallet.Address().EncodeAddress()
 		receiveAddr = f.ethWallets[from].Address().Hex()
-		ethChain = from
+	}
+	if to.IsBTC() {
+		sendAddr = f.btcWallet.Address().EncodeAddress()
+	} else {
+		sendAddr = f.ethWallets[to].Address().Hex()
 	}
 
 	for order := range ordersChan {
