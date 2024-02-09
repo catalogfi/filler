@@ -93,13 +93,13 @@ func NewWallet(options Options, key *ecdsa.PrivateKey, client *ethclient.Client)
 		token: erc20,
 	}
 
-	if err := wal.allowanceCheck(); err != nil {
-		return nil, err
-	}
-
 	// Get the pending nonce, and we'll manually manage the nonce with the wallet.
 	wal.nonce, err = client.PendingNonceAt(ctx, crypto.PubkeyToAddress(key.PublicKey))
 	if err != nil {
+		return nil, err
+	}
+
+	if err := wal.allowanceCheck(); err != nil {
 		return nil, err
 	}
 
@@ -230,7 +230,6 @@ func (wallet *wallet) allowanceCheck() error {
 		}
 
 		// Wait for the tx to be mined and start
-
 		receipt, err := bind.WaitMined(ctx, wallet.client, tx)
 		if err != nil {
 			return err
