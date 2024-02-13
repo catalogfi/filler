@@ -154,7 +154,9 @@ func (wallet *wallet) Balance(ctx context.Context) (int64, error) {
 	}
 	total := int64(0)
 	for _, utxo := range utxos {
-		total += utxo.Amount
+		if utxo.Status != nil && utxo.Status.Confirmed {
+			total += utxo.Amount
+		}
 	}
 	return total, nil
 }
