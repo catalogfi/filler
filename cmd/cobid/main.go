@@ -188,14 +188,14 @@ func TestnetStrategies(ethAddr common.Address, btcAddr btcutil.Address) []filler
 			OrderPair: "ethereum_sepolia:0x130Ff59B75a415d0bcCc2e996acAf27ce70fD5eF-ethereum_testpolygonzk:0xd0D4553DD6FD162B46423947BF3c0cf8d692Aa66",
 			Makers:    nil,
 			MinAmount: big.NewInt(1000),
-			MaxAmount: big.NewInt(100000),
+			MaxAmount: big.NewInt(1e8),
 			Fee:       10,
 		},
 		{
 			OrderPair: "ethereum_testpolygonzk:0xd0D4553DD6FD162B46423947BF3c0cf8d692Aa66-ethereum_sepolia:0x130Ff59B75a415d0bcCc2e996acAf27ce70fD5eF",
 			Makers:    nil,
 			MinAmount: big.NewInt(1000),
-			MaxAmount: big.NewInt(100000),
+			MaxAmount: big.NewInt(1e8),
 			Fee:       10,
 		},
 	}
