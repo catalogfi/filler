@@ -122,7 +122,8 @@ func (f *filler) fill(orderPair string, ordersChan <-chan model.Order) {
 		f.logger.Panic("parse order pair", zap.Error(err))
 	}
 
-	// When we fill the order, send address is of the `to` chain, receive address is of the `from` chain.
+	// As a filler, we'll receive funds from the `from` chain and send funds to the `to` chain. Thus, the receiverAddr
+	// will be our address on the `from` chain, and sendAddr on the `to` chain
 	sendAddr, receiveAddr := "", ""
 	if from.IsBTC() {
 		receiveAddr = f.btcWallet.Address().EncodeAddress()
@@ -145,23 +146,20 @@ func (f *filler) fill(orderPair string, ordersChan <-chan model.Order) {
 
 			for ; ; <-ticker.C {
 				if err := f.balanceCheck(from, to, toAsset, order, interval); err != nil {
-					f.logger.Error("balance not enough", zap.Error(err), zap.Uint("order", order.ID))
+					f.logger.Error("balance check", zap.Error(err), zap.Uint("order", order.ID))
 					continue
 				}
 
 				// Fill the order in the orderbook
 				if err := f.restClient.FillOrder(order.ID, sendAddr, receiveAddr); err != nil {
-					f.logger.Error("fill order", zap.Error(err), zap.Uint("order", order.ID))
 					if strings.Contains(err.Error(), "already filled") {
-						f.logger.Error("skip order %v since it's already filled", zap.Uint("order", order.ID))
 						return
 					}
+					f.logger.Error("fill order", zap.Error(err), zap.Uint("order", order.ID))
 					continue
 				}
-				f.logger.Info("✅ [Fill]", zap.Uint("id", order.ID))
 
-				// Move on to next order
-				return
+				f.logger.Info("✅ [Fill]", zap.Uint("id", order.ID))
 			}
 		}()
 	}
@@ -185,47 +183,50 @@ func (f *filler) balanceCheck(from, to model.Chain, asset model.Asset, order mod
 		return fmt.Errorf("failed to decode amount")
 	}
 
-	for _, chain := range []model.Chain{from, to} {
-		if chain.IsEVM() {
-			// Check we have enough ETH for gas ( >=0.01 )
-			ethWallet := f.ethWallets[chain]
-			ethBalance, err := ethWallet.Balance(ctx, true)
-			if err != nil {
-				return fmt.Errorf("failed to get eth balance, %v", err)
-			}
-			if ethBalance.Cmp(big.NewInt(1e16)) <= 0 {
-				f.logger.Error("ETH balance low", zap.String("balance", ethBalance.String()), zap.String("addr", ethWallet.Address().Hex()))
-				return fmt.Errorf("insufficent ETH")
-			}
-
-			// Check we have enough wbtc to execute the order
-			balance, err := ethWallet.TokenBalance(ctx, true)
-			if err != nil {
-				return fmt.Errorf("failed to get token balance, %v", err)
-			}
-			unexecuted, err := f.unexecutedAmount(chain, asset)
-			if err != nil {
-				return err
-			}
-			required := unexecuted.Add(unexecuted, amount)
-			if balance.Cmp(required) < 0 {
-				return fmt.Errorf("%v balance is not enough, required = %v, has = %v, unexecuted =%v", chain, required.String(), balance.String(), unexecuted.String())
-			}
+	// Check the `from` chain first, we only need to make sure we have enough eth to pay the gas if it's a evm chain
+	if from.IsEVM() {
+		ethWallet := f.ethWallets[from]
+		ethBalance, err := ethWallet.Balance(ctx, true)
+		if err != nil {
+			return fmt.Errorf("failed to get eth balance, %v", err)
 		}
+		if ethBalance.Cmp(big.NewInt(1e16)) <= 0 {
+			return fmt.Errorf("insufficent ETH on %v", from)
+		}
+	}
 
-		if chain.IsBTC() {
-			// Check if the balance is enough
-			balance, err := f.btcWallet.Balance(ctx)
-			if err != nil {
-				return err
-			}
-			unexecuted, err := f.unexecutedAmount(chain, asset)
-			if err != nil {
-				return err
-			}
-			if balance < unexecuted.Int64()+amount.Int64() {
-				return fmt.Errorf("%v balance is not enough, required = %v, has = %v unexecuted =%v", chain, unexecuted.Int64()+amount.Int64(), balance, unexecuted.String())
-			}
+	// Check the `to` chain, we'll need to make sure
+	// 1) enough gas if it's an evm chain
+	// 2) enough btc/wbtc to execute the order, this including pending orders which haven't been executed
+	if to.IsBTC() {
+		// Check if the balance is enough
+		balance, err := f.btcWallet.Balance(ctx)
+		if err != nil {
+			return err
+		}
+		unexecuted, err := f.unexecutedAmount(to, asset)
+		if err != nil {
+			return err
+		}
+		if balance < unexecuted.Int64()+amount.Int64() {
+			return fmt.Errorf("%v balance is not enough, required = %v, has = %v unexecuted =%v", to, unexecuted.Int64()+amount.Int64(), balance, unexecuted.String())
+		}
+	} else {
+		wallet := f.ethWallets[to]
+
+		// Check if the balance is enough
+		balance, err := wallet.TokenBalance(ctx, true)
+		if err != nil {
+			return fmt.Errorf("failed to get token balance, %v", err)
+		}
+		unexecuted, err := f.unexecutedAmount(to, asset)
+		if err != nil {
+			return err
+		}
+		required := unexecuted.Add(unexecuted, amount)
+		if balance.Cmp(required) <= 0 {
+
+			return fmt.Errorf("%v balance is not enough, required = %v, has = %v, unexecuted =%v", to, required.String(), balance.String(), unexecuted.String())
 		}
 	}
 	return nil

@@ -334,7 +334,6 @@ func (wallet *wallet) ExecuteRbf(ctx context.Context, actions []ActionItem, rbf 
 	defer wallet.mu.Unlock()
 
 	rbfIsNil := rbf.PrevFee == 0 && len(rbf.FirstInputs) == 0
-	log.Printf("rbf transaction ? %v", !rbfIsNil)
 	newRbf := CopyRBF(rbf)
 	fetcher := txscript.NewMultiPrevOutFetcher(nil)
 	walletScript, err := txscript.PayToAddrScript(wallet.address)
@@ -372,6 +371,7 @@ func (wallet *wallet) ExecuteRbf(ctx context.Context, actions []ActionItem, rbf 
 			if err != nil {
 				return "", rbf, err
 			}
+			utxos = wallet.removeUnconfirmedUtxo(utxos)
 
 			if len(utxos) == 0 {
 				return "", rbf, btc.ErrTxInputsMissingOrSpent
@@ -402,6 +402,7 @@ func (wallet *wallet) ExecuteRbf(ctx context.Context, actions []ActionItem, rbf 
 			if err != nil {
 				return "", rbf, err
 			}
+			utxos = wallet.removeUnconfirmedUtxo(utxos)
 			if len(utxos) == 0 {
 				return "", rbf, btc.ErrTxInputsMissingOrSpent
 			}
@@ -445,6 +446,7 @@ func (wallet *wallet) ExecuteRbf(ctx context.Context, actions []ActionItem, rbf 
 		if err != nil {
 			return "", rbf, err
 		}
+		utxos = wallet.removeUnconfirmedUtxo(utxos)
 	} else {
 		utxos = rbf.FirstUtxos
 	}
@@ -835,4 +837,14 @@ func (wallet *wallet) feeRate() (int, error) {
 	default:
 		return feeRates.High, nil
 	}
+}
+
+func (wallet *wallet) removeUnconfirmedUtxo(utxos []btc.UTXO) []btc.UTXO {
+	confirmedUtxos := make([]btc.UTXO, 0, len(utxos))
+	for _, utxo := range utxos {
+		if utxo.Status != nil && utxo.Status.Confirmed {
+			confirmedUtxos = append(confirmedUtxos, utxo)
+		}
+	}
+	return confirmedUtxos
 }
