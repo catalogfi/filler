@@ -160,6 +160,7 @@ func (f *filler) fill(orderPair string, ordersChan <-chan model.Order) {
 				}
 
 				f.logger.Info("✅ [Fill]", zap.Uint("id", order.ID))
+				return
 			}
 		}()
 	}
