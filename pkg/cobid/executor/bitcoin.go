@@ -168,9 +168,10 @@ func (be *BitcoinExecutor) Start() {
 					}
 
 					// Check the fee rate we used and the lowest fee in the next block
-					if float64(bd.RbfOptions.PrevFeeRate) > feeRanges[0].FeeRange[0]+1 {
+					if float64(bd.RbfOptions.PrevFeeRate) >= feeRanges[0].FeeRange[0]+1 {
 						continue
 					}
+					be.logger.Debug("fee tow low, updating the fees")
 				}
 
 				// Submit the transaction

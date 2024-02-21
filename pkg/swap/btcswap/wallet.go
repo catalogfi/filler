@@ -324,10 +324,6 @@ func (wallet *wallet) BatchExecute(ctx context.Context, actions []ActionItem) (s
 }
 
 func (wallet *wallet) ExecuteRbf(ctx context.Context, actions []ActionItem, rbf OptionRBF) (string, OptionRBF, error) {
-	if len(actions) == 0 {
-		return "", rbf, nil
-	}
-
 	wallet.mu.Lock()
 	defer wallet.mu.Unlock()
 
