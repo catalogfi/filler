@@ -124,17 +124,7 @@ func (f *filler) fill(orderPair string, ordersChan <-chan model.Order) {
 
 	// As a filler, we'll receive funds from the `from` chain and send funds to the `to` chain. Thus, the receiverAddr
 	// will be our address on the `from` chain, and sendAddr on the `to` chain
-	sendAddr, receiveAddr := "", ""
-	if from.IsBTC() {
-		receiveAddr = f.btcWallet.Address().EncodeAddress()
-	} else {
-		receiveAddr = f.ethWallets[from].Address().Hex()
-	}
-	if to.IsBTC() {
-		sendAddr = f.btcWallet.Address().EncodeAddress()
-	} else {
-		sendAddr = f.ethWallets[to].Address().Hex()
-	}
+	sendAddr, receiveAddr := f.addr(to), f.addr(from)
 
 	for order := range ordersChan {
 		// Fill the order in the orderbook if we have enough funds to execute. If the funds is not enough, we wait and
@@ -146,7 +136,7 @@ func (f *filler) fill(orderPair string, ordersChan <-chan model.Order) {
 
 			for ; ; <-ticker.C {
 				if err := f.balanceCheck(from, to, toAsset, order, interval); err != nil {
-					f.logger.Error("balance check", zap.Error(err), zap.Uint("order", order.ID))
+					f.logger.Debug("balance check", zap.Error(err), zap.Uint("order", order.ID))
 					continue
 				}
 
@@ -226,7 +216,6 @@ func (f *filler) balanceCheck(from, to model.Chain, asset model.Asset, order mod
 		}
 		required := unexecuted.Add(unexecuted, amount)
 		if balance.Cmp(required) <= 0 {
-
 			return fmt.Errorf("%v balance is not enough, required = %v, has = %v, unexecuted =%v", to, required.String(), balance.String(), unexecuted.String())
 		}
 	}
@@ -256,4 +245,12 @@ func (f *filler) unexecutedAmount(chain model.Chain, asset model.Asset) (*big.In
 		}
 	}
 	return amount, nil
+}
+
+func (f *filler) addr(chain model.Chain) string {
+	if chain.IsBTC() {
+		return f.btcWallet.Address().EncodeAddress()
+	} else {
+		return f.ethWallets[chain].Address().Hex()
+	}
 }

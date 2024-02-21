@@ -16,24 +16,30 @@ import (
 )
 
 type BitcoinExecutor struct {
-	chain  model.Chain
-	logger *zap.Logger
-	wallet btcswap.Wallet
-	client rest.Client
-	signer string
-	store  Store
-	stop   chan struct{}
+	chain     model.Chain
+	logger    *zap.Logger
+	wallet    btcswap.Wallet
+	client    rest.Client
+	signer    string
+	store     Store
+	stop      chan struct{}
+	projector *BlockProjector
 }
 
 func NewBitcoinExecutor(chain model.Chain, logger *zap.Logger, wallet btcswap.Wallet, client rest.Client, store Store, signer string) *BitcoinExecutor {
+	projector := NewMempoolProjector()
+	// if chain.IsTestnet() {
+	// 	projector = nil
+	// }
 	exe := &BitcoinExecutor{
-		chain:  chain,
-		logger: logger,
-		wallet: wallet,
-		client: client,
-		signer: signer,
-		store:  store,
-		stop:   make(chan struct{}),
+		chain:     chain,
+		logger:    logger,
+		wallet:    wallet,
+		client:    client,
+		signer:    signer,
+		store:     store,
+		stop:      make(chan struct{}),
+		projector: projector,
 	}
 
 	return exe
@@ -152,7 +158,19 @@ func (be *BitcoinExecutor) Start() {
 
 				// Skip if we have no orders to process
 				if len(newActions) == 0 {
-					continue
+					// Check new block fee range and see if we need to pump the fee
+					if len(bd.PrevOrders) == 0 || be.projector == nil {
+						continue
+					}
+					feeRanges, err := be.projector.NextBlocks()
+					if err != nil || len(feeRanges) < 1 {
+						continue
+					}
+
+					// Check the fee rate we used and the lowest fee in the next block
+					if float64(bd.RbfOptions.PrevFeeRate) > feeRanges[0].FeeRange[0]+1 {
+						continue
+					}
 				}
 
 				// Submit the transaction

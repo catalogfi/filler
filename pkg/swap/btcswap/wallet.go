@@ -471,9 +471,6 @@ func (wallet *wallet) ExecuteRbf(ctx context.Context, actions []ActionItem, rbf 
 	// Build tx
 	tx, err := btc.BuildRbfTransaction(wallet.opts.Network, feeRate, newRbf.PrevRawInputs, utxos, btc.P2wpkhUpdater, newRbf.PrevRecipient, wallet.address)
 	if err != nil {
-		log.Printf("raw inputs = %+v", newRbf.PrevRawInputs)
-		log.Printf("available utxos = %+v", utxos)
-		log.Printf("recipients = %+v", newRbf.PrevRecipient)
 		return "", rbf, err
 	}
 
@@ -527,7 +524,6 @@ func (wallet *wallet) ExecuteRbf(ctx context.Context, actions []ActionItem, rbf 
 	}
 
 	// Sign the tx
-	log.Printf("sign the tx ")
 	for i, in := range tx.TxIn {
 		key := fmt.Sprintf("%v-%v", in.PreviousOutPoint.Hash.String(), in.PreviousOutPoint.Index)
 		switch newRbf.PrevSigType[key] {
