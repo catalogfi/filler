@@ -163,7 +163,7 @@ func (be *BitcoinExecutor) Start() {
 						continue
 					}
 					feeRanges, err := be.projector.NextBlocks()
-					if err != nil || len(feeRanges) < 1 {
+					if err != nil || len(feeRanges) < 1 || len(feeRanges[0].FeeRange) < 1 {
 						continue
 					}
 
