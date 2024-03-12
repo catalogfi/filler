@@ -3,6 +3,7 @@ package ethswap
 import (
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/catalogfi/orderbook/model"
 	"github.com/ethereum/go-ethereum/common"
@@ -11,6 +12,7 @@ import (
 type Options struct {
 	ChainID  *big.Int
 	SwapAddr common.Address
+	Timeout  time.Duration
 }
 
 func NewOptions(chain model.Chain, swapAddr common.Address) Options {
@@ -39,6 +41,7 @@ func NewOptions(chain model.Chain, swapAddr common.Address) Options {
 	return Options{
 		ChainID:  chainID,
 		SwapAddr: swapAddr,
+		Timeout:  5 * time.Second,
 	}
 }
 
@@ -49,5 +52,10 @@ func (opts Options) WithChainID(id *big.Int) Options {
 
 func (opts Options) WithSwapAddr(swapAddr common.Address) Options {
 	opts.SwapAddr = swapAddr
+	return opts
+}
+
+func (opts Options) WithTimeout(timeout time.Duration) Options {
+	opts.Timeout = timeout
 	return opts
 }

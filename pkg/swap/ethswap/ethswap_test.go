@@ -71,7 +71,7 @@ var _ = Describe("Ethereum Atomic Swap", func() {
 			By("Alice initiates the swap")
 			initTx, err := aliceWallet.Initiate(ctx, swap)
 			Expect(err).To(BeNil())
-			By(color.GreenString("Initiation tx hash = %v", initTx))
+			By(color.GreenString("Initiation tx hash = %v", initTx.Hash().Hex()))
 			time.Sleep(time.Second)
 
 			By("Check status")
@@ -85,7 +85,7 @@ var _ = Describe("Ethereum Atomic Swap", func() {
 			By("Bob redeems the swap")
 			redeemTx, err := bobWallet.Redeem(ctx, swap, secret)
 			Expect(err).To(BeNil())
-			By(color.GreenString("Redeem tx hash = %v", redeemTx))
+			By(color.GreenString("Redeem tx hash = %v", redeemTx.Hash().Hex()))
 			time.Sleep(time.Second)
 			redeemed, err = swap.Redeemed(ctx, client)
 			Expect(err).To(BeNil())

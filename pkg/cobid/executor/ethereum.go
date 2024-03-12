@@ -13,7 +13,7 @@ import (
 	"github.com/catalogfi/cobi/pkg/util"
 	"github.com/catalogfi/orderbook/model"
 	"github.com/catalogfi/orderbook/rest"
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"go.uber.org/zap"
 )
@@ -168,7 +168,7 @@ func (ee *EvmExecutor) chainWorker(chain model.Chain, swaps chan ActionItem) {
 
 			wallet := ee.wallets[chain]
 			client := ee.clients[chain]
-			var txHash common.Hash
+			var transaction *types.Transaction
 			switch item.Action {
 			case swap.ActionInitiate:
 				var initiated bool
@@ -180,14 +180,14 @@ func (ee *EvmExecutor) chainWorker(chain model.Chain, swaps chan ActionItem) {
 					ee.logger.Debug("⚠️ skip swap initiation", zap.String("chain", string(chain)), zap.Uint("swap", item.Swap.ID))
 					return nil
 				}
-				txHash, err = wallet.Initiate(ctx, ethSwap)
+				transaction, err = wallet.Initiate(ctx, ethSwap)
 			case swap.ActionRedeem:
 				var secret []byte
 				secret, err = hex.DecodeString(item.Swap.Secret)
 				if err != nil {
 					return err
 				}
-				txHash, err = wallet.Redeem(ctx, ethSwap, secret)
+				transaction, err = wallet.Redeem(ctx, ethSwap, secret)
 			case swap.ActionRefund:
 				var expired bool
 				expired, err = ethSwap.Expired(ctx, wallet.Client())
@@ -197,7 +197,7 @@ func (ee *EvmExecutor) chainWorker(chain model.Chain, swaps chan ActionItem) {
 				if !expired {
 					return NewRetriableError(fmt.Errorf("swap not expired"))
 				}
-				txHash, err = wallet.Refund(ctx, ethSwap)
+				transaction, err = wallet.Refund(ctx, ethSwap)
 			default:
 				return nil
 			}
@@ -205,7 +205,7 @@ func (ee *EvmExecutor) chainWorker(chain model.Chain, swaps chan ActionItem) {
 				return NewRetriableError(err)
 			}
 
-			ee.logger.Info("✅ [Execution]", zap.String("chain", string(chain)), zap.String("hash", txHash.Hex()), zap.Uint("swap", item.Swap.ID))
+			ee.logger.Info("✅ [Execution]", zap.String("chain", string(chain)), zap.String("hash", transaction.Hash().Hex()), zap.Uint("swap", item.Swap.ID))
 			return nil
 		}()
 

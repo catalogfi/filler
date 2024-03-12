@@ -38,11 +38,11 @@ func NewSwap(initiator, redeemer, contract common.Address, secretHash common.Has
 }
 
 func (swap *Swap) Initiated(ctx context.Context, client *ethclient.Client) (bool, error) {
-	atomicSwap, err := bindings.NewAtomicSwap(swap.Contract, client)
+	htlc, err := bindings.NewGardenHTLC(swap.Contract, client)
 	if err != nil {
 		return false, err
 	}
-	details, err := atomicSwap.AtomicSwapOrders(&bind.CallOpts{Context: ctx}, swap.ID)
+	details, err := htlc.Orders(&bind.CallOpts{Context: ctx}, swap.ID)
 	if err != nil {
 		return false, err
 	}
@@ -51,11 +51,11 @@ func (swap *Swap) Initiated(ctx context.Context, client *ethclient.Client) (bool
 
 func (swap *Swap) Redeemed(ctx context.Context, client *ethclient.Client) (bool, error) {
 	// Check if the swap has been redeemed
-	atomicSwap, err := bindings.NewAtomicSwap(swap.Contract, client)
+	htlc, err := bindings.NewGardenHTLC(swap.Contract, client)
 	if err != nil {
 		return false, err
 	}
-	details, err := atomicSwap.AtomicSwapOrders(&bind.CallOpts{Context: ctx}, swap.ID)
+	details, err := htlc.Orders(&bind.CallOpts{Context: ctx}, swap.ID)
 	if err != nil {
 		return false, err
 	}
@@ -64,11 +64,11 @@ func (swap *Swap) Redeemed(ctx context.Context, client *ethclient.Client) (bool,
 
 func (swap *Swap) Secret(ctx context.Context, client *ethclient.Client, step uint64) ([]byte, error) {
 	// Check if the swap has been redeemed
-	atomicSwap, err := bindings.NewAtomicSwap(swap.Contract, client)
+	htlc, err := bindings.NewGardenHTLC(swap.Contract, client)
 	if err != nil {
 		return nil, err
 	}
-	details, err := atomicSwap.AtomicSwapOrders(&bind.CallOpts{Context: ctx}, swap.ID)
+	details, err := htlc.Orders(&bind.CallOpts{Context: ctx}, swap.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +103,7 @@ func (swap *Swap) Secret(ctx context.Context, client *ethclient.Client, step uin
 			End:     &end,
 			Context: ctx,
 		}
-		iter, err := atomicSwap.FilterRedeemed(&opts, [][32]byte{swap.ID}, [][32]byte{swap.SecretHash})
+		iter, err := htlc.FilterRedeemed(&opts, [][32]byte{swap.ID}, [][32]byte{swap.SecretHash})
 		if err != nil {
 			return nil, err
 		}
@@ -120,12 +120,12 @@ func (swap *Swap) Secret(ctx context.Context, client *ethclient.Client, step uin
 }
 
 func (swap *Swap) Expired(ctx context.Context, client *ethclient.Client) (bool, error) {
-	atomicSwap, err := bindings.NewAtomicSwap(swap.Contract, client)
+	htlc, err := bindings.NewGardenHTLC(swap.Contract, client)
 	if err != nil {
 		return false, err
 	}
 
-	details, err := atomicSwap.AtomicSwapOrders(&bind.CallOpts{Context: ctx}, swap.ID)
+	details, err := htlc.Orders(&bind.CallOpts{Context: ctx}, swap.ID)
 	if err != nil {
 		return false, err
 	}
