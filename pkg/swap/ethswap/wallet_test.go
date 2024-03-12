@@ -11,7 +11,9 @@ import (
 
 	"github.com/catalogfi/blockchain/testutil"
 	"github.com/catalogfi/cobi/pkg/swap/ethswap"
+	"github.com/catalogfi/cobi/pkg/swap/ethswap/bindings"
 	"github.com/catalogfi/orderbook/model"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/fatih/color"
@@ -60,13 +62,13 @@ var _ = Describe("Ethereum Atomic Swap", func() {
 			By("Alice initiates the swap")
 			initTx, err := aliceWallet.Initiate(ctx, swap)
 			Expect(err).To(BeNil())
-			By(color.GreenString("Initiation tx hash = %v", initTx.Hex()))
+			By(color.GreenString("Initiation tx hash = %v", initTx.Hash().Hex()))
 			time.Sleep(time.Second)
 
 			By("Bob redeems the swap")
 			redeemTx, err := bobWallet.Redeem(ctx, swap, secret)
 			Expect(err).To(BeNil())
-			By(color.GreenString("Redeem tx hash = %v", redeemTx.Hex()))
+			By(color.GreenString("Redeem tx hash = %v", redeemTx.Hash().Hex()))
 			time.Sleep(time.Second)
 
 			By("Check balance again")
@@ -117,7 +119,7 @@ var _ = Describe("Ethereum Atomic Swap", func() {
 			By("Alice initiates the swap")
 			initTx, err := aliceWallet.Initiate(ctx, swap)
 			Expect(err).To(BeNil())
-			By(color.GreenString("Initiation tx hash = %v", initTx.Hex()))
+			By(color.GreenString("Initiation tx hash = %v", initTx.Hash().Hex()))
 			time.Sleep(time.Second)
 
 			By("Expect the balance to decrease")
@@ -134,13 +136,69 @@ var _ = Describe("Ethereum Atomic Swap", func() {
 			By("Submit the refund tx")
 			refundTx, err := aliceWallet.Refund(ctx, swap)
 			Expect(err).To(BeNil())
-			By(color.GreenString("refund tx hash = %v", refundTx.Hex()))
+			By(color.GreenString("refund tx hash = %v", refundTx.Hash().Hex()))
 			time.Sleep(time.Second)
 
 			By("Expect the token balance to be same as the beginning")
 			aliceBalance2, err := aliceWallet.TokenBalance(ctx, true)
 			Expect(err).To(BeNil())
 			Expect(aliceBalance2.Cmp(aliceBalance)).Should(Equal(0))
+		})
+	})
+
+	Context("Negative test cases", func() {
+		Context("when nonce is incorrect", func() {
+			It("should calibrate the nonce and try again", func(ctx context.Context) {
+				By("Initialise the client")
+				url := os.Getenv("ETH_URL")
+				client, err := ethclient.Dial(url)
+				Expect(err).To(BeNil())
+
+				By("Initialization two keys")
+				options := ethswap.NewOptions(model.EthereumLocalnet, swapAddr)
+				aliceKeyStr := strings.TrimPrefix(os.Getenv("ETH_KEY_1"), "0x")
+				aliceKeyBytes, err := hex.DecodeString(aliceKeyStr)
+				Expect(err).To(BeNil())
+				aliceKey, err := crypto.ToECDSA(aliceKeyBytes)
+				Expect(err).To(BeNil())
+				aliceWallet, err := ethswap.NewWallet(options, aliceKey, client)
+				Expect(err).To(BeNil())
+				bobKeyStr := strings.TrimPrefix(os.Getenv("ETH_KEY_2"), "0x")
+				bobKeyBytes, err := hex.DecodeString(bobKeyStr)
+				Expect(err).To(BeNil())
+				bobKey, err := crypto.ToECDSA(bobKeyBytes)
+				Expect(err).To(BeNil())
+				bobWallet, err := ethswap.NewWallet(options, bobKey, client)
+				Expect(err).To(BeNil())
+
+				By("Alice constructs a swap")
+				amount := big.NewInt(1e18)
+				secret := testutil.RandomSecret()
+				secretHash := sha256.Sum256(secret)
+				expiry := big.NewInt(6)
+				swap := ethswap.NewSwap(aliceWallet.Address(), bobWallet.Address(), swapAddr, secretHash, amount, expiry)
+
+				By("Simulate a transaction outside the wallet")
+				transactor, err := bind.NewKeyedTransactorWithChainID(aliceKey, options.ChainID)
+				Expect(err).To(BeNil())
+				erc20, err := bindings.NewERC20(tokenAddr, client)
+				Expect(err).To(BeNil())
+				pumpNonce := func() error {
+					tx, err := erc20.Transfer(transactor, aliceWallet.Address(), big.NewInt(1))
+					if err != nil {
+						return err
+					}
+					_, err = bind.WaitMined(ctx, client, tx)
+					return err
+				}
+				Expect(pumpNonce()).Should(Succeed())
+
+				By("Alice initiates the swap")
+				initTx, err := aliceWallet.Initiate(ctx, swap)
+				Expect(err).To(BeNil())
+				By(color.GreenString("Initiation tx hash = %v", initTx.Hash().Hex()))
+				time.Sleep(time.Second)
+			})
 		})
 	})
 })

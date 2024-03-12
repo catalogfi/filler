@@ -56,7 +56,7 @@ var _ = BeforeSuite(func() {
 	By(color.GreenString("ERC20 deployed to %v", tokenAddr.Hex()))
 
 	By("Deploy atomic swap contract")
-	swapAddr, tx, _, err = bindings.DeployAtomicSwap(transactor, client, tokenAddr)
+	swapAddr, tx, _, err = bindings.DeployGardenHTLC(transactor, client, tokenAddr, "Garden", "v0")
 	Expect(err).Should(BeNil())
 	_, err = bind.WaitMined(context.Background(), client, tx)
 	Expect(err).Should(BeNil())
