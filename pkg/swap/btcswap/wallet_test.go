@@ -7,9 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/catalogfi/blockchain/btc/btctest"
-	"github.com/catalogfi/blockchain/testutil"
 	"github.com/catalogfi/cobi/pkg/swap"
 	"github.com/catalogfi/cobi/pkg/swap/btcswap"
 	"github.com/fatih/color"
@@ -22,18 +20,16 @@ var _ = Describe("wallet for bitcoin swap", func() {
 	Context("Batch execution", func() {
 		It("should succeed when doing eight swaps at the same time", func(ctx context.Context) {
 			By("Initialization two wallet")
-			network := &chaincfg.RegressionNetParams
-			client := btctest.RegtestIndexer()
-			aliceWallet, err := NewTestWallet(network, client)
+			aliceWallet, err := NewTestWallet(indexer)
 			Expect(err).To(BeNil())
-			bobWallet, err := NewTestWallet(network, client)
+			bobWallet, err := NewTestWallet(indexer)
 			Expect(err).To(BeNil())
 
 			By("Funding the wallet")
-			txhash1, err := testutil.NigiriFaucet(aliceWallet.Address().EncodeAddress())
+			txhash1, err := btctest.NigiriFaucet(aliceWallet.Address().EncodeAddress())
 			Expect(err).To(BeNil())
 			By(fmt.Sprintf("Funding address1 %v , txid = %v", aliceWallet.Address(), txhash1))
-			txhash2, err := testutil.NigiriFaucet(bobWallet.Address().EncodeAddress())
+			txhash2, err := btctest.NigiriFaucet(bobWallet.Address().EncodeAddress())
 			Expect(err).To(BeNil())
 			By(fmt.Sprintf("Funding address2 %v , txid = %v", bobWallet.Address(), txhash2))
 			time.Sleep(5 * time.Second)
@@ -45,7 +41,7 @@ var _ = Describe("wallet for bitcoin swap", func() {
 			bobSwaps := make([]btcswap.Swap, swaps)
 			secrets := make([][]byte, swaps)
 			for i := 0; i < swaps; i++ {
-				secrets[i] = testutil.RandomSecret()
+				secrets[i] = btctest.RandomSecret()
 				secretHash := sha256.Sum256(secrets[i])
 				aliceSwaps[i], err = btcswap.NewSwap(network, aliceWallet.Address(), bobWallet.Address(), 1e6, secretHash[:], waitBlocks)
 				Expect(err).To(BeNil())
@@ -76,12 +72,12 @@ var _ = Describe("wallet for bitcoin swap", func() {
 			txhash, err = bobWallet.BatchExecute(ctx, bobActions1)
 			Expect(err).To(BeNil())
 			By(color.GreenString("[1] Bob tx hash = %v", txhash))
-			Expect(testutil.NigiriNewBlock()).Should(Succeed())
+			Expect(btctest.NigiriNewBlock()).Should(Succeed())
 			time.Sleep(5 * time.Second)
 
 			By("Wait for a few blocks to be mined")
 			for i := int64(0); i < waitBlocks; i++ {
-				Expect(testutil.NigiriNewBlock()).Should(Succeed())
+				Expect(btctest.NigiriNewBlock()).Should(Succeed())
 			}
 			time.Sleep(5 * time.Second)
 
@@ -108,7 +104,7 @@ var _ = Describe("wallet for bitcoin swap", func() {
 			txhash, err = bobWallet.BatchExecute(ctx, bobActions2)
 			Expect(err).To(BeNil())
 			By(color.GreenString("[2] Bob tx hash = %v", txhash))
-			Expect(testutil.NigiriNewBlock()).Should(Succeed())
+			Expect(btctest.NigiriNewBlock()).Should(Succeed())
 			time.Sleep(5 * time.Second)
 
 			By("Third round : Alice and Bob redeem the 1/4 swaps just been initiated and initiate the next 1/4 swaps")
@@ -148,7 +144,7 @@ var _ = Describe("wallet for bitcoin swap", func() {
 			txhash, err = bobWallet.BatchExecute(ctx, bobActions3)
 			Expect(err).To(BeNil())
 			By(color.GreenString("[3] Bob tx hash = %v", txhash))
-			Expect(testutil.NigiriNewBlock()).Should(Succeed())
+			Expect(btctest.NigiriNewBlock()).Should(Succeed())
 			time.Sleep(5 * time.Second)
 
 			By("Fourth round : Doing initiate, redeem and refund at the same time")
@@ -202,25 +198,23 @@ var _ = Describe("wallet for bitcoin swap", func() {
 
 		It("should succeed", func(ctx context.Context) {
 			By("Initialization two wallet")
-			network := &chaincfg.RegressionNetParams
-			client := btctest.RegtestIndexer()
-			aliceWallet, err := NewTestWallet(network, client)
+			aliceWallet, err := NewTestWallet(indexer)
 			Expect(err).To(BeNil())
-			bobWallet, err := NewTestWallet(network, client)
+			bobWallet, err := NewTestWallet(indexer)
 			Expect(err).To(BeNil())
 
 			By("Funding the wallet")
-			txhash1, err := testutil.NigiriFaucet(aliceWallet.Address().EncodeAddress())
+			txhash1, err := btctest.NigiriFaucet(aliceWallet.Address().EncodeAddress())
 			Expect(err).To(BeNil())
 			By(fmt.Sprintf("Funding address1 %v , txid = %v", aliceWallet.Address(), txhash1))
-			txhash2, err := testutil.NigiriFaucet(bobWallet.Address().EncodeAddress())
+			txhash2, err := btctest.NigiriFaucet(bobWallet.Address().EncodeAddress())
 			Expect(err).To(BeNil())
 			By(fmt.Sprintf("Funding address2 %v , txid = %v", aliceWallet.Address(), txhash2))
 			time.Sleep(5 * time.Second)
 
 			By("Alice and Bob construct their own swap")
 			waitBlocks := int64(6)
-			secret := testutil.RandomSecret()
+			secret := btctest.RandomSecret()
 			secretHash := sha256.Sum256(secret)
 			aliceSwap, err := btcswap.NewSwap(network, aliceWallet.Address(), bobWallet.Address(), 1e7, secretHash[:], waitBlocks)
 			Expect(err).To(BeNil())
@@ -235,7 +229,7 @@ var _ = Describe("wallet for bitcoin swap", func() {
 			initiatedTx, err := aliceWallet.BatchExecute(ctx, []btcswap.ActionItem{aliceInit})
 			Expect(err).To(BeNil())
 			By(color.GreenString("Alice's swap is initiated in tx %v", initiatedTx))
-			Expect(testutil.NigiriNewBlock()).Should(Succeed())
+			Expect(btctest.NigiriNewBlock()).Should(Succeed())
 			time.Sleep(5 * time.Second)
 
 			By("Bob initiates his swap")
@@ -246,7 +240,7 @@ var _ = Describe("wallet for bitcoin swap", func() {
 			initiatedTx, err = bobWallet.BatchExecute(ctx, []btcswap.ActionItem{bobInit})
 			Expect(err).To(BeNil())
 			By(color.GreenString("Bob's swap is initiated in tx %v", initiatedTx))
-			Expect(testutil.NigiriNewBlock()).Should(Succeed())
+			Expect(btctest.NigiriNewBlock()).Should(Succeed())
 			time.Sleep(5 * time.Second)
 
 			By("Alice redeems Bob's swap and reveal the secret")
@@ -258,9 +252,9 @@ var _ = Describe("wallet for bitcoin swap", func() {
 			redeemTx, err := aliceWallet.BatchExecute(ctx, []btcswap.ActionItem{aliceRedeem})
 			Expect(err).Should(BeNil())
 			By(color.GreenString("Bob's swap is redeemed in tx %v", redeemTx))
-			Expect(testutil.NigiriNewBlock()).Should(Succeed())
+			Expect(btctest.NigiriNewBlock()).Should(Succeed())
 			time.Sleep(5 * time.Second)
-			redeemed, revealedSecret, err := bobSwap.Redeemed(ctx, client)
+			redeemed, revealedSecret, err := bobSwap.Redeemed(ctx, indexer)
 			Expect(err).To(BeNil())
 			Expect(redeemed).Should(BeTrue())
 			Expect(bytes.Equal(secret, revealedSecret)).Should(BeTrue())
@@ -274,7 +268,7 @@ var _ = Describe("wallet for bitcoin swap", func() {
 			redeemTx, err = bobWallet.BatchExecute(ctx, []btcswap.ActionItem{bobRedeem})
 			Expect(err).Should(BeNil())
 			By(color.GreenString("Alice's swap is redeemed in tx %v", redeemTx))
-			Expect(testutil.NigiriNewBlock()).Should(Succeed())
+			Expect(btctest.NigiriNewBlock()).Should(Succeed())
 			time.Sleep(5 * time.Second)
 		})
 	})
@@ -282,25 +276,23 @@ var _ = Describe("wallet for bitcoin swap", func() {
 	Context("Alice and Bob wants to swap 0.1 BTC for 0.2 BTC", func() {
 		It("should succeed", func(ctx context.Context) {
 			By("Initialization two wallet")
-			network := &chaincfg.RegressionNetParams
-			client := btctest.RegtestIndexer()
-			aliceWallet, err := NewTestWallet(network, client)
+			aliceWallet, err := NewTestWallet(indexer)
 			Expect(err).To(BeNil())
-			bobWallet, err := NewTestWallet(network, client)
+			bobWallet, err := NewTestWallet(indexer)
 			Expect(err).To(BeNil())
 
 			By("Funding the wallet")
-			txhash1, err := testutil.NigiriFaucet(aliceWallet.Address().EncodeAddress())
+			txhash1, err := btctest.NigiriFaucet(aliceWallet.Address().EncodeAddress())
 			Expect(err).To(BeNil())
 			By(fmt.Sprintf("Funding address1 %v , txid = %v", aliceWallet.Address(), txhash1))
-			txhash2, err := testutil.NigiriFaucet(bobWallet.Address().EncodeAddress())
+			txhash2, err := btctest.NigiriFaucet(bobWallet.Address().EncodeAddress())
 			Expect(err).To(BeNil())
 			By(fmt.Sprintf("Funding address2 %v , txid = %v", aliceWallet.Address(), txhash2))
 			time.Sleep(5 * time.Second)
 
 			By("Alice and Bob construct their own swap")
 			waitBlocks := int64(6)
-			secret := testutil.RandomSecret()
+			secret := btctest.RandomSecret()
 			secretHash := sha256.Sum256(secret)
 			aliceSwap, err := btcswap.NewSwap(network, aliceWallet.Address(), bobWallet.Address(), 1e7, secretHash[:], waitBlocks)
 			Expect(err).To(BeNil())
@@ -311,23 +303,23 @@ var _ = Describe("wallet for bitcoin swap", func() {
 			initiatedTx, err := aliceWallet.Initiate(ctx, aliceSwap)
 			Expect(err).To(BeNil())
 			By(color.GreenString("Alice's swap is initiated in tx %v", initiatedTx))
-			Expect(testutil.NigiriNewBlock()).Should(Succeed())
+			Expect(btctest.NigiriNewBlock()).Should(Succeed())
 			time.Sleep(5 * time.Second)
 
 			By("Bob initiates his swap")
 			initiatedTx, err = bobWallet.Initiate(ctx, bobSwap)
 			Expect(err).To(BeNil())
 			By(color.GreenString("Bob's swap is initiated in tx %v", initiatedTx))
-			Expect(testutil.NigiriNewBlock()).Should(Succeed())
+			Expect(btctest.NigiriNewBlock()).Should(Succeed())
 			time.Sleep(5 * time.Second)
 
 			By("Alice redeems Bob's swap and reveal the secret")
 			redeemTx, err := aliceWallet.Redeem(ctx, bobSwap, secret, aliceWallet.Address().EncodeAddress())
 			Expect(err).Should(BeNil())
 			By(color.GreenString("Bob's swap is redeemed in tx %v", redeemTx))
-			Expect(testutil.NigiriNewBlock()).Should(Succeed())
+			Expect(btctest.NigiriNewBlock()).Should(Succeed())
 			time.Sleep(5 * time.Second)
-			redeemed, revealedSecret, err := bobSwap.Redeemed(ctx, client)
+			redeemed, revealedSecret, err := bobSwap.Redeemed(ctx, indexer)
 			Expect(err).To(BeNil())
 			Expect(redeemed).Should(BeTrue())
 			Expect(bytes.Equal(secret, revealedSecret)).Should(BeTrue())
@@ -336,7 +328,7 @@ var _ = Describe("wallet for bitcoin swap", func() {
 			redeemTx, err = bobWallet.Redeem(ctx, aliceSwap, revealedSecret, bobWallet.Address().EncodeAddress())
 			Expect(err).Should(BeNil())
 			By(color.GreenString("Alice's swap is redeemed in tx %v", redeemTx))
-			Expect(testutil.NigiriNewBlock()).Should(Succeed())
+			Expect(btctest.NigiriNewBlock()).Should(Succeed())
 			time.Sleep(5 * time.Second)
 		})
 	})
@@ -344,22 +336,20 @@ var _ = Describe("wallet for bitcoin swap", func() {
 	Context("Alice wants to refund her money after initiation", func() {
 		It("should work without any error", func(ctx context.Context) {
 			By("Initialization two wallet")
-			network := &chaincfg.RegressionNetParams
-			client := btctest.RegtestIndexer()
-			aliceWallet, err := NewTestWallet(network, client)
+			aliceWallet, err := NewTestWallet(indexer)
 			Expect(err).To(BeNil())
-			bobWallet, err := NewTestWallet(network, client)
+			bobWallet, err := NewTestWallet(indexer)
 			Expect(err).To(BeNil())
 
 			By("Funding the wallet")
-			txhash1, err := testutil.NigiriFaucet(aliceWallet.Address().EncodeAddress())
+			txhash1, err := btctest.NigiriFaucet(aliceWallet.Address().EncodeAddress())
 			Expect(err).To(BeNil())
 			By(fmt.Sprintf("Funding address1 %v , txid = %v", aliceWallet.Address(), txhash1))
 			time.Sleep(5 * time.Second)
 
 			By("Alice constructs a new swap")
 			amount := int64(1e6)
-			secret := testutil.RandomSecret()
+			secret := btctest.RandomSecret()
 			secretHash := sha256.Sum256(secret)
 			waitBlocks := int64(3)
 			aliceSwap, err := btcswap.NewSwap(network, aliceWallet.Address(), bobWallet.Address(), amount, secretHash[:], waitBlocks)
@@ -369,12 +359,12 @@ var _ = Describe("wallet for bitcoin swap", func() {
 			initiatedTx, err := aliceWallet.Initiate(ctx, aliceSwap)
 			Expect(err).To(BeNil())
 			By(color.GreenString("Alice's swap is initiated in tx %v", initiatedTx))
-			Expect(testutil.NigiriNewBlock()).Should(Succeed())
+			Expect(btctest.NigiriNewBlock()).Should(Succeed())
 			time.Sleep(5 * time.Second)
 
 			By("Wait for a few blocks to be mined")
 			for i := int64(0); i < waitBlocks; i++ {
-				Expect(testutil.NigiriNewBlock()).Should(Succeed())
+				Expect(btctest.NigiriNewBlock()).Should(Succeed())
 			}
 			time.Sleep(5 * time.Second)
 

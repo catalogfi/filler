@@ -125,7 +125,7 @@ type wallet struct {
 }
 
 func NewWallet(opts Options, client btc.IndexerClient, key *btcec.PrivateKey, estimator btc.FeeEstimator) (Wallet, error) {
-	addr, err := btc.PublicKeyAddress(key.PubKey(), opts.Network, opts.AddressType)
+	addr, err := btc.PublicKeyAddress(opts.Network, opts.AddressType, key.PubKey())
 	if err != nil {
 		return nil, fmt.Errorf("fail to parse wallet address, %v", err)
 	}

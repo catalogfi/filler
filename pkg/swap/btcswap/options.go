@@ -4,14 +4,14 @@ import (
 	"fmt"
 
 	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/catalogfi/blockchain/btc"
+	"github.com/btcsuite/btcwallet/waddrmgr"
 )
 
 const DefaultMinRelayFee = 1
 
 type Options struct {
 	Network     *chaincfg.Params
-	AddressType btc.AddressType
+	AddressType waddrmgr.AddressType
 	FeeTier     string
 	MinRelayFee int
 }
@@ -32,7 +32,7 @@ func NewWalletOptions(network *chaincfg.Params) Options {
 func OptionsMainnet() Options {
 	return Options{
 		Network:     &chaincfg.MainNetParams,
-		AddressType: btc.AddressP2WPKH,
+		AddressType: waddrmgr.WitnessPubKey,
 		FeeTier:     "high",
 		MinRelayFee: DefaultMinRelayFee,
 	}
@@ -41,7 +41,7 @@ func OptionsMainnet() Options {
 func OptionsTestnet() Options {
 	return Options{
 		Network:     &chaincfg.TestNet3Params,
-		AddressType: btc.AddressP2WPKH,
+		AddressType: waddrmgr.WitnessPubKey,
 		FeeTier:     "medium",
 		MinRelayFee: DefaultMinRelayFee,
 	}
@@ -50,7 +50,7 @@ func OptionsTestnet() Options {
 func OptionsRegression() Options {
 	return Options{
 		Network:     &chaincfg.RegressionNetParams,
-		AddressType: btc.AddressP2WPKH,
+		AddressType: waddrmgr.WitnessPubKey,
 		FeeTier:     "low",
 		MinRelayFee: DefaultMinRelayFee,
 	}
@@ -66,7 +66,7 @@ func (opts Options) WithFeeTier(feeTier string) Options {
 	return opts
 }
 
-func (opts Options) WithAddressType(addressType btc.AddressType) Options {
+func (opts Options) WithAddressType(addressType waddrmgr.AddressType) Options {
 	opts.AddressType = addressType
 	return opts
 }

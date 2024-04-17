@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
@@ -115,7 +116,7 @@ func main() {
 		Evms:         evmConfigs,
 		Strategies:   strategies,
 	}
-	estimator := btc.NewMempoolFeeEstimator(btcConfig.Chain.Params(), btc.MempoolFeeAPI, btc.DefaultRetryInterval)
+	estimator := InitFeeEstimator(btcConfig.Chain.Params())
 	cobi, err := cobid.NewCobi(config, logger, estimator)
 	if err != nil {
 		panic(err)
@@ -269,4 +270,17 @@ func ParseChainConfig() (cobid.BtcChainConfig, []cobid.EvmChainConfig, error) {
 		chains = append(chains, config)
 	}
 	return btcConfig, chains, nil
+}
+
+func InitFeeEstimator(params *chaincfg.Params) btc.FeeEstimator {
+	switch params.Name {
+	case chaincfg.MainNetParams.Name:
+		return btc.NewMempoolFeeEstimator(params, btc.MempoolFeeAPI, 15*time.Second)
+	case chaincfg.TestNet3Params.Name:
+		return btc.NewMempoolFeeEstimator(params, btc.MempoolFeeAPITestnet, 30*time.Second)
+	case chaincfg.RegressionNetParams.Name:
+		return btc.NewFixFeeEstimator(1)
+	default:
+		panic("unknown network")
+	}
 }

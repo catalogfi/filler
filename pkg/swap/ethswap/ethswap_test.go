@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/catalogfi/blockchain/testutil"
+	"github.com/catalogfi/blockchain/btc/btctest"
 	"github.com/catalogfi/cobi/pkg/swap/ethswap"
 	"github.com/catalogfi/orderbook/model"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -55,7 +55,7 @@ var _ = Describe("Ethereum Atomic Swap", func() {
 
 			By("Alice constructs a swap")
 			amount := big.NewInt(1e18)
-			secret := testutil.RandomSecret()
+			secret := btctest.RandomSecret()
 			secretHash := sha256.Sum256(secret)
 			expiry := big.NewInt(6)
 			swap := ethswap.NewSwap(aliceWallet.Address(), bobWallet.Address(), swapAddr, secretHash, amount, expiry)

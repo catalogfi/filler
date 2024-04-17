@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/catalogfi/blockchain/btc"
 	"github.com/catalogfi/cobi/pkg/swap/ethswap/bindings"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -16,6 +17,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/fatih/color"
+	"go.uber.org/zap"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -23,6 +26,8 @@ import (
 var (
 	swapAddr  common.Address
 	tokenAddr common.Address
+
+	indexer btc.IndexerClient
 )
 
 var _ = BeforeSuite(func() {
@@ -61,6 +66,13 @@ var _ = BeforeSuite(func() {
 	_, err = bind.WaitMined(context.Background(), client, tx)
 	Expect(err).Should(BeNil())
 	By(color.GreenString("Atomic swap deployed to %v", swapAddr.Hex()))
+
+	By("Bitcoin envs")
+	logger, err := zap.NewDevelopment()
+	Expect(err).Should(BeNil())
+	indexerHost, ok := os.LookupEnv("BTC_REGNET_INDEXER")
+	Expect(ok).Should(BeTrue())
+	indexer = btc.NewElectrsIndexerClient(logger, indexerHost, btc.DefaultRetryInterval)
 })
 
 func TestSwapper(t *testing.T) {

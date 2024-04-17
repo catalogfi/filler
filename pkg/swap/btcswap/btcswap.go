@@ -105,8 +105,8 @@ func (swap *Swap) Initiated(ctx context.Context, client btc.IndexerClient) (bool
 		if utxo.Status != nil && utxo.Status.Confirmed {
 			total += utxo.Amount
 			txs = append(txs, utxo.TxID)
-			if utxo.Status.BlockHeight > blockHeight {
-				blockHeight = utxo.Status.BlockHeight
+			if *utxo.Status.BlockHeight > blockHeight {
+				blockHeight = *utxo.Status.BlockHeight
 			}
 		}
 	}
@@ -126,8 +126,8 @@ func (swap *Swap) Initiators(ctx context.Context, client btc.IndexerClient) ([]s
 	txhashes := make([]string, 0, len(utxos))
 	for _, utxo := range utxos {
 		if utxo.Status != nil && utxo.Status.Confirmed {
-			if utxo.Status.BlockHeight > confirmedBlock {
-				confirmedBlock = utxo.Status.BlockHeight
+			if *utxo.Status.BlockHeight > confirmedBlock {
+				confirmedBlock = *utxo.Status.BlockHeight
 			}
 			txhashes = append(txhashes, utxo.TxID)
 			total += utxo.Amount
@@ -210,7 +210,7 @@ func (swap *Swap) Expired(ctx context.Context, client btc.IndexerClient) (bool, 
 
 	for _, utxo := range utxos {
 		if utxo.Status != nil && utxo.Status.Confirmed {
-			if current-utxo.Status.BlockHeight >= uint64(swap.WaitBlock) {
+			if current-*utxo.Status.BlockHeight >= uint64(swap.WaitBlock) {
 				return true, nil
 			}
 		}
