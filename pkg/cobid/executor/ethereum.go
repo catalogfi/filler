@@ -79,11 +79,15 @@ func (ee *EvmExecutor) Start() {
 			client.Subscribe(fmt.Sprintf("subscribe::%v", ee.signer))
 			respChan := client.Listen()
 
+			fallback := 5 * time.Second
 		InnerLoop:
 			for {
 				select {
 				case resp, ok := <-respChan:
 					if !ok {
+						if fallback < 5*time.Minute {
+							fallback = fallback * 2
+						}
 						break InnerLoop
 					}
 
@@ -102,7 +106,8 @@ func (ee *EvmExecutor) Start() {
 				}
 			}
 
-			time.Sleep(5 * time.Second)
+			fmt.Printf("waiting for %v seconds before trying again\n", fallback)
+			time.Sleep(fallback)
 		}
 	}()
 }
