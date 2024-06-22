@@ -5,13 +5,17 @@ import (
 	"math/big"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/btcsuite/btcd/btcec/v2"
-	"github.com/btcsuite/btcd/btcutil"
-	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/catalogfi/blockchain/btc"
 	"github.com/catalogfi/cobi/pkg/cobid/creator"
+	"github.com/catalogfi/cobi/pkg/swap/btcswap"
+	"github.com/catalogfi/cobi/pkg/swap/ethswap"
+	"github.com/catalogfi/orderbook/model"
 	"github.com/catalogfi/orderbook/rest"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"go.uber.org/zap"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -45,17 +49,27 @@ var _ = Describe("Creator_setup", Ordered, func() {
 			Expect(err).To(BeNil())
 			err = obRestClient.SetJwt(jwt)
 			Expect(err).To(BeNil())
-
 			logger, err := zap.NewDevelopment()
 			Expect(err).To(BeNil())
 			ethKey, err := crypto.GenerateKey()
 			Expect(err).To(BeNil())
 			btcKey, err := btcec.NewPrivateKey()
 			Expect(err).To(BeNil())
-			addr, err := btcutil.NewAddressWitnessPubKeyHash(btcutil.Hash160(btcKey.PubKey().SerializeCompressed()), &chaincfg.RegressionNetParams)
+
+			opts := btcswap.Options{}
+			client := btc.NewElectrsIndexerClient(logger, "http://localhost:3000", 30*time.Second)
+
+			btcWallet, err := btcswap.NewWallet(opts, client, btcKey, btc.NewFixFeeEstimator(10))
 			Expect(err).To(BeNil())
-			ctr, err := creator.NewCreator(addr.EncodeAddress(), crypto.PubkeyToAddress(ethKey.PublicKey).Hex(), obRestClient, sty, createStore, logger)
+
+			ethclient, err := ethclient.Dial("http://localhost:8545")
 			Expect(err).To(BeNil())
+
+			ethWallet, err := ethswap.NewWallet(ethswap.Options{}, ethKey, ethclient)
+			Expect(err).To(BeNil())
+			ethWallets := map[model.Chain]ethswap.Wallet{model.EthereumLocalnet: ethWallet}
+
+			ctr := creator.New([]creator.Strategy{sty}, btcWallet, ethWallets, obRestClient, createStore, logger)
 			Expect(ctr.Start()).Should(Succeed())
 			defer ctr.Stop()
 
