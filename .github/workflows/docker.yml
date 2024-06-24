@@ -1,38 +1,42 @@
-name: docker
+name: Docker Builder
 
 on:
   push:
     tags:
-      - "*"
+      - *
 
 jobs:
-  # Push image to GitHub Packages.
-  # See also https://docs.docker.com/docker-hub/builds/
-  push:
-    runs-on: ubuntu-latest
-    env:
-      DOCKER_CLI_EXPERIMENTAL: "enabled"
+    build:
+        runs-on: ubuntu-latest
 
-    steps:
-      - uses: actions/checkout@v2
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
 
-      # get current  tag
-      - name: tag
-        id: next_tag
-        run: echo ::set-output name=tag::${GITHUB_REF#refs/tags/}
+            - name: Extract tag
+              id: version_tag
+              run: echo ::set-output name=tag::${GITHUB_REF#refs/tags/release/}
 
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v1
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.ACCESS_TOKEN }}
+            - name: Set up QEMU
+              uses: docker/setup-qemu-action@v3
 
-      - name: Build image
-        run:  >-
-          docker buildx build --push 
-          --file ./Dockerfile 
-          --build-arg PAT=${{ secrets.ACCESS_TOKEN }}
-          --tag ghcr.io${{ github.organisation }}/${{ github.repository }}:latest 
-          --tag ghcr.io${{ github.organisation }}/${{ github.repository }}:${{ steps.next_tag.outputs.tag }} 
-          --platform linux/arm64,linux/amd64 .
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v3
+
+            - name: Login to GitHub Container Registry
+              uses: docker/login-action@v3
+              with:
+                  registry: ghcr.io
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.ACCESS_TOKEN }}
+
+            - name: Build and push Docker images
+              uses: docker/build-push-action@v6
+              with:
+                  context: .
+                  file: ./Dockerfile
+                  platforms: linux/amd64,linux/arm64
+                  push: true
+                  tags: |
+                      ghcr.io${{ github.organisation }}/${{ github.repository }}:latest
+                      ghcr.io${{ github.organisation }}/${{ github.repository }}:${{ steps.version_tag.outputs.tag }}
