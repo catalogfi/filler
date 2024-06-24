@@ -1,4 +1,4 @@
-FROM golang:1.21 
+FROM golang:1.21 as builder
 
 RUN mkdir /app
 WORKDIR /app
@@ -12,5 +12,8 @@ RUN git config --global url."https://${PAT}:@github.com/".insteadOf "https://git
 RUN go get github.com/catalogfi/orderbook
 RUN go build -tags netgo -ldflags '-s -w' -o ./cobi ./cmd/docker/main.go
 
-RUN chmod +x /app/cobi
-CMD [ "/app/cobi" ]
+FROM alpine:latest  
+RUN apk --no-cache add ca-certificates
+WORKDIR /root/
+COPY --from=builder /app/cobi    .
+CMD ["./cobi"]
