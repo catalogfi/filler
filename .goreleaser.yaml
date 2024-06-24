@@ -1,10 +1,5 @@
 version: 2
 
-before:
-    hooks:
-        - git config --global url."https://${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
-        - go mod tidy
-
 builds:
     - main: ./cmd/cobid
       ldflags:
