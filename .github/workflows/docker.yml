@@ -33,6 +33,6 @@ jobs:
           docker buildx build --push 
           --file ./Dockerfile 
           --build-arg PAT=${{ secrets.ACCESS_TOKEN }}
-          --tag ghcr.io/${{ github.organisation }}/${{ github.repository }}:latest 
-          --tag ghcr.io/${{ github.organisation }}/${{ github.repository }}:${{ steps.next_tag.outputs.tag }} 
+          --tag ghcr.io${{ github.organisation }}/${{ github.repository }}:latest 
+          --tag ghcr.io${{ github.organisation }}/${{ github.repository }}:${{ steps.next_tag.outputs.tag }} 
           --platform linux/arm64,linux/amd64 .
