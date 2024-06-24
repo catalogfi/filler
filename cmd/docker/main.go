@@ -121,42 +121,42 @@ func parseRequiredEnv(name string) string {
 func LocalnetStratagies() ([]filler.Strategy, []creator.Strategy) {
 	return []filler.Strategy{
 			{
-				OrderPair: "bitcoin_regtest-ethereum_localnet:0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
+				OrderPair: "bitcoin_regtest-ethereum_localnet:0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
 				Makers:    nil,
 				MinAmount: big.NewInt(1000),
 				MaxAmount: big.NewInt(1e8),
 				Fee:       10,
 			},
 			{
-				OrderPair: "ethereum_localnet:0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9-bitcoin_regtest",
+				OrderPair: "ethereum_localnet:0xe7f1725e7734ce288f8367e1bb143e90bb3f0512-bitcoin_regtest",
 				Makers:    nil,
 				MinAmount: big.NewInt(1000),
 				MaxAmount: big.NewInt(1e8),
 				Fee:       10,
 			},
 			{
-				OrderPair: "bitcoin_regtest-ethereum_arbitrumlocalnet:0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
+				OrderPair: "bitcoin_regtest-ethereum_arbitrumlocalnet:0xdc64a140aa3e981100a9beca4e685f962f0cf6c9",
 				Makers:    nil,
 				MinAmount: big.NewInt(1000),
 				MaxAmount: big.NewInt(1e8),
 				Fee:       10,
 			},
 			{
-				OrderPair: "ethereum_arbitrumlocalnet:0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9-bitcoin_regtest",
+				OrderPair: "ethereum_arbitrumlocalnet:0xdc64a140aa3e981100a9beca4e685f962f0cf6c9-bitcoin_regtest",
 				Makers:    nil,
 				MinAmount: big.NewInt(1000),
 				MaxAmount: big.NewInt(1e8),
 				Fee:       10,
 			},
 			{
-				OrderPair: "ethereum_localnet:0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9-ethereum_arbitrumlocalnet:0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
+				OrderPair: "ethereum_localnet:0xe7f1725e7734ce288f8367e1bb143e90bb3f0512-ethereum_arbitrumlocalnet:0xdc64a140aa3e981100a9beca4e685f962f0cf6c9",
 				Makers:    nil,
 				MinAmount: big.NewInt(1000),
 				MaxAmount: big.NewInt(1e8),
 				Fee:       10,
 			},
 			{
-				OrderPair: "ethereum_arbitrumlocalnet:0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9-ethereum_localnet:0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
+				OrderPair: "ethereum_arbitrumlocalnet:0xdc64a140aa3e981100a9beca4e685f962f0cf6c9-ethereum_localnet:0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
 				Makers:    nil,
 				MinAmount: big.NewInt(1000),
 				MaxAmount: big.NewInt(1e8),
