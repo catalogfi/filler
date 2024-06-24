@@ -1,9 +1,11 @@
-jobs:
-  on:
-    push:
-      tags:
-        - "*"
+name: docker
 
+on:
+  push:
+    tags:
+      - "*"
+
+jobs:
   # Push image to GitHub Packages.
   # See also https://docs.docker.com/docker-hub/builds/
   push:
