@@ -31,7 +31,8 @@ var _ = Describe("Filler Strategy", func() {
 						},
 						Price: belowPrice,
 					}
-					if stg.Match(order1) {
+
+					if isMatched, err := stg.Match(order1); isMatched && err == nil {
 						return false
 					}
 
@@ -48,7 +49,8 @@ var _ = Describe("Filler Strategy", func() {
 						Price: abovePrice,
 					}
 
-					return stg.Match(order2)
+					isMatched, _ := stg.Match(order2)
+					return isMatched
 				}
 
 				Expect(quick.Check(test, nil)).NotTo(HaveOccurred())
@@ -70,7 +72,8 @@ var _ = Describe("Filler Strategy", func() {
 						},
 						Price: 1.5,
 					}
-					return stg.Match(order)
+					isMatched, _ := stg.Match(order)
+					return isMatched
 				}
 
 				Expect(quick.Check(test, nil)).NotTo(HaveOccurred())

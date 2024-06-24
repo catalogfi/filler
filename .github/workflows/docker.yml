@@ -1,0 +1,36 @@
+jobs:
+  on:
+    push:
+      tags:
+        - "*"
+
+  # Push image to GitHub Packages.
+  # See also https://docs.docker.com/docker-hub/builds/
+  push:
+    runs-on: ubuntu-latest
+    env:
+      DOCKER_CLI_EXPERIMENTAL: "enabled"
+
+    steps:
+      - uses: actions/checkout@v2
+
+      # get current  tag
+      - name: tag
+        id: next_tag
+        run: echo ::set-output name=tag::${GITHUB_REF#refs/tags/}
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.ACCESS_TOKEN }}
+
+      - name: Build image
+        run:  >-
+          docker buildx build --push 
+          --file ./Dockerfile 
+          --build-arg PAT=${{ secrets.ACCESS_TOKEN }}
+          --tag ghcr.io/${{ github.organisation }}/${{ github.repository }}:latest 
+          --tag ghcr.io/${{ github.organisation }}/${{ github.repository }}:${{ steps.next_tag.outputs.tag }} 
+          --platform linux/arm64,linux/amd64 .
