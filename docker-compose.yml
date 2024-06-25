@@ -1,5 +1,4 @@
 services:
-    # RPC daemon
     cobi_redis:
         image: redis:alpine
         container_name: cobi_redis
