@@ -15,3 +15,5 @@ services:
         depends_on:
             - cobi_redis
         restart: unless-stopped
+        env_file:
+            - .env

@@ -13,27 +13,27 @@ endef
 # Build and start cobi containers
 build:
 	$(call print_message, "Building and starting the containers")
-	@$(DOCKER_COMPOSE) --env-file $(ENV_FILE) -f $(COMPOSE_FILE) up --build -d
+	@$(DOCKER_COMPOSE)  -f $(COMPOSE_FILE) up --build -d
 
 # Start cobi with existing image
 run:
 	$(call print_message, "Starting the containers")
-	@$(DOCKER_COMPOSE) --env-file $(ENV_FILE) -f $(COMPOSE_FILE) up -d
+	@$(DOCKER_COMPOSE)  -f $(COMPOSE_FILE) up -d
 
 # Stop cobi containers
 stop:
 	$(call print_message, "Stopping the containers")
-	@$(DOCKER_COMPOSE) --env-file $(ENV_FILE) -f $(COMPOSE_FILE) down
+	@$(DOCKER_COMPOSE)  -f $(COMPOSE_FILE) down
 
 # View logs of the containers
 logs:
 	$(call print_message, "Displaying logs of the containers")
-	@$(DOCKER_COMPOSE) --env-file $(ENV_FILE) -f $(COMPOSE_FILE) logs -f
+	@$(DOCKER_COMPOSE)  -f $(COMPOSE_FILE) logs -f
 
 # Check the status of the containers
 status:
 	$(call print_message, "Checking the status of the containers")
-	@$(DOCKER_COMPOSE) --env-file $(ENV_FILE) -f $(COMPOSE_FILE) ps
+	@$(DOCKER_COMPOSE)  -f $(COMPOSE_FILE) ps
 
 # Restart the containers
 restart:
