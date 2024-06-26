@@ -12,7 +12,7 @@ import (
 
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/catalogfi/blockchain/btc"
-	"github.com/catalogfi/blockchain/btc/btctest"
+	"github.com/catalogfi/blockchain/localnet"
 	"github.com/catalogfi/cobi/pkg/swap/btcswap"
 	"github.com/catalogfi/cobi/pkg/swap/ethswap"
 	"github.com/catalogfi/orderbook/model"
@@ -49,17 +49,17 @@ var _ = Describe("Swap between different chains", func() {
 			Expect(err).To(BeNil())
 
 			By("Funding both user's bitcoin address")
-			txhash1, err := btctest.NigiriFaucet(aliceBtcWallet.Address().EncodeAddress())
+			txhash1, err := localnet.FundBTC(aliceBtcWallet.Address().EncodeAddress())
 			Expect(err).To(BeNil())
 			By(fmt.Sprintf("Funding Alice's address %v , txid = %v", aliceBtcWallet.Address().EncodeAddress(), txhash1))
-			txhash2, err := btctest.NigiriFaucet(bobBtcWallet.Address().EncodeAddress())
+			txhash2, err := localnet.FundBTC(bobBtcWallet.Address().EncodeAddress())
 			Expect(err).To(BeNil())
 			By(fmt.Sprintf("Funding Bob's address  %v , txid = %v", bobBtcWallet.Address().EncodeAddress(), txhash2))
 			time.Sleep(5 * time.Second)
 
 			By("Alice constructs her swap on bitcoin side")
 			amountBtc := int64(1e6)
-			secret := btctest.RandomSecret()
+			secret := localnet.RandomSecret()
 			secretHash := sha256.Sum256(secret)
 			waitBlocks := int64(3)
 			aliceSwap, err := btcswap.NewSwap(network, aliceBtcWallet.Address(), bobBtcWallet.Address(), amountBtc, secretHash[:], waitBlocks)
@@ -82,7 +82,7 @@ var _ = Describe("Swap between different chains", func() {
 			initiatedTxAlice, err := aliceBtcWallet.Initiate(ctx, aliceSwap)
 			Expect(err).To(BeNil())
 			By(color.GreenString("Alice's swap is initiated in tx %v", initiatedTxAlice))
-			Expect(btctest.NigiriNewBlock()).Should(Succeed())
+			Expect(localnet.MineBTCBlock()).Should(Succeed())
 			time.Sleep(5 * time.Second)
 
 			By("Check swap status")
@@ -125,7 +125,7 @@ var _ = Describe("Swap between different chains", func() {
 			redeemTxBob, err := bobBtcWallet.Redeem(ctx, aliceSwap, revealedSecret, aliceBtcWallet.Address().EncodeAddress())
 			Expect(err).To(BeNil())
 			By(color.GreenString("Alice's swap is redeemed in tx %v", redeemTxBob))
-			Expect(btctest.NigiriNewBlock()).Should(Succeed())
+			Expect(localnet.MineBTCBlock()).Should(Succeed())
 			time.Sleep(5 * time.Second)
 			redeemed, revealedSecret, err = aliceSwap.Redeemed(ctx, indexer)
 			Expect(err).To(BeNil())
@@ -159,17 +159,17 @@ var _ = Describe("Swap between different chains", func() {
 			Expect(err).To(BeNil())
 
 			By("Funding both user's bitcoin address")
-			txhash1, err := btctest.NigiriFaucet(aliceBtcWallet.Address().EncodeAddress())
+			txhash1, err := localnet.FundBTC(aliceBtcWallet.Address().EncodeAddress())
 			Expect(err).To(BeNil())
 			By(fmt.Sprintf("Funding Alice's address %v , txid = %v", aliceBtcWallet.Address().EncodeAddress(), txhash1))
-			txhash2, err := btctest.NigiriFaucet(bobBtcWallet.Address().EncodeAddress())
+			txhash2, err := localnet.FundBTC(bobBtcWallet.Address().EncodeAddress())
 			Expect(err).To(BeNil())
 			By(fmt.Sprintf("Funding Bob's address  %v , txid = %v", bobBtcWallet.Address().EncodeAddress(), txhash2))
 			time.Sleep(5 * time.Second)
 
 			By("Alice constructs her swap on bitcoin side")
 			amountBtc := int64(1e6)
-			secret := btctest.RandomSecret()
+			secret := localnet.RandomSecret()
 			secretHash := sha256.Sum256(secret)
 			waitBlocks := int64(3)
 			aliceSwap, err := btcswap.NewSwap(network, aliceBtcWallet.Address(), bobBtcWallet.Address(), amountBtc, secretHash[:], waitBlocks)
@@ -184,7 +184,7 @@ var _ = Describe("Swap between different chains", func() {
 			initiatedTxAlice, err := aliceBtcWallet.Initiate(ctx, aliceSwap)
 			Expect(err).To(BeNil())
 			By(color.GreenString("Alice's swap is initiated in tx %v", initiatedTxAlice))
-			Expect(btctest.NigiriNewBlock()).Should(Succeed())
+			Expect(localnet.MineBTCBlock()).Should(Succeed())
 			time.Sleep(5 * time.Second)
 
 			By("Bob initiates his swap")
@@ -195,7 +195,7 @@ var _ = Describe("Swap between different chains", func() {
 
 			By("Wait for a few blocks for both swap to expire")
 			for i := int64(0); i < waitBlocks; i++ {
-				Expect(btctest.NigiriNewBlock()).Should(Succeed())
+				Expect(localnet.MineBTCBlock()).Should(Succeed())
 			}
 			time.Sleep(5 * time.Second)
 

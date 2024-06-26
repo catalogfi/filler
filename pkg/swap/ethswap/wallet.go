@@ -8,7 +8,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/catalogfi/cobi/pkg/swap/ethswap/bindings"
+	"github.com/catalogfi/blockchain/evm/bindings/contracts/htlc/gardenhtlc"
+	"github.com/catalogfi/blockchain/evm/bindings/openzeppelin/contracts/token/ERC20/erc20"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -50,8 +51,8 @@ type wallet struct {
 
 	mu           *sync.Mutex
 	addr         common.Address
-	htlc         *bindings.GardenHTLC
-	token        *bindings.ERC20
+	htlc         *gardenhtlc.GardenHTLC
+	token        *erc20.ERC20
 	transactOpts *bind.TransactOpts
 }
 
@@ -62,7 +63,7 @@ func NewWallet(options Options, key *ecdsa.PrivateKey, client *ethclient.Client)
 	addr := crypto.PubkeyToAddress(key.PublicKey)
 
 	// Initialise bindings.
-	htlc, err := bindings.NewGardenHTLC(options.SwapAddr, client)
+	htlc, err := gardenhtlc.NewGardenHTLC(options.SwapAddr, client)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +71,7 @@ func NewWallet(options Options, key *ecdsa.PrivateKey, client *ethclient.Client)
 	if err != nil {
 		return nil, err
 	}
-	erc20, err := bindings.NewERC20(tokenAddr, client)
+	erc20, err := erc20.NewERC20(tokenAddr, client)
 	if err != nil {
 		return nil, err
 	}

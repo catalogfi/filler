@@ -16,9 +16,9 @@ package executor_test
 //
 // 	"github.com/btcsuite/btcd/chaincfg"
 // 	"github.com/catalogfi/blockchain/btc"
-// 	"github.com/catalogfi/blockchain/btc/btctest"
+// 	"github.com/catalogfi/blockchain/localnet"
 // 	"github.com/catalogfi/cobi/pkg/swap/btcswap"
-// 	"github.com/catalogfi/cobi/pkg/swap/ethswap/bindings"
+// 	""
 // 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 // 	"github.com/ethereum/go-ethereum/common"
 // 	"github.com/ethereum/go-ethereum/core/types"
@@ -111,7 +111,7 @@ package executor_test
 // })
 //
 // func NewTestWallet(network *chaincfg.Params, client btc.IndexerClient) (btcswap.Wallet, error) {
-// 	key, _, err := btctest.NewBtcKey(network)
+// 	key, _, err := localnet.NewBtcKey(network)
 // 	if err != nil {
 // 		return nil, err
 // 	}

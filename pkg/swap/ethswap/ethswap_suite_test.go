@@ -7,7 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/catalogfi/cobi/pkg/swap/ethswap/bindings"
+	"github.com/catalogfi/blockchain/evm/bindings/contracts/htlc/gardenhtlc"
+	"github.com/catalogfi/blockchain/evm/bindings/openzeppelin/contracts/token/ERC20/erc20"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -46,14 +47,14 @@ var _ = BeforeSuite(func() {
 
 	By("Deploy ERC20 contract")
 	var tx *types.Transaction
-	tokenAddr, tx, _, err = bindings.DeployTestERC20(transactor, client)
+	tokenAddr, tx, _, err = erc20.Deploy(transactor, client)
 	Expect(err).Should(BeNil())
 	_, err = bind.WaitMined(context.Background(), client, tx)
 	Expect(err).Should(BeNil())
 	By(color.GreenString("ERC20 deployed to %v", tokenAddr.Hex()))
 
 	By("Deploy atomic swap contract")
-	swapAddr, tx, _, err = bindings.DeployGardenHTLC(transactor, client, tokenAddr, "Garden", "v0")
+	swapAddr, tx, _, err = gardenhtlc.DeployGardenHTLC(transactor, client, tokenAddr, "Garden", "v0")
 	Expect(err).Should(BeNil())
 	_, err = bind.WaitMined(context.Background(), client, tx)
 	Expect(err).Should(BeNil())

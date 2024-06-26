@@ -9,9 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/catalogfi/blockchain/btc/btctest"
+	"github.com/catalogfi/blockchain/localnet"
 	"github.com/catalogfi/cobi/pkg/swap/ethswap"
-	"github.com/catalogfi/cobi/pkg/swap/ethswap/bindings"
 	"github.com/catalogfi/orderbook/model"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -54,7 +53,7 @@ var _ = Describe("Ethereum Atomic Swap", func() {
 
 			By("Alice constructs a swap")
 			amount := big.NewInt(1e18)
-			secret := btctest.RandomSecret()
+			secret := localnet.RandomSecret()
 			secretHash := sha256.Sum256(secret)
 			expiry := big.NewInt(6)
 			swap := ethswap.NewSwap(aliceWallet.Address(), bobWallet.Address(), swapAddr, secretHash, amount, expiry)
@@ -111,7 +110,7 @@ var _ = Describe("Ethereum Atomic Swap", func() {
 
 			By("Alice constructs a swap")
 			amount := big.NewInt(1e18)
-			secret := btctest.RandomSecret()
+			secret := localnet.RandomSecret()
 			secretHash := sha256.Sum256(secret)
 			expiry := big.NewInt(3)
 			swap := ethswap.NewSwap(aliceWallet.Address(), bobWallet.Address(), swapAddr, secretHash, amount, expiry)
@@ -173,7 +172,7 @@ var _ = Describe("Ethereum Atomic Swap", func() {
 
 				By("Alice constructs a swap")
 				amount := big.NewInt(1e18)
-				secret := btctest.RandomSecret()
+				secret := localnet.RandomSecret()
 				secretHash := sha256.Sum256(secret)
 				expiry := big.NewInt(6)
 				swap := ethswap.NewSwap(aliceWallet.Address(), bobWallet.Address(), swapAddr, secretHash, amount, expiry)

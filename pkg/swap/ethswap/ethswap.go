@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/catalogfi/cobi/pkg/swap/ethswap/bindings"
+	"github.com/catalogfi/blockchain/evm/bindings/contracts/htlc/gardenhtlc"
 	"github.com/catalogfi/orderbook/model"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -38,7 +38,7 @@ func NewSwap(initiator, redeemer, contract common.Address, secretHash common.Has
 }
 
 func (swap *Swap) Initiated(ctx context.Context, client *ethclient.Client) (bool, error) {
-	htlc, err := bindings.NewGardenHTLC(swap.Contract, client)
+	htlc, err := gardenhtlc.NewGardenHTLC(swap.Contract, client)
 	if err != nil {
 		return false, err
 	}
@@ -51,7 +51,7 @@ func (swap *Swap) Initiated(ctx context.Context, client *ethclient.Client) (bool
 
 func (swap *Swap) Redeemed(ctx context.Context, client *ethclient.Client) (bool, error) {
 	// Check if the swap has been redeemed
-	htlc, err := bindings.NewGardenHTLC(swap.Contract, client)
+	htlc, err := gardenhtlc.NewGardenHTLC(swap.Contract, client)
 	if err != nil {
 		return false, err
 	}
@@ -64,7 +64,7 @@ func (swap *Swap) Redeemed(ctx context.Context, client *ethclient.Client) (bool,
 
 func (swap *Swap) Secret(ctx context.Context, client *ethclient.Client, step uint64) ([]byte, error) {
 	// Check if the swap has been redeemed
-	htlc, err := bindings.NewGardenHTLC(swap.Contract, client)
+	htlc, err := gardenhtlc.NewGardenHTLC(swap.Contract, client)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +88,7 @@ func (swap *Swap) Secret(ctx context.Context, client *ethclient.Client, step uin
 
 	// Theoretically people can still redeem after the expiry, but we assume the initiator will refund right after the
 	// expiry.
-	expiry := big.NewInt(0).Add(details.InitiatedAt, details.Expiry)
+	expiry := big.NewInt(0).Add(details.InitiatedAt, details.Timelock)
 	if latest.Cmp(expiry) == 1 {
 		latest = expiry
 	}
@@ -120,7 +120,7 @@ func (swap *Swap) Secret(ctx context.Context, client *ethclient.Client, step uin
 }
 
 func (swap *Swap) Expired(ctx context.Context, client *ethclient.Client) (bool, error) {
-	htlc, err := bindings.NewGardenHTLC(swap.Contract, client)
+	htlc, err := gardenhtlc.NewGardenHTLC(swap.Contract, client)
 	if err != nil {
 		return false, err
 	}
@@ -133,7 +133,7 @@ func (swap *Swap) Expired(ctx context.Context, client *ethclient.Client) (bool, 
 	if err != nil {
 		return false, err
 	}
-	return !details.IsFulfilled && latest-details.InitiatedAt.Uint64() >= details.Expiry.Uint64(), nil
+	return !details.IsFulfilled && latest-details.InitiatedAt.Uint64() >= details.Timelock.Uint64(), nil
 }
 
 func FromAtomicSwap(atomicSwap *model.AtomicSwap) (Swap, error) {
