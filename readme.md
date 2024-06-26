@@ -1,6 +1,6 @@
 # COBI 
 
-COBI is an automated trading system that contributes liquidity to the [garden](https://garden.fi/) orderbook AMM. It is designed to be a set-and-forget system that can be deployed on a server and left to run indefinitely.
+COBI is an automated trading system that contributes liquidity to the [garden](https://garden.finance/) orderbook AMM. It is designed to be a set-and-forget system that can be deployed on a server and left to run indefinitely.
 COBI fulfills the role of filler in the orderbook AMM. It fetches available open orders from the Catalog orderbook and fills them with the best price according to the configurable strategy it is given with.It can be run by anyone who has a filler role in the garden governance system.
 
 
@@ -53,7 +53,7 @@ One can define a strategy by setting the following parameters:
     - The pair should be in the format `chain:asset-chain:asset`.
     - chain is the chain name of the asset. (e.g. `bitcoin`, `ethereum`) 
     - asset is the address of the htlc contract of a token.
-    - assets can be found in [garden documentation](https://docs.garden.fi/) .
+    - assets can be found in [garden documentation](https://docs.garden.finance/) .
 2. `Makers`: A list of addresses that the strategy should fill orders for. If this is nil, COBI will fill orders for all makers.
     - makers are ethereum addresses
 3. `MinAmount`: The minimum amount of the base asset that the strategy should fill.
