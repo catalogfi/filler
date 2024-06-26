@@ -123,6 +123,8 @@ flowchart TD
 - Execution of multiple swaps in a single transaction is done by creating a transaction with multiple inputs and outputs.
 
 - **Example:** The following image shows how multiple utxos are batched together to provide liquidity to multiple initiates in a single transaction.
+<img width="1182" alt="Screenshot 2024-06-26 at 11 31 40 AM" src="https://github.com/catalogfi/cobi/assets/103029456/a6f91458-b70a-424a-b43b-1f695b8e1d4a">
+
   - Find transaction on [mempool.space](https://mempool.space/tx/4d6558e383eafc9599cde547c1fa8d9f61d8532348f90f13e7a040e12b413972)
 - The latest transaction is cached in the redis database along with swap details to ensure that the same swap is not executed multiple times.
 
