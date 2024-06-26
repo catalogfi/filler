@@ -28,6 +28,7 @@ type Creator interface {
 }
 
 type creator struct {
+	signer     string
 	btcWallet  btcswap.Wallet
 	ethWallets map[model.Chain]ethswap.Wallet
 	stratagies []Strategy
@@ -39,6 +40,7 @@ type creator struct {
 }
 
 func New(
+	signer string,
 	stratagies []Strategy,
 	btcWallet btcswap.Wallet,
 	ethWallets map[model.Chain]ethswap.Wallet,
@@ -47,6 +49,7 @@ func New(
 	logger *zap.Logger,
 ) Creator {
 	return &creator{
+		signer:     signer,
 		btcWallet:  btcWallet,
 		ethWallets: ethWallets,
 		restClient: restClient,
@@ -84,12 +87,9 @@ func (c *creator) create(s Strategy) error {
 	if err != nil {
 		return err
 	}
-	fromAddress := c.ethWallets[fromChain].Address().Hex()
-	toAddress := c.btcWallet.Address().EncodeAddress()
-	if fromChain.IsBTC() {
-		fromAddress, toAddress = toAddress, fromAddress
-	}
 
+	fromAddress := c.addr(fromChain)
+	toAddress := c.addr(toChain)
 	receiveAmount := big.NewInt(s.Amount.Int64() * int64(10000-s.Fee) / 10000)
 
 	expSetBack := time.Second
@@ -205,7 +205,7 @@ func (f *creator) balanceCheck(from, to model.Chain, asset model.Asset, amount *
 
 func (f *creator) unexecutedAmount(chain model.Chain, asset model.Asset) (*big.Int, error) {
 	filter := rest.GetOrdersFilter{
-		Taker:   f.ethWallets[chain].Address().Hex(),
+		Taker:   f.signer,
 		Verbose: true,
 		Status:  int(model.Filled),
 	}
@@ -228,10 +228,10 @@ func (f *creator) unexecutedAmount(chain model.Chain, asset model.Asset) (*big.I
 	return amount, nil
 }
 
-func (f *creator) addr(chain model.Chain) string {
+func (c *creator) addr(chain model.Chain) string {
 	if chain.IsBTC() {
-		return f.btcWallet.Address().EncodeAddress()
+		return c.btcWallet.Address().EncodeAddress()
 	} else {
-		return f.ethWallets[chain].Address().Hex()
+		return c.ethWallets[chain].Address().Hex()
 	}
 }

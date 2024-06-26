@@ -112,19 +112,24 @@ func NewCobi(config Config, logger *zap.Logger, estimator btc.FeeEstimator) (Cob
 	if err != nil {
 		return Cobid{}, err
 	}
+	signer := crypto.PubkeyToAddress(key.PublicKey)
 	return Cobid{
 		executors: exes,
 		filler:    filler.New(config.FillerStrategies, btcWallet, wallets, client, dialer, logger),
-		creator:   creator.New(config.CreatorStrategies, btcWallet, wallets, client, cStorage, logger),
+		creator:   creator.New(signer.Hex(), config.CreatorStrategies, btcWallet, wallets, client, cStorage, logger),
 	}, nil
 }
 
 func (cb Cobid) Start() error {
 	cb.executors.Start()
+	if err := cb.creator.Start(); err != nil {
+		return err
+	}
 	return cb.filler.Start()
 }
 
 func (cb Cobid) Stop() {
 	cb.executors.Stop()
+	cb.creator.Stop()
 	cb.filler.Stop()
 }

@@ -1,11 +1,9 @@
 package main
 
 import (
-	"fmt"
 	"math/big"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 
 	"github.com/catalogfi/blockchain/btc"
@@ -72,84 +70,38 @@ func main() {
 	<-sigs
 }
 
-func ParseChainConfig() (cobid.BtcChainConfig, []cobid.EvmChainConfig, error) {
-	// Parse network
-	network := parseRequiredEnv("NETWORK")
-
-	// Parse bitcoin
-	btcConfig := cobid.BtcChainConfig{
-		Chain:   model.BitcoinTestnet,
-		Indexer: parseRequiredEnv("BITCOIN_INDEXER"),
-	}
-	if network == "mainnet" {
-		btcConfig.Chain = model.Bitcoin
-	}
-	if network == "localnet" {
-		btcConfig.Chain = model.BitcoinRegtest
-	}
-
-	// Parse evms config
-	evms := parseRequiredEnv("EVMS")
-	chains := []cobid.EvmChainConfig{}
-	for _, chainStr := range strings.Split(evms, ",") {
-		chain, err := model.ParseChain(chainStr)
-		if err != nil {
-			return cobid.BtcChainConfig{}, nil, err
-		}
-		if !chain.IsEVM() {
-			return cobid.BtcChainConfig{}, nil, fmt.Errorf("invalid evm chain = %v", chain)
-		}
-
-		config := cobid.EvmChainConfig{
-			Chain:       chain,
-			SwapAddress: parseRequiredEnv(strings.ToUpper(string(chain)) + "_SWAP_CONTRACT"),
-			URL:         parseRequiredEnv(strings.ToUpper(string(chain)) + "_URL"),
-		}
-		chains = append(chains, config)
-	}
-	return btcConfig, chains, nil
-}
-
-func parseRequiredEnv(name string) string {
-	val := os.Getenv(name)
-	if val == "" {
-		panic(fmt.Sprintf("env '%v' not set", name))
-	}
-	return val
-}
-
 func LocalnetStratagies() ([]filler.Strategy, []creator.Strategy) {
 	return []filler.Strategy{
 			{
-				OrderPair: "bitcoin_regtest-ethereum_localnet:0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
+				OrderPair: "bitcoin_regtest-ethereum_localnet:0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
 				Makers:    nil,
 				MinAmount: big.NewInt(1000),
 				MaxAmount: big.NewInt(1e8),
 				Fee:       10,
 			},
 			{
-				OrderPair: "ethereum_localnet:0xe7f1725e7734ce288f8367e1bb143e90bb3f0512-bitcoin_regtest",
+				OrderPair: "ethereum_localnet:0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512-bitcoin_regtest",
 				Makers:    nil,
 				MinAmount: big.NewInt(1000),
 				MaxAmount: big.NewInt(1e8),
 				Fee:       10,
 			},
 			{
-				OrderPair: "bitcoin_regtest-ethereum_arbitrumlocalnet:0xdc64a140aa3e981100a9beca4e685f962f0cf6c9",
+				OrderPair: "bitcoin_regtest-ethereum_arbitrumlocalnet:0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
 				Makers:    nil,
 				MinAmount: big.NewInt(1000),
 				MaxAmount: big.NewInt(1e8),
 				Fee:       10,
 			},
 			{
-				OrderPair: "ethereum_arbitrumlocalnet:0xdc64a140aa3e981100a9beca4e685f962f0cf6c9-bitcoin_regtest",
+				OrderPair: "ethereum_arbitrumlocalnet:0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9-bitcoin_regtest",
 				Makers:    nil,
 				MinAmount: big.NewInt(1000),
 				MaxAmount: big.NewInt(1e8),
 				Fee:       10,
 			},
 			{
-				OrderPair: "ethereum_localnet:0xe7f1725e7734ce288f8367e1bb143e90bb3f0512-ethereum_arbitrumlocalnet:0xdc64a140aa3e981100a9beca4e685f962f0cf6c9",
+				OrderPair: "ethereum_localnet:0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512-ethereum_arbitrumlocalnet:0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
 				Makers:    nil,
 				MinAmount: big.NewInt(1000),
 				MaxAmount: big.NewInt(1e8),
@@ -167,42 +119,42 @@ func LocalnetStratagies() ([]filler.Strategy, []creator.Strategy) {
 				MinTimeInterval: 10,
 				MaxTimeInterval: 60,
 				Amount:          big.NewInt(25000),
-				OrderPair:       "bitcoin_regtest-ethereum_localnet:0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
+				OrderPair:       "bitcoin_regtest-ethereum_localnet:0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
 				Fee:             10,
 			},
 			{
 				MinTimeInterval: 10,
 				MaxTimeInterval: 60,
 				Amount:          big.NewInt(25000),
-				OrderPair:       "ethereum_localnet:0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9-bitcoin_regtest",
+				OrderPair:       "ethereum_localnet:0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512-bitcoin_regtest",
 				Fee:             10,
 			},
 			{
 				MinTimeInterval: 10,
 				MaxTimeInterval: 60,
 				Amount:          big.NewInt(25000),
-				OrderPair:       "bitcoin_regtest-ethereum_arbitrumlocalnet:0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
+				OrderPair:       "bitcoin_regtest-ethereum_arbitrumlocalnet:0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
 				Fee:             10,
 			},
 			{
 				MinTimeInterval: 10,
 				MaxTimeInterval: 60,
 				Amount:          big.NewInt(25000),
-				OrderPair:       "ethereum_arbitrumlocalnet:0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9-bitcoin_regtest",
+				OrderPair:       "ethereum_arbitrumlocalnet:0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9-bitcoin_regtest",
 				Fee:             10,
 			},
 			{
 				MinTimeInterval: 10,
 				MaxTimeInterval: 60,
 				Amount:          big.NewInt(25000),
-				OrderPair:       "ethereum_localnet:0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9-ethereum_arbitrumlocalnet:0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
+				OrderPair:       "ethereum_localnet:0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512-ethereum_arbitrumlocalnet:0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
 				Fee:             10,
 			},
 			{
 				MinTimeInterval: 10,
 				MaxTimeInterval: 60,
 				Amount:          big.NewInt(25000),
-				OrderPair:       "ethereum_arbitrumlocalnet:0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9-ethereum_localnet:0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
+				OrderPair:       "ethereum_arbitrumlocalnet:0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9-ethereum_localnet:0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
 				Fee:             10,
 			},
 		}
