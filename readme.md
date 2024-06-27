@@ -33,16 +33,16 @@ COBI fulfills the role of filler in the orderbook AMM. It fetches available open
 
 Construct environment variables in a `.env` file and run the following commands to start COBI.
 
-#### Build from source
+#### Build and start from source
 
 ```
-docker-compose ip --build -d
+make build
 ```
 
 #### Use pre-built image
 
 ```
-docker-compose up -d
+make run
 ```
 
 ### Strategies
@@ -86,49 +86,9 @@ The executor process is responsible for executing the filled orders on-chain acc
 
 - The executor listens for filled orders from the filler process and executes them on-chain.
 - There's an executor routine for each chain in the order-pair.
-- Executor takes the swap to the next stage according the following flowchart:
-  
-**Note:  COBI executer acts as follower in the swap process.**
+- Executor takes the swap to the next stage according to the atomic swap protocol.
 
-```mermaid
-flowchart TD
-    A1[Created]
-    A2[Filled]
-    A3[Initiator Initiates]
-    A4[Follower Initiates]
-    A5[Initiator Redeems]
-    A6[Follower Redeems]
-    A7[Follower swap expired]
-    A8[Follower Refunds]
-
-    A1 --> A2
-    A2 --> A3
-    A3 --> A4
-    A4 --> A5
-    A5 --> A6
-    A4 --> A7
-    A7 --> A8
-```
-
-
-#### Ethereum Executor
-
-- The swap details and next action are passed to the executor which interacts with the contract to execute the swap.
-- Ethereum wallet contains the methods to interact with the HTLC contract.
-
-#### Bitcoin Executor
-
-- Bitcoin executor gets all the active orders every fixed duration to batch all the actions into a single transaction 
-- It is ensured that a single transaction will be included in the next block by performing RBF if the latest transaction is not confirmed and carries lower fees that projected fees.
-- Execution of multiple swaps in a single transaction is done by creating a transaction with multiple inputs and outputs.
-
-- **Example:** The following image shows how multiple utxos are batched together to provide liquidity to multiple initiates in a single transaction.
-<img width="1182" alt="Screenshot 2024-06-26 at 11 31 40 AM" src="https://github.com/catalogfi/cobi/assets/103029456/a6f91458-b70a-424a-b43b-1f695b8e1d4a">
-
-  - Find transaction on [mempool.space](https://mempool.space/tx/4d6558e383eafc9599cde547c1fa8d9f61d8532348f90f13e7a040e12b413972)
-- The latest transaction is cached in the redis database along with swap details to ensure that the same swap is not executed multiple times.
-
-### Creator
+#### Creator
 
 The creator process can be used to create orders on the orderbook according to the strategy.
 
