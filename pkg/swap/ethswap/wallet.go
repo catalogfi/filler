@@ -62,6 +62,15 @@ func NewWallet(options Options, key *ecdsa.PrivateKey, client *ethclient.Client)
 	callOpts := &bind.CallOpts{Context: ctx}
 	addr := crypto.PubkeyToAddress(key.PublicKey)
 
+	// Make sure the chain ID matches our expectation, so we know we are on the right chain.
+	chainID, err := client.ChainID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if options.ChainID.Cmp(chainID) != 0 {
+		return nil, fmt.Errorf("wrong chain ID, expect %v, got %v", options.ChainID, chainID)
+	}
+
 	// Initialise bindings.
 	htlc, err := gardenhtlc.NewGardenHTLC(options.SwapAddr, client)
 	if err != nil {
@@ -74,15 +83,6 @@ func NewWallet(options Options, key *ecdsa.PrivateKey, client *ethclient.Client)
 	erc20, err := erc20.NewERC20(tokenAddr, client)
 	if err != nil {
 		return nil, err
-	}
-
-	// Make sure the chain ID matches our expectation, so we know we are on the right chain.
-	chainID, err := client.ChainID(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if options.ChainID.Cmp(chainID) != 0 {
-		return nil, fmt.Errorf("wrong chain ID, expect %v, got %v", options.ChainID, chainID)
 	}
 
 	// Initialise the transactor

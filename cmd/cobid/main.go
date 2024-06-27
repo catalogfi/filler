@@ -109,12 +109,12 @@ func main() {
 
 	// Init and start cobid
 	config := cobid.Config{
-		Key:          parseRequiredEnv("PRIVATE_KEY"),
-		OrderbookURL: parseRequiredEnv("ORDERBOOK_URL"),
-		RedisURL:     parseRequiredEnv("REDISCLOUD_URL"),
-		Btc:          btcConfig,
-		Evms:         evmConfigs,
-		Strategies:   strategies,
+		Key:              parseRequiredEnv("PRIVATE_KEY"),
+		OrderbookURL:     parseRequiredEnv("ORDERBOOK_URL"),
+		RedisURL:         parseRequiredEnv("REDISCLOUD_URL"),
+		Btc:              btcConfig,
+		Evms:             evmConfigs,
+		FillerStrategies: strategies,
 	}
 	estimator := InitFeeEstimator(btcConfig.Chain.Params())
 	cobi, err := cobid.NewCobi(config, logger, estimator)

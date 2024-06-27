@@ -2,10 +2,10 @@ package cobid
 
 import (
 	"encoding/hex"
-	"fmt"
 	"strings"
 
 	"github.com/catalogfi/blockchain/btc"
+	"github.com/catalogfi/cobi/pkg/cobid/creator"
 	"github.com/catalogfi/cobi/pkg/cobid/executor"
 	"github.com/catalogfi/cobi/pkg/cobid/filler"
 	"github.com/catalogfi/cobi/pkg/swap/btcswap"
@@ -20,9 +20,9 @@ import (
 )
 
 type Cobid struct {
-	// creator   creator.Creator
 	executors executor.Executors
 	filler    filler.Filler
+	creator   creator.Creator
 }
 
 type BtcChainConfig struct {
@@ -37,12 +37,14 @@ type EvmChainConfig struct {
 }
 
 type Config struct {
-	Key          string
-	OrderbookURL string
-	RedisURL     string
-	Btc          BtcChainConfig   // chain of the native bitcoin
-	Evms         []EvmChainConfig // target evm chains for wbtc
-	Strategies   []filler.Strategy
+	Key               string
+	OrderbookURL      string
+	OrderbookWSURL    string
+	RedisURL          string
+	Btc               BtcChainConfig   // chain of the native bitcoin
+	Evms              []EvmChainConfig // target evm chains for wbtc
+	FillerStrategies  []filler.Strategy
+	CreatorStrategies []creator.Strategy
 }
 
 func NewCobi(config Config, logger *zap.Logger, estimator btc.FeeEstimator) (Cobid, error) {
@@ -58,7 +60,7 @@ func NewCobi(config Config, logger *zap.Logger, estimator btc.FeeEstimator) (Cob
 	addr := crypto.PubkeyToAddress(key.PublicKey)
 
 	// Filler
-	client := rest.NewClient(fmt.Sprintf("https://%s", config.OrderbookURL), config.Key)
+	client := rest.NewClient(config.OrderbookURL, config.Key)
 	token, err := client.Login()
 	if err != nil {
 		return Cobid{}, err
@@ -101,23 +103,33 @@ func NewCobi(config Config, logger *zap.Logger, estimator btc.FeeEstimator) (Cob
 		clients[evm.Chain] = ethClient
 	}
 	dialer := func() rest.WSClient {
-		return rest.NewWSClient(fmt.Sprintf("wss://%s/", config.OrderbookURL), logger)
+		return rest.NewWSClient(config.OrderbookWSURL, logger)
 	}
 	ethExe := executor.NewEvmExecutor(logger, wallets, clients, storage, dialer)
 	exes := executor.Executors{btcExe, ethExe}
 
+	cStorage, err := creator.NewRedisStore(config.RedisURL)
+	if err != nil {
+		return Cobid{}, err
+	}
+	signer := crypto.PubkeyToAddress(key.PublicKey)
 	return Cobid{
 		executors: exes,
-		filler:    filler.New(config.Strategies, btcWallet, wallets, client, dialer, logger),
+		filler:    filler.New(config.FillerStrategies, btcWallet, wallets, client, dialer, logger),
+		creator:   creator.New(signer.Hex(), config.CreatorStrategies, btcWallet, wallets, client, cStorage, logger),
 	}, nil
 }
 
 func (cb Cobid) Start() error {
 	cb.executors.Start()
+	if err := cb.creator.Start(); err != nil {
+		return err
+	}
 	return cb.filler.Start()
 }
 
 func (cb Cobid) Stop() {
 	cb.executors.Stop()
+	cb.creator.Stop()
 	cb.filler.Stop()
 }
