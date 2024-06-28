@@ -85,11 +85,15 @@ func (f *filler) match(strategy Strategy, ordersChan chan<- model.Order) {
 		client.Subscribe(fmt.Sprintf("subscribe::%v", strategy.OrderPair))
 		respChan := client.Listen()
 
+		fallback := 5 * time.Second
 	Orders:
 		for {
 			select {
 			case resp, ok := <-respChan:
 				if !ok {
+					if fallback < 5*time.Minute {
+						fallback = fallback * 2
+					}
 					break Orders
 				}
 
@@ -113,6 +117,9 @@ func (f *filler) match(strategy Strategy, ordersChan chan<- model.Order) {
 				return
 			}
 		}
+
+		fmt.Printf("waiting for %v seconds before trying again\n", fallback)
+		time.Sleep(fallback)
 	}
 }
 

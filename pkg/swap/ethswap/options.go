@@ -27,13 +27,11 @@ func NewOptions(chain model.Chain, swapAddr common.Address) Options {
 	case model.EthereumSepolia:
 		chainID = big.NewInt(11155111)
 	case model.EthereumLocalnet:
-		chainID = big.NewInt(1337)
+		chainID = big.NewInt(31337)
+	case model.EthereumArbitrumLocalnet:
+		chainID = big.NewInt(31338)
 	case model.EthereumArbitrum:
 		chainID = big.NewInt(42161)
-	case model.EthereumPolygonZk:
-		chainID = big.NewInt(1101)
-	case model.EthereumTestPolygonZk:
-		chainID = big.NewInt(2442)
 	default:
 		panic(fmt.Sprintf("unknown evm chain = %v", chain))
 	}

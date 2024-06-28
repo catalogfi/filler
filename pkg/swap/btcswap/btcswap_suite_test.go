@@ -8,7 +8,7 @@ import (
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcwallet/waddrmgr"
 	"github.com/catalogfi/blockchain/btc"
-	"github.com/catalogfi/blockchain/btc/btctest"
+	"github.com/catalogfi/blockchain/localnet"
 	"github.com/catalogfi/cobi/pkg/swap/btcswap"
 	"go.uber.org/zap"
 
@@ -47,7 +47,7 @@ var _ = BeforeSuite(func() {
 })
 
 func NewTestWallet(client btc.IndexerClient) (btcswap.Wallet, error) {
-	key, _, err := btctest.NewBtcKey(network, waddrmgr.WitnessPubKey)
+	key, _, err := localnet.NewBtcKey(network, waddrmgr.WitnessPubKey)
 	if err != nil {
 		return nil, err
 	}

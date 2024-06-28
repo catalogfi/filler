@@ -109,12 +109,12 @@ func main() {
 
 	// Init and start cobid
 	config := cobid.Config{
-		Key:          parseRequiredEnv("PRIVATE_KEY"),
-		OrderbookURL: parseRequiredEnv("ORDERBOOK_URL"),
-		RedisURL:     parseRequiredEnv("REDISCLOUD_URL"),
-		Btc:          btcConfig,
-		Evms:         evmConfigs,
-		Strategies:   strategies,
+		Key:              parseRequiredEnv("PRIVATE_KEY"),
+		OrderbookURL:     parseRequiredEnv("ORDERBOOK_URL"),
+		RedisURL:         parseRequiredEnv("REDISCLOUD_URL"),
+		Btc:              btcConfig,
+		Evms:             evmConfigs,
+		FillerStrategies: strategies,
 	}
 	estimator := InitFeeEstimator(btcConfig.Chain.Params())
 	cobi, err := cobid.NewCobi(config, logger, estimator)
@@ -158,45 +158,17 @@ func TestnetStrategies(ethAddr common.Address, btcAddr btcutil.Address) []filler
 
 	return []filler.Strategy{
 		{
-			OrderPair: "bitcoin_testnet-ethereum_sepolia:0x9ceD08aeE17Fbc333BB7741Ec5eB2907b0CA4241",
+			OrderPair: "bitcoin_testnet-ethereum_sepolia:0x13DCec0762EcC5E666c207ab44Dc768e5e33070F",
 			Makers:    nil,
 			MinAmount: big.NewInt(1000),
 			MaxAmount: big.NewInt(100000),
 			Fee:       10,
 		},
 		{
-			OrderPair: "ethereum_sepolia:0x9ceD08aeE17Fbc333BB7741Ec5eB2907b0CA4241-bitcoin_testnet",
+			OrderPair: "ethereum_sepolia:0x13DCec0762EcC5E666c207ab44Dc768e5e33070F-bitcoin_testnet",
 			Makers:    nil,
 			MinAmount: big.NewInt(1000),
 			MaxAmount: big.NewInt(100000),
-			Fee:       10,
-		},
-		{
-			OrderPair: "bitcoin_testnet-ethereum_testpolygonzk:0xd0D4553DD6FD162B46423947BF3c0cf8d692Aa66",
-			Makers:    nil,
-			MinAmount: big.NewInt(1000),
-			MaxAmount: big.NewInt(100000),
-			Fee:       10,
-		},
-		{
-			OrderPair: "ethereum_testpolygonzk:0xd0D4553DD6FD162B46423947BF3c0cf8d692Aa66-bitcoin_testnet",
-			Makers:    nil,
-			MinAmount: big.NewInt(1000),
-			MaxAmount: big.NewInt(100000),
-			Fee:       10,
-		},
-		{
-			OrderPair: "ethereum_sepolia:0x9ceD08aeE17Fbc333BB7741Ec5eB2907b0CA4241-ethereum_testpolygonzk:0xd0D4553DD6FD162B46423947BF3c0cf8d692Aa66",
-			Makers:    nil,
-			MinAmount: big.NewInt(1000),
-			MaxAmount: big.NewInt(1e8),
-			Fee:       10,
-		},
-		{
-			OrderPair: "ethereum_testpolygonzk:0xd0D4553DD6FD162B46423947BF3c0cf8d692Aa66-ethereum_sepolia:0x9ceD08aeE17Fbc333BB7741Ec5eB2907b0CA4241",
-			Makers:    nil,
-			MinAmount: big.NewInt(1000),
-			MaxAmount: big.NewInt(1e8),
 			Fee:       10,
 		},
 	}

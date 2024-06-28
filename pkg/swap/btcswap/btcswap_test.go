@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/catalogfi/blockchain/btc/btctest"
+	"github.com/catalogfi/blockchain/localnet"
 	"github.com/catalogfi/cobi/pkg/swap/btcswap"
 	"github.com/fatih/color"
 
@@ -25,17 +25,17 @@ var _ = Describe("Bitcoin swap", func() {
 			Expect(err).To(BeNil())
 
 			By("Funding the wallet")
-			txhash1, err := btctest.NigiriFaucet(aliceWallet.Address().EncodeAddress())
+			txhash1, err := localnet.FundBTC(aliceWallet.Address().EncodeAddress())
 			Expect(err).To(BeNil())
 			By(fmt.Sprintf("Funding address1 %v , txid = %v", aliceWallet.Address(), txhash1))
-			txhash2, err := btctest.NigiriFaucet(bobWallet.Address().EncodeAddress())
+			txhash2, err := localnet.FundBTC(bobWallet.Address().EncodeAddress())
 			Expect(err).To(BeNil())
 			By(fmt.Sprintf("Funding address2 %v , txid = %v", aliceWallet.Address(), txhash2))
 			time.Sleep(5 * time.Second)
 
 			By("Alice and Bob construct their own swap")
 			waitBlocks := int64(6)
-			secret := btctest.RandomSecret()
+			secret := localnet.RandomSecret()
 			secretHash := sha256.Sum256(secret)
 			aliceSwap, err := btcswap.NewSwap(network, aliceWallet.Address(), bobWallet.Address(), 1e7, secretHash[:], waitBlocks)
 			Expect(err).To(BeNil())
@@ -54,7 +54,7 @@ var _ = Describe("Bitcoin swap", func() {
 			initiatedTx, err := aliceWallet.Initiate(ctx, aliceSwap)
 			Expect(err).To(BeNil())
 			By(color.GreenString("Alice's swap is initiated in tx %v", initiatedTx))
-			Expect(btctest.NigiriNewBlock()).Should(Succeed())
+			Expect(localnet.MineBTCBlock()).Should(Succeed())
 			time.Sleep(5 * time.Second)
 
 			By("Check swap initiators")
@@ -75,7 +75,7 @@ var _ = Describe("Bitcoin swap", func() {
 			initiatedTx, err = bobWallet.Initiate(ctx, bobSwap)
 			Expect(err).To(BeNil())
 			By(color.GreenString("Bob's swap is initiated in tx %v", initiatedTx))
-			Expect(btctest.NigiriNewBlock()).Should(Succeed())
+			Expect(localnet.MineBTCBlock()).Should(Succeed())
 			time.Sleep(5 * time.Second)
 
 			By("Check swap initiators")
@@ -102,7 +102,7 @@ var _ = Describe("Bitcoin swap", func() {
 			redeemTx, err := aliceWallet.Redeem(ctx, bobSwap, secret, aliceWallet.Address().EncodeAddress())
 			Expect(err).Should(BeNil())
 			By(color.GreenString("Bob's swap is redeemed in tx %v", redeemTx))
-			Expect(btctest.NigiriNewBlock()).Should(Succeed())
+			Expect(localnet.MineBTCBlock()).Should(Succeed())
 			time.Sleep(5 * time.Second)
 			redeemed, revealedSecret, err := bobSwap.Redeemed(ctx, indexer)
 			Expect(err).To(BeNil())
@@ -113,7 +113,7 @@ var _ = Describe("Bitcoin swap", func() {
 			redeemTx, err = bobWallet.Redeem(ctx, aliceSwap, revealedSecret, bobWallet.Address().EncodeAddress())
 			Expect(err).Should(BeNil())
 			By(color.GreenString("Alice's swap is redeemed in tx %v", redeemTx))
-			Expect(btctest.NigiriNewBlock()).Should(Succeed())
+			Expect(localnet.MineBTCBlock()).Should(Succeed())
 			time.Sleep(5 * time.Second)
 			redeemed, _, err = bobSwap.Redeemed(ctx, indexer)
 			Expect(err).To(BeNil())

@@ -24,7 +24,7 @@ package executor_test
 // 	"gorm.io/gorm"
 //
 // 	"github.com/catalogfi/blockchain/btc"
-// 	"github.com/catalogfi/blockchain/btc/btctest"
+// 	"github.com/catalogfi/blockchain/localnet"
 // 	"github.com/catalogfi/blockchain/testutil"
 // 	"github.com/catalogfi/cobi/pkg/cobid/executor"
 // 	"github.com/catalogfi/cobi/pkg/store"
@@ -105,7 +105,7 @@ package executor_test
 //
 // 		// btc wallet setup
 // 		network := &chaincfg.RegressionNetParams
-// 		btcclient = btctest.RegtestIndexer()
+// 		btcclient = localnet.RegtestIndexer()
 // 		cobiBtcWallet, err = NewTestWallet(network, btcclient)
 // 		Expect(err).To(BeNil())
 //
@@ -114,10 +114,10 @@ package executor_test
 //
 // 		fmt.Println("wallet address ", cobiBtcWallet.Address())
 // 		// this ensure the bitcoin is atually funded before
-// 		_, err = testutil.NigiriFaucet(cobiBtcWallet.Address().EncodeAddress())
+// 		_, err = testutil.FundBTC(cobiBtcWallet.Address().EncodeAddress())
 // 		Expect(err).To(BeNil())
 //
-// 		_, err = testutil.NigiriFaucet(aliceBtcWallet.Address().EncodeAddress())
+// 		_, err = testutil.FundBTC(aliceBtcWallet.Address().EncodeAddress())
 // 		Expect(err).To(BeNil())
 //
 // 		time.Sleep(5 * time.Second)
@@ -251,7 +251,7 @@ package executor_test
 // 			time.Sleep(5 * time.Second)
 // 			Expect(strings.Contains(observer.All()[len(observer.All())-1].Message, "initiate tx hash")).Should(BeTrue())
 // 			Expect(observer.All()[len(observer.All())-1].Level == zap.InfoLevel).Should(BeTrue())
-// 			err = testutil.NigiriNewBlock()
+// 			err = testutil.MineBTCBlock()
 // 			Expect(err).To(BeNil())
 // 			time.Sleep(5 * time.Second)
 //
@@ -279,7 +279,7 @@ package executor_test
 // 			By("waiting for executor")
 // 			time.Sleep(5 * time.Second)
 //
-// 			err := testutil.NigiriNewBlock()
+// 			err := testutil.MineBTCBlock()
 // 			Expect(err).To(BeNil())
 // 			time.Sleep(10 * time.Second)
 // 			Expect(strings.Contains(observer.All()[len(observer.All())-1].Message, "redeem tx hash")).Should(BeTrue())
@@ -347,9 +347,9 @@ package executor_test
 // 			By("waiting for executor")
 // 			time.Sleep(5 * time.Second)
 //
-// 			err = testutil.NigiriNewBlock()
+// 			err = testutil.MineBTCBlock()
 // 			Expect(err).To(BeNil())
-// 			err = testutil.NigiriNewBlock()
+// 			err = testutil.MineBTCBlock()
 // 			Expect(err).To(BeNil())
 // 			time.Sleep(5 * time.Second)
 //
@@ -375,7 +375,7 @@ package executor_test
 // 			By("waiting for executor")
 // 			time.Sleep(5 * time.Second)
 //
-// 			err = testutil.NigiriNewBlock()
+// 			err = testutil.MineBTCBlock()
 // 			Expect(err).To(BeNil())
 // 			time.Sleep(5 * time.Second)
 //
@@ -430,7 +430,7 @@ package executor_test
 // 			By(color.GreenString("Initiation tx hash = %v", initTx))
 // 			time.Sleep(time.Second)
 //
-// 			err = testutil.NigiriNewBlock()
+// 			err = testutil.MineBTCBlock()
 // 			Expect(err).To(BeNil())
 // 			time.Sleep(5 * time.Second)
 //
@@ -492,7 +492,7 @@ package executor_test
 // 			By("waiting for executor")
 // 			time.Sleep(5 * time.Second)
 //
-// 			err := testutil.NigiriNewBlock()
+// 			err := testutil.MineBTCBlock()
 // 			Expect(err).To(BeNil())
 // 			time.Sleep(5 * time.Second)
 //
@@ -530,7 +530,7 @@ package executor_test
 // 			By(color.GreenString("Initiation tx hash = %v", initTx))
 // 			time.Sleep(time.Second)
 //
-// 			err = testutil.NigiriNewBlock()
+// 			err = testutil.MineBTCBlock()
 // 			Expect(err).To(BeNil())
 // 			time.Sleep(5 * time.Second)
 //
@@ -640,7 +640,7 @@ package executor_test
 // 			By(color.GreenString("Initiation tx hash = %v", initTx))
 // 			time.Sleep(time.Second)
 //
-// 			err = testutil.NigiriNewBlock()
+// 			err = testutil.MineBTCBlock()
 // 			Expect(err).To(BeNil())
 // 			time.Sleep(5 * time.Second)
 //
@@ -722,7 +722,7 @@ package executor_test
 // 			By("waiting for executor")
 // 			time.Sleep(5 * time.Second)
 //
-// 			err := testutil.NigiriNewBlock()
+// 			err := testutil.MineBTCBlock()
 // 			Expect(err).To(BeNil())
 // 			time.Sleep(5 * time.Second)
 //
@@ -774,7 +774,7 @@ package executor_test
 // 			By("waiting for executor")
 // 			time.Sleep(5 * time.Second)
 //
-// 			err := testutil.NigiriNewBlock()
+// 			err := testutil.MineBTCBlock()
 // 			Expect(err).To(BeNil())
 // 			time.Sleep(5 * time.Second)
 //
@@ -810,7 +810,7 @@ package executor_test
 // 			By(color.GreenString("Initiation tx hash = %v", initTx))
 // 			time.Sleep(time.Second)
 //
-// 			err = testutil.NigiriNewBlock()
+// 			err = testutil.MineBTCBlock()
 // 			Expect(err).To(BeNil())
 // 			time.Sleep(5 * time.Second)
 //
