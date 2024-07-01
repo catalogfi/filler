@@ -6,8 +6,8 @@ import (
 
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcutil"
-	"github.com/catalogfi/orderbook/model"
-	"github.com/catalogfi/orderbook/rest"
+	"github.com/catalogfi/ob/model"
+	"github.com/catalogfi/ob/rest"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 )

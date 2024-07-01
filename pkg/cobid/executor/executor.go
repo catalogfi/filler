@@ -2,7 +2,7 @@ package executor
 
 import (
 	"github.com/catalogfi/cobi/pkg/swap"
-	"github.com/catalogfi/orderbook/model"
+	"github.com/catalogfi/ob/model"
 )
 
 type Executor interface {

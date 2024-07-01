@@ -15,7 +15,7 @@ package swap_test
 // 	"github.com/catalogfi/blockchain/localnet"
 // 	"github.com/catalogfi/cobi/pkg/swap/btcswap"
 // 	"github.com/catalogfi/cobi/pkg/swap/ethswap"
-// 	"github.com/catalogfi/orderbook/model"
+// 	"github.com/catalogfi/ob/model"
 // 	"github.com/ethereum/go-ethereum/ethclient"
 // 	"github.com/fatih/color"
 

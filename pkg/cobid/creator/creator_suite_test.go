@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/catalogfi/orderbook/model"
-	"github.com/catalogfi/orderbook/rest/utils"
+	"github.com/catalogfi/ob/model"
+	"github.com/catalogfi/ob/rest/utils"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"

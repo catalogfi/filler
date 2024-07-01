@@ -19,7 +19,7 @@ import (
 	"github.com/catalogfi/cobi/pkg/cobid"
 	"github.com/catalogfi/cobi/pkg/cobid/filler"
 	"github.com/catalogfi/cobi/pkg/util"
-	"github.com/catalogfi/orderbook/model"
+	"github.com/catalogfi/ob/model"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"go.uber.org/zap"

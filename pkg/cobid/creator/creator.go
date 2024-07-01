@@ -12,8 +12,8 @@ import (
 
 	"github.com/catalogfi/cobi/pkg/swap/btcswap"
 	"github.com/catalogfi/cobi/pkg/swap/ethswap"
-	"github.com/catalogfi/orderbook/model"
-	"github.com/catalogfi/orderbook/rest"
+	"github.com/catalogfi/ob/model"
+	"github.com/catalogfi/ob/rest"
 	"go.uber.org/zap"
 )
 

@@ -10,7 +10,7 @@ import (
 	"github.com/catalogfi/cobi/pkg/cobid"
 	"github.com/catalogfi/cobi/pkg/cobid/creator"
 	"github.com/catalogfi/cobi/pkg/cobid/filler"
-	"github.com/catalogfi/orderbook/model"
+	"github.com/catalogfi/ob/model"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )

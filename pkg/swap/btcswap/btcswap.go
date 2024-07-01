@@ -9,7 +9,7 @@ import (
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/catalogfi/blockchain/btc"
-	"github.com/catalogfi/orderbook/model"
+	"github.com/catalogfi/ob/model"
 )
 
 type Swap struct {

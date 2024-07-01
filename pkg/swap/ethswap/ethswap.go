@@ -7,7 +7,7 @@ import (
 	"math/big"
 
 	"github.com/catalogfi/blockchain/evm/bindings/contracts/htlc/gardenhtlc"
-	"github.com/catalogfi/orderbook/model"
+	"github.com/catalogfi/ob/model"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"

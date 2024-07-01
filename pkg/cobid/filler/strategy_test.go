@@ -6,7 +6,7 @@ package filler_test
 // 	"testing/quick"
 
 // 	"github.com/catalogfi/cobi/pkg/cobid/filler"
-// 	"github.com/catalogfi/orderbook/model"
+// 	"github.com/catalogfi/ob/model"
 // 	"github.com/ethereum/go-ethereum/common/math"
 
 // 	. "github.com/onsi/ginkgo/v2"

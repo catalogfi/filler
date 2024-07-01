@@ -10,8 +10,8 @@ import (
 	"github.com/catalogfi/blockchain/btc"
 	"github.com/catalogfi/cobi/pkg/swap"
 	"github.com/catalogfi/cobi/pkg/swap/btcswap"
-	"github.com/catalogfi/orderbook/model"
-	"github.com/catalogfi/orderbook/rest"
+	"github.com/catalogfi/ob/model"
+	"github.com/catalogfi/ob/rest"
 	"go.uber.org/zap"
 )
 

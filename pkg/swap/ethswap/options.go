@@ -5,7 +5,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/catalogfi/orderbook/model"
+	"github.com/catalogfi/ob/model"
 	"github.com/ethereum/go-ethereum/common"
 )
 
